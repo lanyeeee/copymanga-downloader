@@ -38,7 +38,7 @@ async function test() {
       <input id="greet-input" v-model="name" placeholder="Enter a name..." />
       <button type="submit">Greet</button>
     </form>
-    <p>{{ greetMsg }}</p>
+    <p class="text-red">{{ greetMsg }}</p>
     <n-button @click="test">测试</n-button>
   </main>
 </template>
