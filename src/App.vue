@@ -9,6 +9,12 @@ async function greet() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
   greetMsg.value = await commands.greet(name.value);
 }
+
+async function test() {
+  const config = await commands.getConfig();
+  console.log(config);
+}
+
 </script>
 
 <template>
@@ -33,6 +39,7 @@ async function greet() {
       <button type="submit">Greet</button>
     </form>
     <p>{{ greetMsg }}</p>
+    <button @click="test">测试</button>
   </main>
 </template>
 
