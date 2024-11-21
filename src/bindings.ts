@@ -42,6 +42,14 @@ async search(keyword: string, pageNum: number) : Promise<Result<SearchRespData, 
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getComic(pathWord: string) : Promise<Result<ComicRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_comic", { pathWord }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -55,12 +63,18 @@ async search(keyword: string, pageNum: number) : Promise<Result<SearchRespData, 
 
 /** user-defined types **/
 
-export type AuthorRespData = { name: string; alias: string | null; path_word: string }
+export type AuthorRespData = { name: string; alias: string; path_word: string }
+export type ComicDetailRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
 export type ComicInSearchRespData = { name: string; alias: string; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
+export type ComicRespData = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetailRespData; popular: number; groups: { [key in string]: GroupRespData } }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
+export type GroupRespData = { pathWord: string; count: number; name: string }
+export type LabeledValueRespData = { value: number; display: string }
+export type LastChapterRespData = { uuid: string; name: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
 export type SearchRespData = { list: ComicInSearchRespData[]; total: number; limit: number; offset: number }
+export type ThemeRespData = { name: string; path_word: string }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/

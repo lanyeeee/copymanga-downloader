@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     config::Config,
-    responses::{CopyResp, LoginRespData, SearchRespData, UserProfileRespData},
+    responses::{ComicRespData, CopyResp, LoginRespData, SearchRespData, UserProfileRespData},
 };
 
 const API_DOMAIN: &str = "api.mangacopy.com";
@@ -83,15 +83,11 @@ impl CopyClient {
     }
 
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfileRespData> {
-        let authorization = self
-            .app
-            .state::<RwLock<Config>>()
-            .read()
-            .get_authorization();
+        let authorization = self.get_authorization();
         // 发送获取用户信息请求
         let http_resp = Self::client()
             .get(format!("https://{API_DOMAIN}/api/v3/member/info"))
-            .header("Authorization", authorization)
+            .header("authorization", authorization)
             .send()
             .await?;
         // 检查http响应状态码
@@ -159,5 +155,43 @@ impl CopyClient {
         )?;
 
         Ok(search_resp_data)
+    }
+
+    pub async fn get_comic(&self, path_word: String) -> anyhow::Result<ComicRespData> {
+        let authorization = self.get_authorization();
+        // 发送获取漫画请求
+        let http_resp = Self::client()
+            .get(format!("https://{API_DOMAIN}/api/v3/comic2/{path_word}"))
+            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .header("authorization", authorization)
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("获取漫画失败，预料之外的状态码({status}): {body}"));
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("获取漫画失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("获取漫画失败，预料之外的code: {copy_resp:?}"));
+        }
+        // 尝试将CopyResp的results字段解析为ComicRespData
+        let results_str = copy_resp.results.to_string();
+        let comic_resp_data = serde_json::from_str::<ComicRespData>(&results_str).context(
+            format!("获取漫画失败，将results解析为ComicRespData失败: {results_str}"),
+        )?;
+
+        Ok(comic_resp_data)
+    }
+
+    fn get_authorization(&self) -> String {
+        self.app
+            .state::<RwLock<Config>>()
+            .read()
+            .get_authorization()
     }
 }

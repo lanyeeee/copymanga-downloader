@@ -38,7 +38,7 @@ onMounted(async () => {
 });
 
 async function test() {
-  const result = await commands.search("魔王", 1);
+  const result = await commands.getComic("modujingbingdenuli");
   console.log(result);
 }
 
