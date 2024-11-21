@@ -2,13 +2,17 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
+use parking_lot::RwLock;
 use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde_json::json;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
-use crate::responses::{CopyResp, LoginRespData};
+use crate::{
+    config::Config,
+    responses::{CopyResp, LoginRespData, UserProfileRespData},
+};
 
 const API_DOMAIN: &str = "api.mangacopy.com";
 
@@ -76,5 +80,44 @@ impl CopyClient {
         )?;
 
         Ok(login_resp_data)
+    }
+
+    pub async fn get_user_profile(&self) -> anyhow::Result<UserProfileRespData> {
+        let authorization = self
+            .app
+            .state::<RwLock<Config>>()
+            .read()
+            .get_authorization();
+        // 发送获取用户信息请求
+        let http_resp = Self::client()
+            .get(format!("https://{API_DOMAIN}/api/v3/member/info"))
+            .header("Authorization", authorization)
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        // TODO: 处理401状态码，token错误或过期
+        if status != StatusCode::OK {
+            return Err(anyhow!(
+                "获取用户信息失败，预料之外的状态码({status}): {body}"
+            ));
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body).context(format!(
+            "获取用户信息失败，将body解析为CopyResp失败: {body}"
+        ))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("获取用户信息失败，预料之外的code: {copy_resp:?}"));
+        }
+        // 尝试将CopyResp的results字段解析为UserProfileRespData
+        let results_str = copy_resp.results.to_string();
+        let user_profile_resp_data = serde_json::from_str::<UserProfileRespData>(&results_str)
+            .context(format!(
+                "获取用户信息失败，将results解析为UserProfileRespData失败: {results_str}"
+            ))?;
+
+        Ok(user_profile_resp_data)
     }
 }

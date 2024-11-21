@@ -18,6 +18,14 @@ async login(username: string, password: string) : Promise<Result<LoginRespData, 
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_user_profile") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -34,6 +42,7 @@ async login(username: string, password: string) : Promise<Result<LoginRespData, 
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
+export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/
 

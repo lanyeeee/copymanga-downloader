@@ -2,7 +2,7 @@ use parking_lot::RwLock;
 use tauri::State;
 
 use crate::{
-    config::Config, copy_client::CopyClient, errors::CommandResult, responses::LoginRespData,
+    config::Config, copy_client::CopyClient, errors::CommandResult, responses::{LoginRespData, UserProfileRespData},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -28,4 +28,13 @@ pub async fn login(
 ) -> CommandResult<LoginRespData> {
     let login_resp_data = copy_client.login(&username, &password).await?;
     Ok(login_resp_data)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_user_profile(
+    copy_client: State<'_, CopyClient>,
+) -> CommandResult<UserProfileRespData> {
+    let user_profile_resp_data = copy_client.get_user_profile().await?;
+    Ok(user_profile_resp_data)
 }
