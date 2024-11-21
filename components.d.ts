@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     LoginDialog: typeof import('./src/components/LoginDialog.vue')['default']
+    NAvatar: typeof import('naive-ui')['NAvatar']
     NButton: typeof import('naive-ui')['NButton']
     NDialog: typeof import('naive-ui')['NDialog']
     NInput: typeof import('naive-ui')['NInput']

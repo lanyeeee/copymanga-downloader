@@ -53,6 +53,10 @@ async function test() {
       </n-input>
       <n-button type="primary" @click="loginDialogShowing=true">账号登录</n-button>
       <n-button @click="test">测试用</n-button>
+      <div v-if="userProfile!==undefined" class="flex flex-justify-end">
+        <n-avatar round :size="32" :src="userProfile.avatar"/>
+        <span class="whitespace-nowrap">{{ userProfile.nickname }}</span>
+      </div>
     </div>
 
     <n-modal v-model:show="loginDialogShowing">
