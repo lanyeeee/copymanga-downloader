@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     copy_client::CopyClient,
     errors::CommandResult,
-    responses::{LoginRespData, UserProfileRespData},
+    responses::{LoginRespData, SearchRespData, UserProfileRespData},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -54,4 +54,15 @@ pub async fn get_user_profile(
 ) -> CommandResult<UserProfileRespData> {
     let user_profile_resp_data = copy_client.get_user_profile().await?;
     Ok(user_profile_resp_data)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn search(
+    copy_client: State<'_, CopyClient>,
+    keyword: String,
+    page_num: i64,
+) -> CommandResult<SearchRespData> {
+    let search_resp_data = copy_client.search(&keyword, page_num).await?;
+    Ok(search_resp_data)
 }

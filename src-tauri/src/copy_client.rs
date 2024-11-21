@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     config::Config,
-    responses::{CopyResp, LoginRespData, UserProfileRespData},
+    responses::{CopyResp, LoginRespData, SearchRespData, UserProfileRespData},
 };
 
 const API_DOMAIN: &str = "api.mangacopy.com";
@@ -119,5 +119,45 @@ impl CopyClient {
             ))?;
 
         Ok(user_profile_resp_data)
+    }
+
+    pub async fn search(&self, keyword: &str, page_num: i64) -> anyhow::Result<SearchRespData> {
+        const LIMIT: i64 = 20;
+        // page_num从1开始
+        let offset = (page_num - 1) * LIMIT;
+        let params = json!({
+            "limit": LIMIT,
+            "offset": offset,
+            "q": keyword,
+        });
+        // 发送搜索请求
+        let http_resp = Self::client()
+            .get(format!("https://{API_DOMAIN}/api/v3/search/comic"))
+            .query(&params)
+            .header("version", "2.2.0")
+            .header("platform", "3")
+            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("搜索漫画失败，预料之外的状态码({status}): {body}"));
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("搜索漫画失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("搜索漫画失败，预料之外的code: {copy_resp:?}"));
+        }
+        // 尝试将CopyResp的results字段解析为SearchRespData
+        let results_str = copy_resp.results.to_string();
+        let search_resp_data = serde_json::from_str::<SearchRespData>(&results_str).context(
+            format!("搜索漫画失败，将results解析为SearchRespData失败: {results_str}"),
+        )?;
+
+        Ok(search_resp_data)
     }
 }
