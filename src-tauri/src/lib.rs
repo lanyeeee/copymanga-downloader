@@ -1,23 +1,12 @@
+mod commands;
 mod config;
 
 use anyhow::Context;
-use config::Config;
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-#[specta::specta]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
-#[specta::specta]
-#[allow(clippy::needless_pass_by_value)]
-fn get_config(config: tauri::State<RwLock<Config>>) -> Config {
-    config.read().clone()
-}
+use crate::commands::*;
+use crate::config::Config;
 
 fn generate_context() -> tauri::Context<Wry> {
     tauri::generate_context!()
