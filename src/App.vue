@@ -39,7 +39,7 @@ async function test() {
       <button type="submit">Greet</button>
     </form>
     <p>{{ greetMsg }}</p>
-    <button @click="test">测试</button>
+    <n-button @click="test">测试</n-button>
   </main>
 </template>
 
