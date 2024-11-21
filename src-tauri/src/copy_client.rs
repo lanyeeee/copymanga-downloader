@@ -2,7 +2,9 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
-use reqwest::{Client, ClientBuilder, StatusCode};
+use reqwest::StatusCode;
+use reqwest_middleware::ClientWithMiddleware;
+use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde_json::json;
 use tauri::AppHandle;
 
@@ -20,12 +22,18 @@ impl CopyClient {
         Self { app }
     }
 
-    pub fn client(&self) -> Client {
-        // TODO: 添加重试机制
-        ClientBuilder::new()
+    pub fn client() -> ClientWithMiddleware {
+        let retry_policy = ExponentialBackoff::builder()
+            .base(1) // 指数为1，保证重试间隔为1秒不变
+            .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
+            .build_with_total_retry_duration(Duration::from_secs(3)); // 重试总时长为3秒
+        let client = reqwest::ClientBuilder::new()
             .timeout(Duration::from_secs(2)) // 每个请求超过2秒就超时
             .build()
-            .unwrap()
+            .unwrap();
+        reqwest_middleware::ClientBuilder::new(client)
+            .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+            .build()
     }
 
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<LoginRespData> {
@@ -38,8 +46,7 @@ impl CopyClient {
             "salt": SALT,
         });
         // 发送登录请求
-        let http_resp = self
-            .client()
+        let http_resp = Self::client()
             .post(format!("https://{API_DOMAIN}/api/v3/login"))
             .form(&form)
             .send()
