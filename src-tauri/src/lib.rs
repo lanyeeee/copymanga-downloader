@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod extensions;
+mod errors;
 
 use anyhow::Context;
 use parking_lot::RwLock;
