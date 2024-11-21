@@ -1,8 +1,11 @@
 use parking_lot::RwLock;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::{
-    config::Config, copy_client::CopyClient, errors::CommandResult, responses::{LoginRespData, UserProfileRespData},
+    config::Config,
+    copy_client::CopyClient,
+    errors::CommandResult,
+    responses::{LoginRespData, UserProfileRespData},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -17,6 +20,20 @@ pub fn greet(name: &str) -> String {
 #[allow(clippy::needless_pass_by_value)]
 pub fn get_config(config: State<RwLock<Config>>) -> Config {
     config.read().clone()
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn save_config(
+    app: AppHandle,
+    config_state: State<RwLock<Config>>,
+    config: Config,
+) -> CommandResult<()> {
+    let mut config_state = config_state.write();
+    *config_state = config;
+    config_state.save(&app)?;
+    Ok(())
 }
 
 #[tauri::command(async)]
