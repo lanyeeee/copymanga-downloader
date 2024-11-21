@@ -34,6 +34,14 @@ async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async search(keyword: string, pageNum: number) : Promise<Result<SearchRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search", { keyword, pageNum }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -47,9 +55,12 @@ async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
 
 /** user-defined types **/
 
+export type AuthorRespData = { name: string; alias: string | null; path_word: string }
+export type ComicInSearchRespData = { name: string; alias: string; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
+export type SearchRespData = { list: ComicInSearchRespData[]; total: number; limit: number; offset: number }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/

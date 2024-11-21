@@ -38,7 +38,8 @@ onMounted(async () => {
 });
 
 async function test() {
-  console.log(userProfile.value);
+  const result = await commands.search("魔王", 1);
+  console.log(result);
 }
 
 </script>
