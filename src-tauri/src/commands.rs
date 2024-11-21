@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     copy_client::CopyClient,
     errors::CommandResult,
-    responses::{LoginRespData, SearchRespData, UserProfileRespData},
+    responses::{ComicRespData, LoginRespData, SearchRespData, UserProfileRespData},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -65,4 +65,14 @@ pub async fn search(
 ) -> CommandResult<SearchRespData> {
     let search_resp_data = copy_client.search(&keyword, page_num).await?;
     Ok(search_resp_data)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_comic(
+    copy_client: State<'_, CopyClient>,
+    path_word: String,
+) -> CommandResult<ComicRespData> {
+    let comic_resp_data = copy_client.get_comic(path_word).await?;
+    Ok(comic_resp_data)
 }
