@@ -11,7 +11,7 @@ async function greet() {
 }
 
 async function test() {
-  const config = await commands.getConfig();
+  const config = await commands.getUserProfile();
   console.log(config);
 }
 

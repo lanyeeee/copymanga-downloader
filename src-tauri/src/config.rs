@@ -37,4 +37,8 @@ impl Config {
         std::fs::write(config_path, config_string)?;
         Ok(())
     }
+
+    pub fn get_authorization(&self) -> String {
+        format!("Token {}", self.token)
+    }
 }
