@@ -10,6 +10,14 @@ async greet(name: string) : Promise<string> {
 },
 async getConfig() : Promise<Config> {
     return await TAURI_INVOKE("get_config");
+},
+async login(username: string, password: string) : Promise<Result<LoginRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("login", { username, password }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -23,7 +31,9 @@ async getConfig() : Promise<Config> {
 
 /** user-defined types **/
 
+export type CommandError = string
 export type Config = { token: string; downloadDir: string }
+export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
 
 /** tauri-specta globals **/
 
