@@ -1,9 +1,26 @@
+use std::ops::{Deref, DerefMut};
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use super::Pagination;
 
-pub type GetChaptersRespData = Pagination<ChapterInGetChaptersRespData>;
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub struct GetChaptersRespData(Pagination<ChapterInGetChaptersRespData>);
+
+impl Deref for GetChaptersRespData {
+    type Target = Pagination<ChapterInGetChaptersRespData>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for GetChaptersRespData {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
