@@ -4,6 +4,8 @@ mod copy_client;
 mod errors;
 mod extensions;
 mod responses;
+mod types;
+mod utils;
 
 use anyhow::Context;
 use copy_client::CopyClient;

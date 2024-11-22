@@ -90,7 +90,7 @@ pub struct LastChapterRespData {
 #[serde(default, rename_all = "camelCase")]
 pub struct GroupRespData {
     #[serde(rename = "path_word")]
-    path_word: String,
-    count: u32,
-    name: String,
+    pub path_word: String,
+    pub count: u32,
+    pub name: String,
 }
