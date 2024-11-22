@@ -412,6 +412,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "bytes",
  "parking_lot 0.12.3",
  "reqwest",
  "reqwest-middleware",

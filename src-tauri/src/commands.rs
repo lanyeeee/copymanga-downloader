@@ -6,12 +6,13 @@ use tauri::{AppHandle, State};
 use crate::{
     config::Config,
     copy_client::CopyClient,
+    download_manager::DownloadManager,
     errors::CommandResult,
     responses::{
         ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, SearchRespData,
         UserProfileRespData,
     },
-    types::Comic,
+    types::{ChapterInfo, Comic},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -118,4 +119,16 @@ pub async fn get_chapter(
         .get_chapter(comic_path_word, chapter_uuid)
         .await?;
     Ok(get_chapter_resp_data)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn download_chapters(
+    download_manager: State<'_, DownloadManager>,
+    chapters: Vec<ChapterInfo>,
+) -> CommandResult<()> {
+    for ep in chapters {
+        download_manager.submit_chapter(ep).await?;
+    }
+    Ok(())
 }

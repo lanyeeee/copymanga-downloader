@@ -66,12 +66,25 @@ async getChapter(comicPathWord: string, chapterUuid: string) : Promise<Result<Ge
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async downloadChapters(chapters: ChapterInfo[]) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_chapters", { chapters }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+downloadEvent: DownloadEvent
+}>({
+downloadEvent: "download-event"
+})
 
 /** user-defined constants **/
 
@@ -91,6 +104,7 @@ export type ComicInSearchRespData = { name: string; alias: string | null; path_w
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
 export type ContentRespData = { url: string }
+export type DownloadEvent = { event: "ChapterPending"; data: { chapterUuid: string; comicTitle: string; chapterTitle: string } } | { event: "ChapterControlRisk"; data: { chapterUuid: string; retryAfter: number } } | { event: "ChapterStart"; data: { chapterUuid: string; total: number } } | { event: "ChapterEnd"; data: { chapterUuid: string; errMsg: string | null } } | { event: "ImageSuccess"; data: { chapterUuid: string; url: string; current: number } } | { event: "ImageError"; data: { chapterUuid: string; url: string; errMsg: string } } | { event: "OverallUpdate"; data: { downloadedImageCount: number; totalImageCount: number; percentage: number } } | { event: "OverallSpeed"; data: { speed: string } }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
 export type Group = { path_word: string; count: number; name: string }
 export type LabeledValue = { value: number; display: string }
