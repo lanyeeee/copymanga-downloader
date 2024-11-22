@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
+use bytes::Bytes;
 use parking_lot::RwLock;
 use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
@@ -23,11 +24,13 @@ const API_DOMAIN: &str = "api.mangacopy.com";
 #[derive(Clone)]
 pub struct CopyClient {
     app: AppHandle,
+    img_client: ClientWithMiddleware,
 }
 
 impl CopyClient {
     pub fn new(app: AppHandle) -> Self {
-        Self { app }
+        let img_client = create_img_client();
+        Self { app, img_client }
     }
 
     pub fn client() -> ClientWithMiddleware {
@@ -316,10 +319,37 @@ impl CopyClient {
         Ok(get_chapter_resp_data)
     }
 
+    pub async fn get_image_bytes(&self, url: &str) -> anyhow::Result<Bytes> {
+        // 发送下载图片请求
+        let http_resp = self.img_client.get(url).send().await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        if status != StatusCode::OK {
+            let body = http_resp.text().await?;
+            return Err(anyhow!(
+                "下载图片 {url} 失败，预料之外的状态码({status}): {body}"
+            ));
+        }
+        // 读取图片数据
+        let image_data = http_resp.bytes().await?;
+
+        Ok(image_data)
+    }
+
     fn get_authorization(&self) -> String {
         self.app
             .state::<RwLock<Config>>()
             .read()
             .get_authorization()
     }
+}
+
+fn create_img_client() -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+
+    let builder = reqwest::ClientBuilder::new();
+
+    reqwest_middleware::ClientBuilder::new(builder.build().unwrap())
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
 }
