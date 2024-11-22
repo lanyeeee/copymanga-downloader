@@ -38,7 +38,7 @@ onMounted(async () => {
 });
 
 async function test() {
-  const result = await commands.getComic("yanquan");
+  const result = await commands.search("魔王", 1);
   console.log(result);
 }
 

@@ -15,6 +15,15 @@ pub use user_profile_resp_data::*;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(default, rename_all = "camelCase")]
+pub struct Pagination<T> {
+    pub list: Vec<T>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[serde(default, rename_all = "camelCase")]
 pub struct AuthorRespData {
     pub name: String,
     pub alias: Option<String>,

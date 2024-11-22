@@ -35,7 +35,7 @@ async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async search(keyword: string, pageNum: number) : Promise<Result<SearchRespData, CommandError>> {
+async search(keyword: string, pageNum: number) : Promise<Result<Pagination<ComicInSearchRespData>, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search", { keyword, pageNum }) };
 } catch (e) {
@@ -73,7 +73,7 @@ export type GroupRespData = { path_word: string; count: number; name: string }
 export type LabeledValueRespData = { value: number; display: string }
 export type LastChapterRespData = { uuid: string; name: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
-export type SearchRespData = { list: ComicInSearchRespData[]; total: number; limit: number; offset: number }
+export type Pagination<T> = { list: T[]; total: number; limit: number; offset: number }
 export type ThemeRespData = { name: string; path_word: string }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
