@@ -12,6 +12,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-shell": "^2",
+    "@viselect/vue": "3.6.0",
     "naive-ui": "^2.40.1",
     "unocss": "^0.64.1",
     "unplugin-auto-import": "^0.18.5",

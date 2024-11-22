@@ -14,6 +14,9 @@ importers:
       '@tauri-apps/plugin-shell':
         specifier: ^2
         version: 2.0.1
+      '@viselect/vue':
+        specifier: 3.6.0
+        version: 3.6.0(vue@3.5.13(typescript@5.6.3))
       naive-ui:
         specifier: ^2.40.1
         version: 2.40.1(vue@3.5.13(typescript@5.6.3))
@@ -686,6 +689,14 @@ packages:
     resolution: {integrity: sha512-DIvl7Mofc5Q6kKElMRALbH33xBYb5w3Yf7TQ860lmi3DOwjEcg+OWE1HD+iDf7IxZeqPsdF17NvJJaSdmr0m5Q==}
     peerDependencies:
       vite: ^2.9.0 || ^3.0.0-0 || ^4.0.0 || ^5.0.0-0
+
+  '@viselect/vanilla@3.6.0':
+    resolution: {integrity: sha512-YVr1zr53vCZ9HLlLF3xURB4JpVzl8ZPI2InCxXPbjup6EmsO9aNG8v6z5AepjekRqj8R0l58sVCXx9S9+2mg0w==}
+
+  '@viselect/vue@3.6.0':
+    resolution: {integrity: sha512-J4lN4p7YhWEph+Usnbo+CS+RateBcAfu/ni2sLLcPTB0bG8G2t8NHSmzNl4Yjdt/y0OK0AztIVlCCaOb6xm1bA==}
+    peerDependencies:
+      vue: '>=3.2.0'
 
   '@vitejs/plugin-vue@5.2.0':
     resolution: {integrity: sha512-7n7KdUEtx/7Yl7I/WVAMZ1bEb0eVvXF3ummWTeLcs/9gvo9pJhuLdouSXGjdZ/MKD1acf1I272+X0RMua4/R3g==}
@@ -1725,6 +1736,13 @@ snapshots:
       - rollup
       - supports-color
       - vue
+
+  '@viselect/vanilla@3.6.0': {}
+
+  '@viselect/vue@3.6.0(vue@3.5.13(typescript@5.6.3))':
+    dependencies:
+      '@viselect/vanilla': 3.6.0
+      vue: 3.5.13(typescript@5.6.3)
 
   '@vitejs/plugin-vue@5.2.0(vite@5.4.11)(vue@3.5.13(typescript@5.6.3))':
     dependencies:
