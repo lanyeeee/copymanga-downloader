@@ -38,7 +38,7 @@ onMounted(async () => {
 });
 
 async function test() {
-  const result = await commands.getChapter("yanquan", "ef3bbab8-7650-11e9-8c73-024352452ce0");
+  const result = await commands.getComic("modujingbingdenuli");
   console.log(result);
 }
 

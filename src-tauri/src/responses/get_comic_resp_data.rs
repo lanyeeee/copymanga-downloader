@@ -34,7 +34,7 @@ pub struct ComicInGetComicRespData {
     pub b_hidden: bool,
     pub ban: i64,
     #[serde(rename = "ban_ip")]
-    pub ban_ip: bool,
+    pub ban_ip: Option<bool>,
     pub name: String,
     pub alias: Option<String>,
     #[serde(rename = "path_word")]
