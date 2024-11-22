@@ -63,13 +63,13 @@ async getComic(pathWord: string) : Promise<Result<ComicRespData, CommandError>> 
 
 /** user-defined types **/
 
-export type AuthorRespData = { name: string; alias: string; path_word: string }
-export type ComicDetailRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
-export type ComicInSearchRespData = { name: string; alias: string; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
+export type AuthorRespData = { name: string; alias: string | null; path_word: string }
+export type ComicDetailRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
+export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
 export type ComicRespData = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetailRespData; popular: number; groups: { [key in string]: GroupRespData } }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
-export type GroupRespData = { pathWord: string; count: number; name: string }
+export type GroupRespData = { path_word: string; count: number; name: string }
 export type LabeledValueRespData = { value: number; display: string }
 export type LastChapterRespData = { uuid: string; name: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }

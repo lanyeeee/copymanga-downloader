@@ -16,7 +16,7 @@ pub struct SearchRespData {
 #[serde(rename_all = "camelCase")]
 pub struct ComicInSearchRespData {
     pub name: String,
-    pub alias: String,
+    pub alias: Option<String>,
     #[serde(rename = "path_word")]
     pub path_word: String,
     pub cover: String,
