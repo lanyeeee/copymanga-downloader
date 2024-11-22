@@ -24,27 +24,19 @@ const API_DOMAIN: &str = "api.mangacopy.com";
 #[derive(Clone)]
 pub struct CopyClient {
     app: AppHandle,
+    api_client: ClientWithMiddleware,
     img_client: ClientWithMiddleware,
 }
 
 impl CopyClient {
     pub fn new(app: AppHandle) -> Self {
+        let api_client = create_api_client();
         let img_client = create_img_client();
-        Self { app, img_client }
-    }
-
-    pub fn client() -> ClientWithMiddleware {
-        let retry_policy = ExponentialBackoff::builder()
-            .base(1) // 指数为1，保证重试间隔为1秒不变
-            .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
-            .build_with_total_retry_duration(Duration::from_secs(3)); // 重试总时长为3秒
-        let client = reqwest::ClientBuilder::new()
-            .timeout(Duration::from_secs(2)) // 每个请求超过2秒就超时
-            .build()
-            .unwrap();
-        reqwest_middleware::ClientBuilder::new(client)
-            .with(RetryTransientMiddleware::new_with_policy(retry_policy))
-            .build()
+        Self {
+            app,
+            api_client,
+            img_client,
+        }
     }
 
     pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<LoginRespData> {
@@ -57,7 +49,8 @@ impl CopyClient {
             "salt": SALT,
         });
         // 发送登录请求
-        let http_resp = Self::client()
+        let http_resp = self
+            .api_client
             .post(format!("https://{API_DOMAIN}/api/v3/login"))
             .form(&form)
             .send()
@@ -92,7 +85,8 @@ impl CopyClient {
     pub async fn get_user_profile(&self) -> anyhow::Result<UserProfileRespData> {
         let authorization = self.get_authorization();
         // 发送获取用户信息请求
-        let http_resp = Self::client()
+        let http_resp = self
+            .api_client
             .get(format!("https://{API_DOMAIN}/api/v3/member/info"))
             .header("authorization", authorization)
             .send()
@@ -134,7 +128,7 @@ impl CopyClient {
             "q": keyword,
         });
         // 发送搜索请求
-        let http_resp = Self::client()
+        let http_resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/search/comic"))
             .query(&params)
             .header("version", "2.2.0")
@@ -167,7 +161,7 @@ impl CopyClient {
     pub async fn get_comic(&self, comic_path_word: &str) -> anyhow::Result<GetComicRespData> {
         let authorization = self.get_authorization();
         // 发送获取漫画请求
-        let http_resp = Self::client()
+        let http_resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/comic2/{comic_path_word}"))
             .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
             .header("authorization", authorization)
@@ -251,7 +245,7 @@ impl CopyClient {
         let authorization = self.get_authorization();
         // TODO: 错误提示改成 获取章节分页
         // 发送获取章节请求
-        let http_resp = Self::client()
+        let http_resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
             .query(&params)
             .header("authorization", authorization)
@@ -290,7 +284,7 @@ impl CopyClient {
     ) -> anyhow::Result<GetChapterRespData> {
         let authorization = self.get_authorization();
         // 发送获取章节请求
-        let resp = Self::client()
+        let resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"))
             .header("authorization", authorization)
             .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
@@ -347,9 +341,25 @@ impl CopyClient {
 fn create_img_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
 
-    let builder = reqwest::ClientBuilder::new();
+    let client = reqwest::ClientBuilder::new().build().unwrap();
 
-    reqwest_middleware::ClientBuilder::new(builder.build().unwrap())
+    reqwest_middleware::ClientBuilder::new(client)
+        .with(RetryTransientMiddleware::new_with_policy(retry_policy))
+        .build()
+}
+
+fn create_api_client() -> ClientWithMiddleware {
+    let retry_policy = ExponentialBackoff::builder()
+        .base(1) // 指数为1，保证重试间隔为1秒不变
+        .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
+        .build_with_total_retry_duration(Duration::from_secs(5)); // 重试总时长为5秒
+
+    let client = reqwest::ClientBuilder::new()
+        .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
+        .build()
+        .unwrap();
+
+    reqwest_middleware::ClientBuilder::new(client)
         .with(RetryTransientMiddleware::new_with_policy(retry_policy))
         .build()
 }
