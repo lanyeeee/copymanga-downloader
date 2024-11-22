@@ -1,16 +1,9 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-use super::AuthorRespData;
+use super::{AuthorRespData, Pagination};
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchRespData {
-    pub list: Vec<ComicInSearchRespData>,
-    pub total: i64,
-    pub limit: i64,
-    pub offset: i64,
-}
+pub type SearchRespData = Pagination<ComicInSearchRespData>;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
