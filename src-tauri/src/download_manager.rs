@@ -8,9 +8,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use bytes::Bytes;
 use parking_lot::RwLock;
-use reqwest::StatusCode;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
 use tokio::{
@@ -211,7 +209,7 @@ impl DownloadManager {
                 return;
             }
         };
-        let image_data = match get_image_bytes(&url).await {
+        let image_data = match self.copy_client().get_image_bytes(&url).await {
             Ok(data) => data,
             Err(err) => {
                 let err = err.context(format!("下载图片 {url} 失败"));
@@ -287,20 +285,4 @@ fn get_temp_download_dir(app: &AppHandle, chapter_info: &ChapterInfo) -> PathBuf
         .join(&chapter_info.comic_title)
         .join(&chapter_info.group_name)
         .join(format!(".下载中-{}", chapter_info.chapter_title)) // 以 `.下载中-` 开头，表示是临时目录
-}
-
-// TODO: 这个函数应该交给 `CopyClient` 来实现
-async fn get_image_bytes(url: &str) -> anyhow::Result<Bytes> {
-    // 发送下载图片请求
-    let http_resp = reqwest::get(url).await?;
-    // 检查http响应状态码
-    let status = http_resp.status();
-    if status != StatusCode::OK {
-        let body = http_resp.text().await?;
-        return Err(anyhow!("下载图片 {url} 失败，预料之外的状态码: {body}"));
-    }
-    // 读取图片数据
-    let image_data = http_resp.bytes().await?;
-
-    Ok(image_data)
 }
