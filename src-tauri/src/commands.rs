@@ -6,8 +6,8 @@ use crate::{
     copy_client::CopyClient,
     errors::CommandResult,
     responses::{
-        ChapterInGetChaptersRespData, GetComicRespData, LoginRespData, SearchRespData,
-        UserProfileRespData,
+        ChapterInGetChaptersRespData, GetChapterRespData, GetComicRespData, LoginRespData,
+        SearchRespData, UserProfileRespData,
     },
 };
 
@@ -91,4 +91,17 @@ pub async fn get_group_chapters(
         .get_group_chapters(comic_path_word, group_path_word)
         .await?;
     Ok(chapters)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_chapter(
+    copy_client: State<'_, CopyClient>,
+    comic_path_word: &str,
+    chapter_uuid: &str,
+) -> CommandResult<GetChapterRespData> {
+    let get_chapter_resp_data = copy_client
+        .get_chapter(comic_path_word, chapter_uuid)
+        .await?;
+    Ok(get_chapter_resp_data)
 }

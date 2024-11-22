@@ -1,4 +1,5 @@
 mod copy_resp;
+mod get_chapter_resp_data;
 mod get_chapters_resp_data;
 mod get_comic_resp_data;
 mod login_resp_data;
@@ -6,6 +7,7 @@ mod search_resp_data;
 mod user_profile_resp_data;
 
 pub use copy_resp::*;
+pub use get_chapter_resp_data::*;
 pub use get_chapters_resp_data::*;
 pub use get_comic_resp_data::*;
 pub use login_resp_data::*;
