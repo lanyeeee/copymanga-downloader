@@ -17,7 +17,7 @@ pub use user_profile_resp_data::*;
 #[serde(default, rename_all = "camelCase")]
 pub struct AuthorRespData {
     pub name: String,
-    pub alias: String,
+    pub alias: Option<String>,
     #[serde(rename = "path_word")]
     pub path_word: String,
 }

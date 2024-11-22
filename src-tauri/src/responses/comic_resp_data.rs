@@ -36,7 +36,7 @@ pub struct ComicDetailRespData {
     #[serde(rename = "ban_ip")]
     pub ban_ip: bool,
     pub name: String,
-    pub alias: String,
+    pub alias: Option<String>,
     #[serde(rename = "path_word")]
     pub path_word: String,
     #[serde(rename = "close_comment")]
@@ -89,6 +89,7 @@ pub struct LastChapterRespData {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(default, rename_all = "camelCase")]
 pub struct GroupRespData {
+    #[serde(rename = "path_word")]
     path_word: String,
     count: u32,
     name: String,
