@@ -126,14 +126,25 @@ impl CopyClient {
             "limit": LIMIT,
             "offset": offset,
             "q": keyword,
+            "q_type": "",
+            "platform": 4,
         });
         // 发送搜索请求
-        let http_resp = self.api_client
+        let http_resp = self
+            .api_client
             .get(format!("https://{API_DOMAIN}/api/v3/search/comic"))
             .query(&params)
-            .header("version", "2.2.0")
-            .header("platform", "3")
-            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "4")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
             .send()
             .await?;
         // 检查http响应状态码
@@ -159,12 +170,28 @@ impl CopyClient {
     }
 
     pub async fn get_comic(&self, comic_path_word: &str) -> anyhow::Result<GetComicRespData> {
-        let authorization = self.get_authorization();
+        let params = json!({
+            "in_mainland": false,
+            "platform": 4,
+        });
         // 发送获取漫画请求
-        let http_resp = self.api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/comic2/{comic_path_word}"))
-            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
-            .header("authorization", authorization)
+        let http_resp = self
+            .api_client
+            .get(format!(
+                "https://{API_DOMAIN}/api/v3/comic2/{comic_path_word}"
+            ))
+            .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "4")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
             .send()
             .await?;
         // 检查http响应状态码
@@ -241,17 +268,25 @@ impl CopyClient {
         let params = json!({
             "limit": limit,
             "offset": offset,
+            "in_mainland": false,
+            "platform": 4,
         });
-        let authorization = self.get_authorization();
         // TODO: 错误提示改成 获取章节分页
         // 发送获取章节请求
         let http_resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
             .query(&params)
-            .header("authorization", authorization)
-            .header("version", "2.2.0")
-            .header("platform", "3")
-            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "4")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
             .send()
             .await?;
         // 检查http响应状态码
@@ -282,12 +317,28 @@ impl CopyClient {
         comic_path_word: &str,
         chapter_uuid: &str,
     ) -> anyhow::Result<GetChapterRespData> {
-        let authorization = self.get_authorization();
+        let params = json!({
+            "in_mainland": false,
+            "platform": 4,
+        });
         // 发送获取章节请求
-        let resp = self.api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"))
-            .header("authorization", authorization)
-            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+        let resp = self
+            .api_client
+            .get(format!(
+                "https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"
+            ))
+            .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "4")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
             .send()
             .await?;
         // 检查http响应状态码
