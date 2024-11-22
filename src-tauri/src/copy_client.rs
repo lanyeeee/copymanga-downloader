@@ -8,10 +8,14 @@ use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
+use tokio::task::JoinSet;
 
 use crate::{
     config::Config,
-    responses::{ComicRespData, CopyResp, LoginRespData, SearchRespData, UserProfileRespData},
+    responses::{
+        ChapterDetailRespData, ChapterRespData, ComicRespData, CopyResp, LoginRespData,
+        SearchRespData, UserProfileRespData,
+    },
 };
 
 const API_DOMAIN: &str = "api.mangacopy.com";
@@ -186,6 +190,92 @@ impl CopyClient {
         )?;
 
         Ok(comic_resp_data)
+    }
+
+    pub async fn get_chapters(
+        &self,
+        comic_path_word: &str,
+        group_path_word: &str,
+    ) -> anyhow::Result<Vec<ChapterDetailRespData>> {
+        const LIMIT: i64 = 500;
+        let mut chapters = vec![];
+        // 获取第一页的章节
+        let mut first_chapter_resp_data = self
+            .get_chapter(comic_path_word, group_path_word, LIMIT, 0)
+            .await?;
+        // 将第一页的章节添加到chapters中
+        chapters.append(&mut first_chapter_resp_data.list);
+        // 计算总页数
+        let total_pages = first_chapter_resp_data.total / LIMIT + 1;
+        // 如果只有一页，直接返回
+        if total_pages == 1 {
+            return Ok(chapters);
+        }
+        // 并发获取剩余页的章节
+        let mut join_set = JoinSet::new();
+        for page in 2..=total_pages {
+            let comic_path_word = comic_path_word.to_string();
+            let group_path_word = group_path_word.to_string();
+            let copy_client = self.clone();
+            join_set.spawn(async move {
+                let offset = (page - 1) * LIMIT;
+                let chapter_resp_data = copy_client
+                    .get_chapter(&comic_path_word, &group_path_word, LIMIT, offset)
+                    .await?;
+                Ok::<_, anyhow::Error>(chapter_resp_data)
+            });
+        }
+        // 将剩余页的章节添加到chapters中
+        while let Some(res) = join_set.join_next().await {
+            let mut chapter_resp_data = res??;
+            chapters.append(&mut chapter_resp_data.list);
+        }
+
+        Ok(chapters)
+    }
+
+    pub async fn get_chapter(
+        &self,
+        comic_path_word: &str,
+        group_path_word: &str,
+        limit: i64,
+        offset: i64,
+    ) -> anyhow::Result<ChapterRespData> {
+        let params = json!({
+            "limit": limit,
+            "offset": offset,
+        });
+        let authorization = self.get_authorization();
+        // 发送获取章节请求
+        let http_resp = Self::client()
+            .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
+            .query(&params)
+            .header("authorization", authorization)
+            .header("version", "2.2.0")
+            .header("platform", "3")
+            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}"));
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("获取章节失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}"));
+        }
+        // 尝试将CopyResp的results字段解析为ChapterRespData
+        let results_str = copy_resp.results.to_string();
+        let chapter_resp_data = serde_json::from_str::<ChapterRespData>(&results_str).context(
+            format!("获取章节失败，将results解析为ChapterRespData失败: {results_str}"),
+        )?;
+
+        Ok(chapter_resp_data)
     }
 
     fn get_authorization(&self) -> String {
