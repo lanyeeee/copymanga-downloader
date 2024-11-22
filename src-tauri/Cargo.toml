@@ -29,7 +29,7 @@ specta = { version = "2.0.0-rc" }
 tauri-specta = { version = "2.0.0-rc", features = ["derive", "typescript"] }
 specta-typescript = { version = "0.0.7" }
 
-reqwest = { version = "0.12.9", features = ["rustls-tls"], default-features = false }
+reqwest = { version = "0.12.9", features = ["rustls-tls", "gzip"], default-features = false }
 reqwest-retry = { version = "0.7.0" }
 reqwest-middleware = { version = "0.4.0" }
 
