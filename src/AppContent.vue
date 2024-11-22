@@ -38,7 +38,7 @@ onMounted(async () => {
 });
 
 async function test() {
-  const result = await commands.getChapters("modujingbingdenuli", "default");
+  const result = await commands.getGroupChapters("modujingbingdenuli", "default");
   console.log(result);
 }
 

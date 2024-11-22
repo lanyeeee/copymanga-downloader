@@ -13,7 +13,7 @@ use tokio::task::JoinSet;
 use crate::{
     config::Config,
     responses::{
-        ChapterDetailRespData, ChapterRespData, ComicRespData, CopyResp, LoginRespData,
+        ChapterInGetChaptersRespData, CopyResp, GetChaptersRespData, GetComicRespData, LoginRespData,
         SearchRespData, UserProfileRespData,
     },
 };
@@ -161,7 +161,7 @@ impl CopyClient {
         Ok(search_resp_data)
     }
 
-    pub async fn get_comic(&self, path_word: String) -> anyhow::Result<ComicRespData> {
+    pub async fn get_comic(&self, path_word: String) -> anyhow::Result<GetComicRespData> {
         let authorization = self.get_authorization();
         // 发送获取漫画请求
         let http_resp = Self::client()
@@ -185,28 +185,28 @@ impl CopyClient {
         }
         // 尝试将CopyResp的results字段解析为ComicRespData
         let results_str = copy_resp.results.to_string();
-        let comic_resp_data = serde_json::from_str::<ComicRespData>(&results_str).context(
+        let get_comic_resp_data = serde_json::from_str::<GetComicRespData>(&results_str).context(
             format!("获取漫画失败，将results解析为ComicRespData失败: {results_str}"),
         )?;
 
-        Ok(comic_resp_data)
+        Ok(get_comic_resp_data)
     }
 
-    pub async fn get_chapters(
+    pub async fn get_group_chapters(
         &self,
         comic_path_word: &str,
         group_path_word: &str,
-    ) -> anyhow::Result<Vec<ChapterDetailRespData>> {
+    ) -> anyhow::Result<Vec<ChapterInGetChaptersRespData>> {
         const LIMIT: i64 = 500;
         let mut chapters = vec![];
         // 获取第一页的章节
-        let mut first_chapter_resp_data = self
-            .get_chapter(comic_path_word, group_path_word, LIMIT, 0)
+        let mut first_chapters_resp_data = self
+            .get_chapters(comic_path_word, group_path_word, LIMIT, 0)
             .await?;
         // 将第一页的章节添加到chapters中
-        chapters.append(&mut first_chapter_resp_data.list);
+        chapters.append(&mut first_chapters_resp_data.list);
         // 计算总页数
-        let total_pages = first_chapter_resp_data.total / LIMIT + 1;
+        let total_pages = first_chapters_resp_data.total / LIMIT + 1;
         // 如果只有一页，直接返回
         if total_pages == 1 {
             return Ok(chapters);
@@ -220,7 +220,7 @@ impl CopyClient {
             join_set.spawn(async move {
                 let offset = (page - 1) * LIMIT;
                 let chapter_resp_data = copy_client
-                    .get_chapter(&comic_path_word, &group_path_word, LIMIT, offset)
+                    .get_chapters(&comic_path_word, &group_path_word, LIMIT, offset)
                     .await?;
                 Ok::<_, anyhow::Error>(chapter_resp_data)
             });
@@ -234,13 +234,13 @@ impl CopyClient {
         Ok(chapters)
     }
 
-    pub async fn get_chapter(
+    pub async fn get_chapters(
         &self,
         comic_path_word: &str,
         group_path_word: &str,
         limit: i64,
         offset: i64,
-    ) -> anyhow::Result<ChapterRespData> {
+    ) -> anyhow::Result<GetChaptersRespData> {
         let params = json!({
             "limit": limit,
             "offset": offset,
@@ -271,11 +271,12 @@ impl CopyClient {
         }
         // 尝试将CopyResp的results字段解析为ChapterRespData
         let results_str = copy_resp.results.to_string();
-        let chapter_resp_data = serde_json::from_str::<ChapterRespData>(&results_str).context(
-            format!("获取章节失败，将results解析为ChapterRespData失败: {results_str}"),
-        )?;
+        let get_chapters_resp_data = serde_json::from_str::<GetChaptersRespData>(&results_str)
+            .context(format!(
+                "获取章节失败，将results解析为ChapterRespData失败: {results_str}"
+            ))?;
 
-        Ok(chapter_resp_data)
+        Ok(get_chapters_resp_data)
     }
 
     fn get_authorization(&self) -> String {
