@@ -106,7 +106,19 @@ async function onContextMenu(e: MouseEvent) {
 }
 
 async function downloadChapters() {
-  // TODO: 实现下载章节
+  const chapterToDownload = currentGroup.value?.filter(c => !c.isDownloaded && checkedIds.value.includes(c.chapterUuid));
+  if (chapterToDownload === undefined) {
+    return;
+  }
+  await commands.downloadChapters(chapterToDownload);
+
+  for (const downloadedChapter of chapterToDownload) {
+    const chapter = currentGroup.value?.find(c => c.chapterUuid === downloadedChapter.chapterUuid);
+    if (chapter !== undefined) {
+      chapter.isDownloaded = true;
+      checkedIds.value = checkedIds.value.filter(id => id !== downloadedChapter.chapterUuid);
+    }
+  }
 }
 
 async function refreshChapters() {
