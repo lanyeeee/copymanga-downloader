@@ -1,13 +1,13 @@
-mod chapter_resp_data;
-mod comic_resp_data;
 mod copy_resp;
+mod get_chapters_resp_data;
+mod get_comic_resp_data;
 mod login_resp_data;
 mod search_resp_data;
 mod user_profile_resp_data;
 
-pub use chapter_resp_data::*;
-pub use comic_resp_data::*;
 pub use copy_resp::*;
+pub use get_chapters_resp_data::*;
+pub use get_comic_resp_data::*;
 pub use login_resp_data::*;
 pub use search_resp_data::*;
 pub use user_profile_resp_data::*;

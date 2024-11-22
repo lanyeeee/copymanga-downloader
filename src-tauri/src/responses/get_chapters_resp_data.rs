@@ -3,11 +3,11 @@ use specta::Type;
 
 use super::Pagination;
 
-pub type ChapterRespData = Pagination<ChapterDetailRespData>;
+pub type GetChaptersRespData = Pagination<ChapterInGetChaptersRespData>;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
-pub struct ChapterDetailRespData {
+pub struct ChapterInGetChaptersRespData {
     pub index: i64,
     pub uuid: String,
     pub count: i64,

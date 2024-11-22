@@ -7,7 +7,7 @@ use super::AuthorRespData;
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(default, rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
-pub struct ComicRespData {
+pub struct GetComicRespData {
     #[serde(rename = "is_banned")]
     pub is_banned: bool,
     #[serde(rename = "is_lock")]
@@ -18,7 +18,7 @@ pub struct ComicRespData {
     pub is_mobile_bind: bool,
     #[serde(rename = "is_vip")]
     pub is_vip: bool,
-    pub comic: ComicDetailRespData,
+    pub comic: ComicInGetComicRespData,
     pub popular: i64,
     pub groups: HashMap<String, GroupRespData>,
 }
@@ -26,7 +26,7 @@ pub struct ComicRespData {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(default, rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
-pub struct ComicDetailRespData {
+pub struct ComicInGetComicRespData {
     pub uuid: String,
     #[serde(rename = "b_404")]
     pub b_404: bool,

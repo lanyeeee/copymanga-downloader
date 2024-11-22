@@ -43,7 +43,7 @@ async search(keyword: string, pageNum: number) : Promise<Result<Pagination<Comic
     else return { status: "error", error: e  as any };
 }
 },
-async getComic(pathWord: string) : Promise<Result<ComicRespData, CommandError>> {
+async getComic(pathWord: string) : Promise<Result<GetComicRespData, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_comic", { pathWord }) };
 } catch (e) {
@@ -51,9 +51,9 @@ async getComic(pathWord: string) : Promise<Result<ComicRespData, CommandError>> 
     else return { status: "error", error: e  as any };
 }
 },
-async getChapters(comicPathWord: string, groupPathWord: string) : Promise<Result<ChapterDetailRespData[], CommandError>> {
+async getGroupChapters(comicPathWord: string, groupPathWord: string) : Promise<Result<ChapterInGetChaptersRespData[], CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_chapters", { comicPathWord, groupPathWord }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_group_chapters", { comicPathWord, groupPathWord }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -72,12 +72,12 @@ async getChapters(comicPathWord: string, groupPathWord: string) : Promise<Result
 /** user-defined types **/
 
 export type AuthorRespData = { name: string; alias: string | null; path_word: string }
-export type ChapterDetailRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
-export type ComicDetailRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
+export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
+export type ComicInGetComicRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
 export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
-export type ComicRespData = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetailRespData; popular: number; groups: { [key in string]: GroupRespData } }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
+export type GetComicRespData = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetComicRespData; popular: number; groups: { [key in string]: GroupRespData } }
 export type GroupRespData = { path_word: string; count: number; name: string }
 export type LabeledValueRespData = { value: number; display: string }
 export type LastChapterRespData = { uuid: string; name: string }
