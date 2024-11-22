@@ -58,6 +58,14 @@ async getGroupChapters(comicPathWord: string, groupPathWord: string) : Promise<R
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getChapter(comicPathWord: string, chapterUuid: string) : Promise<Result<GetChapterRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_chapter", { comicPathWord, chapterUuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -72,17 +80,22 @@ async getGroupChapters(comicPathWord: string, groupPathWord: string) : Promise<R
 /** user-defined types **/
 
 export type AuthorRespData = { name: string; alias: string | null; path_word: string }
+export type ChapterInGetChapterRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null; contents: ContentRespData[]; words: number[]; is_long: boolean }
 export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
+export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
 export type ComicInGetComicRespData = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValueRespData; restrict: LabeledValueRespData; reclass: LabeledValueRespData; img_type: number; seo_baidu: string; region: LabeledValueRespData; status: LabeledValueRespData; author: AuthorRespData[]; theme: ThemeRespData[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapterRespData; popular: number }
 export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
+export type ContentRespData = { url: string }
+export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
 export type GetComicRespData = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetComicRespData; popular: number; groups: { [key in string]: GroupRespData } }
 export type GroupRespData = { path_word: string; count: number; name: string }
 export type LabeledValueRespData = { value: number; display: string }
 export type LastChapterRespData = { uuid: string; name: string }
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
 export type Pagination<T> = { list: T[]; total: number; limit: number; offset: number }
+export type RestrictRespData = { value: number; display: string }
 export type ThemeRespData = { name: string; path_word: string }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 

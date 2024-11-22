@@ -13,8 +13,8 @@ use tokio::task::JoinSet;
 use crate::{
     config::Config,
     responses::{
-        ChapterInGetChaptersRespData, CopyResp, GetChaptersRespData, GetComicRespData, LoginRespData,
-        SearchRespData, UserProfileRespData,
+        ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
+        GetComicRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
 };
 
@@ -246,6 +246,7 @@ impl CopyClient {
             "offset": offset,
         });
         let authorization = self.get_authorization();
+        // TODO: 错误提示改成 获取章节分页
         // 发送获取章节请求
         let http_resp = Self::client()
             .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
@@ -277,6 +278,42 @@ impl CopyClient {
             ))?;
 
         Ok(get_chapters_resp_data)
+    }
+
+    pub async fn get_chapter(
+        &self,
+        comic_path_word: &str,
+        chapter_uuid: &str,
+    ) -> anyhow::Result<GetChapterRespData> {
+        let authorization = self.get_authorization();
+        // 发送获取章节请求
+        let resp = Self::client()
+            .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"))
+            .header("authorization", authorization)
+            .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = resp.status();
+        let body = resp.text().await?;
+        if status != StatusCode::OK {
+            return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}"));
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("获取章节失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}"));
+        }
+        // 尝试将CopyResp的results字段解析为ChapterRespData
+        let results_str = copy_resp.results.to_string();
+        let get_chapter_resp_data = serde_json::from_str::<GetChapterRespData>(&results_str)
+            .context(format!(
+                "获取章节失败，将results解析为ChapterRespData失败: {results_str}"
+            ))?;
+
+        Ok(get_chapter_resp_data)
     }
 
     fn get_authorization(&self) -> String {
