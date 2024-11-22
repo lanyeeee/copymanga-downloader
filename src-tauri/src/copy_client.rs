@@ -161,11 +161,11 @@ impl CopyClient {
         Ok(search_resp_data)
     }
 
-    pub async fn get_comic(&self, path_word: String) -> anyhow::Result<GetComicRespData> {
+    pub async fn get_comic(&self, comic_path_word: &str) -> anyhow::Result<GetComicRespData> {
         let authorization = self.get_authorization();
         // 发送获取漫画请求
         let http_resp = Self::client()
-            .get(format!("https://{API_DOMAIN}/api/v3/comic2/{path_word}"))
+            .get(format!("https://{API_DOMAIN}/api/v3/comic2/{comic_path_word}"))
             .header("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
             .header("authorization", authorization)
             .send()

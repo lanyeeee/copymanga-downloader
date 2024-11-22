@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use parking_lot::RwLock;
 use tauri::{AppHandle, State};
 
@@ -6,9 +8,10 @@ use crate::{
     copy_client::CopyClient,
     errors::CommandResult,
     responses::{
-        ChapterInGetChaptersRespData, GetChapterRespData, GetComicRespData, LoginRespData,
-        SearchRespData, UserProfileRespData,
+        ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, SearchRespData,
+        UserProfileRespData,
     },
+    types::Comic,
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -73,11 +76,22 @@ pub async fn search(
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_comic(
+    app: AppHandle,
     copy_client: State<'_, CopyClient>,
-    path_word: String,
-) -> CommandResult<GetComicRespData> {
-    let get_comic_resp_data = copy_client.get_comic(path_word).await?;
-    Ok(get_comic_resp_data)
+    comic_path_word: &str,
+) -> CommandResult<Comic> {
+    let get_comic_resp_data = copy_client.get_comic(comic_path_word).await?;
+    // TODO: 这里可以并发获取groups_chapters
+    let mut groups_chapters = HashMap::new();
+    for group_path_word in get_comic_resp_data.groups.keys() {
+        let chapters = copy_client
+            .get_group_chapters(comic_path_word, group_path_word)
+            .await?;
+        groups_chapters.insert(group_path_word.clone(), chapters);
+    }
+    let comic = Comic::from(&app, get_comic_resp_data, groups_chapters);
+
+    Ok(comic)
 }
 
 #[tauri::command(async)]
