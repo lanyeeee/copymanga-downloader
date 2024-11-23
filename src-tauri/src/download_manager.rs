@@ -18,7 +18,7 @@ use tokio::{
 
 use crate::{
     config::Config, copy_client::CopyClient, errors::CopyMangaError, events::DownloadEvent,
-    extensions::AnyhowErrorToStringChain, types::ChapterInfo,
+    extensions::AnyhowErrorToStringChain, responses::GetChapterRespData, types::ChapterInfo,
 };
 
 /// 用于管理下载任务
@@ -114,13 +114,9 @@ impl DownloadManager {
             return;
         }
 
-        let copy_client = self.copy_client();
-        let chapter_resp_data = match copy_client
-            .get_chapter(&chapter_info.comic_path_word, &chapter_info.chapter_uuid)
-            .await
-        {
+        let chapter_resp_data = match self.get_chapter_resp_data(&chapter_info).await {
             Ok(data) => data,
-            Err(CopyMangaError::Anyhow(err)) => {
+            Err(err) => {
                 let comic_title = &chapter_info.comic_title;
                 let chapter_title = &chapter_info.chapter_title;
                 let err = err.context(format!(
@@ -130,15 +126,6 @@ impl DownloadManager {
                 let _ = DownloadEvent::ChapterEnd {
                     chapter_uuid: chapter_info.chapter_uuid.clone(),
                     err_msg: Some(err.to_string_chain()),
-                }
-                .emit(&self.app);
-                return;
-            }
-            Err(CopyMangaError::RiskControl(err)) => {
-                // TODO: 风控处理
-                let _ = DownloadEvent::ChapterEnd {
-                    chapter_uuid: chapter_info.chapter_uuid.clone(),
-                    err_msg: Some(err.0),
                 }
                 .emit(&self.app);
                 return;
@@ -232,6 +219,33 @@ impl DownloadManager {
             err_msg,
         }
         .emit(&self.app);
+    }
+
+    async fn get_chapter_resp_data(
+        &self,
+        chapter_info: &ChapterInfo,
+    ) -> anyhow::Result<GetChapterRespData> {
+        let copy_client = self.copy_client();
+        loop {
+            match copy_client
+                .get_chapter(&chapter_info.comic_path_word, &chapter_info.chapter_uuid)
+                .await
+            {
+                Ok(data) => return Ok(data),
+                Err(CopyMangaError::Anyhow(err)) => return Err(err),
+                Err(CopyMangaError::RiskControl(_)) => {
+                    const RETRY_WAIT_TIME: u32 = 60;
+                    for i in 1..=RETRY_WAIT_TIME {
+                        let _ = DownloadEvent::ChapterControlRisk {
+                            chapter_uuid: chapter_info.chapter_uuid.clone(),
+                            retry_after: RETRY_WAIT_TIME - i,
+                        }
+                        .emit(&self.app);
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                }
+            }
+        }
     }
 
     async fn download_image(
