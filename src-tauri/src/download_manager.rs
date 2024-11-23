@@ -91,7 +91,7 @@ impl DownloadManager {
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_lossless)]
     #[allow(clippy::too_many_lines)] // TODO: 重构，减少函数长度
-    async fn process_chapter(self, chapter_info: ChapterInfo) -> anyhow::Result<()> {
+    async fn process_chapter(self, chapter_info: ChapterInfo) {
         // 发送下载章节排队事件
         let _ = DownloadEvent::ChapterPending {
             chapter_uuid: chapter_info.chapter_uuid.clone(),
@@ -101,8 +101,18 @@ impl DownloadManager {
         .emit(&self.app);
 
         let temp_download_dir = get_temp_download_dir(&self.app, &chapter_info);
-        std::fs::create_dir_all(&temp_download_dir)
-            .context(format!("创建目录 {temp_download_dir:?} 失败"))?;
+
+        if let Err(err) = std::fs::create_dir_all(&temp_download_dir).map_err(anyhow::Error::from) {
+            // 如果创建目录失败，则发送下载章节结束事件，并返回
+            let err = err.context(format!("创建目录 {temp_download_dir:?} 失败"));
+            // 发送下载章节结束事件
+            let _ = DownloadEvent::ChapterEnd {
+                chapter_uuid: chapter_info.chapter_uuid.clone(),
+                err_msg: Some(err.to_string_chain()),
+            }
+            .emit(&self.app);
+            return;
+        }
 
         let copy_client = self.copy_client();
         let chapter_resp_data = match copy_client
@@ -122,7 +132,7 @@ impl DownloadManager {
                     err_msg: Some(err.to_string_chain()),
                 }
                 .emit(&self.app);
-                return Ok(());
+                return;
             }
             Err(CopyMangaError::RiskControl(err)) => {
                 // TODO: 风控处理
@@ -131,7 +141,7 @@ impl DownloadManager {
                     err_msg: Some(err.0),
                 }
                 .emit(&self.app);
-                return Ok(());
+                return;
             }
         };
         let urls: Vec<String> = chapter_resp_data
@@ -146,7 +156,19 @@ impl DownloadManager {
         let current = Arc::new(AtomicU32::new(0));
         let mut join_set = JoinSet::new();
         // 限制同时下载的章节数量
-        let permit = self.ep_sem.acquire().await?;
+        let permit = match self.ep_sem.acquire().await.map_err(anyhow::Error::from) {
+            Ok(permit) => permit,
+            Err(err) => {
+                let err = err.context("获取下载章节的semaphore失败");
+                // 发送下载章节结束事件
+                let _ = DownloadEvent::ChapterEnd {
+                    chapter_uuid: chapter_info.chapter_uuid.clone(),
+                    err_msg: Some(err.to_string_chain()),
+                }
+                .emit(&self.app);
+                return;
+            }
+        };
         // 发送下载章节开始事件
         let _ = DownloadEvent::ChapterStart {
             chapter_uuid: chapter_info.chapter_uuid.clone(),
@@ -164,8 +186,7 @@ impl DownloadManager {
             join_set.spawn(manager.download_image(url, save_path, ep_id, current));
         }
         // 逐一处理完成的下载任务
-        while let Some(completed_task) = join_set.join_next().await {
-            completed_task?;
+        while let Some(Ok(())) = join_set.join_next().await {
             self.downloaded_image_count.fetch_add(1, Ordering::Relaxed);
             let downloaded_image_count = self.downloaded_image_count.load(Ordering::Relaxed);
             let total_image_count = self.total_image_count.load(Ordering::Relaxed);
@@ -198,7 +219,7 @@ impl DownloadManager {
                 err_msg,
             }
             .emit(&self.app);
-            return Ok(());
+            return;
         }
         // 此章节的图片全部下载成功
         let err_msg = match self.save_archive(&chapter_info, &temp_download_dir) {
@@ -211,7 +232,6 @@ impl DownloadManager {
             err_msg,
         }
         .emit(&self.app);
-        Ok(())
     }
 
     async fn download_image(
