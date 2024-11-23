@@ -75,6 +75,14 @@ async getChapter(comicPathWord: string, chapterUuid: string) : Promise<Result<Ge
     else return { status: "error", error: e  as any };
 }
 },
+async getFavorite(pageNum: number) : Promise<Result<GetFavoriteRespData, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_favorite", { pageNum }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async downloadChapters(chapters: ChapterInfo[]) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("download_chapters", { chapters }) };
@@ -116,12 +124,15 @@ export type ChapterInfo = { chapterUuid: string; chapterTitle: string; comicUuid
 export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group } }
 export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; img_type: number; seo_baidu: string; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; groups: { [key in string]: ChapterInfo[] } }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
+export type ComicInGetFavoriteRespData = { uuid: string; b_display: boolean; name: string; path_word: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetime_updated: string; last_chapter_id: string; last_chapter_name: string }
 export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
 export type CommandError = string
 export type Config = { token: string; downloadDir: string }
 export type ContentRespData = { url: string }
 export type DownloadEvent = { event: "ChapterPending"; data: { chapterUuid: string; comicTitle: string; chapterTitle: string } } | { event: "ChapterControlRisk"; data: { chapterUuid: string; retryAfter: number } } | { event: "ChapterStart"; data: { chapterUuid: string; total: number } } | { event: "ChapterEnd"; data: { chapterUuid: string; errMsg: string | null } } | { event: "ImageSuccess"; data: { chapterUuid: string; url: string; current: number } } | { event: "ImageError"; data: { chapterUuid: string; url: string; errMsg: string } } | { event: "OverallUpdate"; data: { downloadedImageCount: number; totalImageCount: number; percentage: number } } | { event: "OverallSpeed"; data: { speed: string } }
+export type FavoriteItemRespData = { uuid: number; b_folder: boolean; comic: ComicInGetFavoriteRespData }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
+export type GetFavoriteRespData = Pagination<FavoriteItemRespData>
 export type Group = { path_word: string; count: number; name: string }
 export type LabeledValue = { value: number; display: string }
 export type LastChapter = { uuid: string; name: string }

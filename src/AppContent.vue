@@ -60,7 +60,7 @@ async function showConfigInFileManager() {
 
 
 async function test() {
-  const result = await commands.getComic("modujingbingdenuli");
+  const result = await commands.getFavorite(1);
   console.log(result);
 }
 

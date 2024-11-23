@@ -16,8 +16,7 @@ use crate::{
     config::Config,
     errors::{CopyMangaError, CopyMangaResult, RiskControlError},
     responses::{
-        ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
-        GetComicRespData, LoginRespData, SearchRespData, UserProfileRespData,
+        ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData, GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData
     },
     types::AsyncRwLock,
 };
@@ -448,6 +447,59 @@ impl CopyClient {
         let image_data = http_resp.bytes().await?;
 
         Ok(image_data)
+    }
+
+    pub async fn get_favorite(&self, page_num: i64) -> CopyMangaResult<GetFavoriteRespData> {
+        const LIMIT: i64 = 18;
+        let authorization = self.get_authorization();
+        let params = json!({
+            "limit": LIMIT,
+            "offset": (page_num - 1) * LIMIT,
+            "free_type": 1,
+            "ordering": "-datetime_modifier",
+            "platform": 4,
+        });
+        // 发送获取收藏请求
+        let http_resp = self
+            .api_client
+            .get(format!("https://{API_DOMAIN}/api/v3/member/collect/comics"))
+            .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", authorization)
+            .header("platform", "4")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status == 210 {
+            return Err(RiskControlError::GetFavorite(body).into());
+        } else if status != StatusCode::OK {
+            return Err(anyhow!("获取收藏失败，预料之外的状态码({status}): {body}").into());
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("获取收藏失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("获取收藏失败，预料之外的code: {copy_resp:?}").into());
+        }
+        // 尝试将CopyResp的results字段解析为GetFavoriteRespData
+        let results_str = copy_resp.results.to_string();
+        let get_favorite_resp_data = serde_json::from_str::<GetFavoriteRespData>(&results_str)
+            .context(format!(
+                "获取收藏失败，将results解析为GetFavoriteRespData失败: {results_str}"
+            ))?;
+
+        Ok(get_favorite_resp_data)
     }
 
     fn get_authorization(&self) -> String {
