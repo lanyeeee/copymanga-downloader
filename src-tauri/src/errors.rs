@@ -47,7 +47,15 @@ impl From<CopyMangaError> for anyhow::Error {
     fn from(err: CopyMangaError) -> Self {
         match err {
             CopyMangaError::Anyhow(err) => err,
-            CopyMangaError::RiskControl(err) => anyhow!(err.0),
+            CopyMangaError::RiskControl(err) => match err {
+                RiskControlError::Register(err) => anyhow!(err),
+                RiskControlError::Login(err) => anyhow!(err),
+                RiskControlError::GetUserProfile(err) => anyhow!(err),
+                RiskControlError::Search(err) => anyhow!(err),
+                RiskControlError::GetComic(err) => anyhow!(err),
+                RiskControlError::GetChapter(err) => anyhow!(err),
+                RiskControlError::GetChapters(err) => anyhow!(err),
+            },
         }
     }
 }
@@ -59,4 +67,12 @@ impl From<RiskControlError> for CopyMangaError {
 }
 
 #[derive(Debug)]
-pub struct RiskControlError(pub String);
+pub enum RiskControlError {
+    Register(String),
+    Login(String),
+    GetUserProfile(String),
+    Search(String),
+    GetComic(String),
+    GetChapter(String),
+    GetChapters(String),
+}

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
@@ -12,12 +12,14 @@ use tauri::{AppHandle, Manager};
 use tokio::task::JoinSet;
 
 use crate::{
+    account_pool::{Account, AccountPool},
     config::Config,
     errors::{CopyMangaError, CopyMangaResult, RiskControlError},
     responses::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
         GetComicRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
+    types::AsyncRwLock,
 };
 
 const API_DOMAIN: &str = "api.mangacopy.com";
@@ -58,7 +60,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::Register(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("注册失败，预料之外的状态码({status}): {body}").into());
         }
@@ -93,7 +95,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::Login(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("使用账号密码登录失败，预料之外的状态码({status}): {body}").into());
         }
@@ -130,7 +132,7 @@ impl CopyClient {
         let body = http_resp.text().await?;
         // TODO: 处理401状态码，token错误或过期
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::GetUserProfile(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取用户信息失败，预料之外的状态码({status}): {body}").into());
         }
@@ -185,7 +187,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::Search(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("搜索漫画失败，预料之外的状态码({status}): {body}").into());
         }
@@ -234,7 +236,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::GetComic(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取漫画失败，预料之外的状态码({status}): {body}").into());
         }
@@ -331,7 +333,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            return Err(RiskControlError::GetChapters(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
         }
@@ -357,6 +359,24 @@ impl CopyClient {
         comic_path_word: &str,
         chapter_uuid: &str,
     ) -> CopyMangaResult<GetChapterRespData> {
+        let account = if let Some(account) = self.get_account_from_pool().await {
+            account
+        } else {
+            // 如果账号池里没有合适的账号
+            let account_pool = self.app.state::<AsyncRwLock<AccountPool>>();
+            let mut account_pool = account_pool.write().await;
+            // 拿到写锁后再次检查账号池里是否有合适的账号
+            // 如果有，就用账号池里的账号，否则才注册一个新账号
+            // 确认一下是因为可能在拿到写锁之前，其他线程已经注册了一个新账号，避免重复注册
+            match account_pool.get_available_account() {
+                Some(account) => account,
+                None => account_pool.register().await?,
+            }
+        };
+
+        let token = account.read().token.clone();
+        let authorization = format!("Token {token}");
+
         let params = json!({
             "in_mainland": false,
             "platform": 4,
@@ -374,7 +394,7 @@ impl CopyClient {
             .header("source", "copyApp")
             .header("deviceinfo", "DCO-AL00-DCO-AL00")
             .header("webp", "1")
-            .header("authorization", "Token")
+            .header("authorization", authorization)
             .header("platform", "4")
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
@@ -385,7 +405,14 @@ impl CopyClient {
         let status = resp.status();
         let body = resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError(body).into());
+            // 如果当前账号被风控，就更新账号的limited_at字段
+            account.write().limited_at = chrono::Local::now().timestamp();
+            self.app
+                .state::<AsyncRwLock<AccountPool>>()
+                .write()
+                .await
+                .save()?;
+            return Err(RiskControlError::GetChapter(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
         }
@@ -428,6 +455,14 @@ impl CopyClient {
             .state::<RwLock<Config>>()
             .read()
             .get_authorization()
+    }
+
+    async fn get_account_from_pool(&self) -> Option<Arc<RwLock<Account>>> {
+        self.app
+            .state::<AsyncRwLock<AccountPool>>()
+            .read()
+            .await
+            .get_available_account()
     }
 }
 
