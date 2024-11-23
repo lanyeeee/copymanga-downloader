@@ -11,6 +11,7 @@ type ProgressData = {
   total: number;
   percentage: number;
   indicator: string;
+  retryAfter: number;
 }
 
 const notification = useNotification();
@@ -24,7 +25,8 @@ const overallProgress = ref<ProgressData>({
   current: 0,
   total: 0,
   percentage: 0,
-  indicator: ""
+  indicator: "",
+  retryAfter: 0,
 });
 
 const sortedProgresses = computed(() => {
@@ -45,9 +47,17 @@ onMounted(async () => {
         current: 0,
         total: 0,
         percentage: 0,
-        indicator: ""
+        indicator: "",
+        retryAfter: 0,
       };
       progresses.value.set(chapterUuid, progressData);
+    } else if (downloadEvent.event == "ChapterControlRisk") {
+      const {chapterUuid, retryAfter} = downloadEvent.data;
+      const progressData = progresses.value.get(chapterUuid) as (ProgressData | undefined);
+      if (progressData === undefined) {
+        return;
+      }
+      progressData.retryAfter = retryAfter;
     } else if (downloadEvent.event == "ChapterStart") {
       const {chapterUuid, total} = downloadEvent.data;
       const progressData = progresses.value.get(chapterUuid) as (ProgressData | undefined);
@@ -62,7 +72,11 @@ onMounted(async () => {
         return;
       }
       if (errMsg !== null) {
-        notification.warning({title: "下载章节失败", content: errMsg, meta: progressData.chapterTitle});
+        notification.warning({
+          title: "下载章节失败",
+          content: errMsg,
+          meta: `${progressData.comicTitle} - ${progressData.chapterTitle}`
+        });
       }
       progresses.value.delete(chapterUuid);
     } else if (downloadEvent.event == "ImageSuccess") {
@@ -79,7 +93,12 @@ onMounted(async () => {
       if (progressData === undefined) {
         return;
       }
-      notification.warning({title: "下载图片失败", description: url, content: errMsg, meta: progressData.chapterTitle});
+      notification.warning({
+        title: "下载图片失败",
+        description: url,
+        content: errMsg,
+        meta: `${progressData.comicTitle} - ${progressData.chapterTitle}`
+      });
     } else if (downloadEvent.event == "OverallSpeed") {
       const {speed} = downloadEvent.data;
       overallProgress.value.indicator = speed;
@@ -127,11 +146,12 @@ async function selectDownloadDir() {
       <span>{{ overallProgress.current }}/{{ overallProgress.total }}</span>
     </div>
     <div class="grid grid-cols-[1fr_1fr_2fr]"
-         v-for="[chapterUuid, {comicTitle,chapterTitle, percentage,current, total}] in sortedProgresses"
+         v-for="[chapterUuid, {comicTitle,chapterTitle, percentage,current, total, retryAfter}] in sortedProgresses"
          :key="chapterUuid">
       <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ comicTitle }}</span>
       <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ chapterTitle }}</span>
-      <span v-if="total===0">等待中</span>
+      <div v-if="retryAfter!==0">风控中，将在{{ retryAfter }}秒后自动重试</div>
+      <span v-else-if="total===0">等待中</span>
       <n-progress v-else class="" :percentage="percentage">
         {{ current }}/{{ total }}
       </n-progress>
