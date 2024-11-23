@@ -8,6 +8,7 @@ import ChapterPane from "./components/ChapterPane.vue";
 import DownloadingList from "./components/DownloadingList.vue";
 import {appDataDir} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
+import FavoritePane from "./components/FavoritePane.vue";
 
 const message = useMessage();
 const notification = useNotification();
@@ -86,6 +87,11 @@ async function test() {
       <n-tabs class="h-full basis-1/2" v-model:value="currentTabName" type="line" size="small">
         <n-tab-pane class="h-full overflow-auto p-0!" name="search" tab="漫画搜索" display-directive="show:lazy">
           <search-pane v-model:selected-comic="selectedComic" v-model:current-tab-name="currentTabName"/>
+        </n-tab-pane>
+        <n-tab-pane class="h-full overflow-auto p-0!" name="favorite" tab="漫画收藏" display-directive="show:lazy">
+          <favorite-pane :user-profile="userProfile"
+                         v-model:selected-comic="selectedComic"
+                         v-model:current-tab-name="currentTabName"/>
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="chapter" tab="章节详情" display-directive="show:lazy">
           <chapter-pane v-model:selected-comic="selectedComic"/>

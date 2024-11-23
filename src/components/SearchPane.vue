@@ -7,7 +7,7 @@ import ComicCard from "./ComicCard.vue";
 const notification = useNotification();
 
 const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
-const currentTabName = defineModel<"search" | "chapter">("currentTabName", {required: true});
+const currentTabName = defineModel<"search" | "favorite" | "chapter">("currentTabName", {required: true});
 
 const searchInput = ref<string>("");
 const searchPage = ref<number>(1);
@@ -54,7 +54,7 @@ async function search(keyword: string, page: number) {
       <div class="flex flex-col gap-row-2 overflow-auto pb-2">
         <comic-card v-for="comicInSearch in searchRespData.list"
                     :key="comicInSearch.path_word"
-                    :comic-in-search="comicInSearch"
+                    :comic-info="comicInSearch"
                     v-model:selected-comic="selectedComic"
                     v-model:current-tab-name="currentTabName"/>
       </div>
