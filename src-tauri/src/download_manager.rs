@@ -17,7 +17,7 @@ use tokio::{
 };
 
 use crate::{
-    config::Config, copy_client::CopyClient, events::DownloadEvent,
+    config::Config, copy_client::CopyClient, errors::CopyMangaError, events::DownloadEvent,
     extensions::AnyhowErrorToStringChain, types::ChapterInfo,
 };
 
@@ -90,6 +90,7 @@ impl DownloadManager {
     // TODO: 这里不应该返回错误，否则会被忽略
     #[allow(clippy::cast_possible_truncation)]
     #[allow(clippy::cast_lossless)]
+    #[allow(clippy::too_many_lines)] // TODO: 重构，减少函数长度
     async fn process_chapter(self, chapter_info: ChapterInfo) -> anyhow::Result<()> {
         // 发送下载章节排队事件
         let _ = DownloadEvent::ChapterPending {
@@ -104,9 +105,35 @@ impl DownloadManager {
             .context(format!("创建目录 {temp_download_dir:?} 失败"))?;
 
         let copy_client = self.copy_client();
-        let chapter_resp_data = copy_client
+        let chapter_resp_data = match copy_client
             .get_chapter(&chapter_info.comic_path_word, &chapter_info.chapter_uuid)
-            .await?;
+            .await
+        {
+            Ok(data) => data,
+            Err(CopyMangaError::Anyhow(err)) => {
+                let comic_title = &chapter_info.comic_title;
+                let chapter_title = &chapter_info.chapter_title;
+                let err = err.context(format!(
+                    "获取漫画 {comic_title} 的 {chapter_title} 信息失败"
+                ));
+                // 发送下载章节结束事件
+                let _ = DownloadEvent::ChapterEnd {
+                    chapter_uuid: chapter_info.chapter_uuid.clone(),
+                    err_msg: Some(err.to_string_chain()),
+                }
+                .emit(&self.app);
+                return Ok(());
+            }
+            Err(CopyMangaError::RiskControl(err)) => {
+                // TODO: 风控处理
+                let _ = DownloadEvent::ChapterEnd {
+                    chapter_uuid: chapter_info.chapter_uuid.clone(),
+                    err_msg: Some(err.0),
+                }
+                .emit(&self.app);
+                return Ok(());
+            }
+        };
         let urls: Vec<String> = chapter_resp_data
             .chapter
             .contents
