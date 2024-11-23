@@ -45,6 +45,17 @@ pub fn save_config(
 
 #[tauri::command(async)]
 #[specta::specta]
+pub async fn register(
+    copy_client: State<'_, CopyClient>,
+    username: String,
+    password: String,
+) -> CommandResult<()> {
+    copy_client.register(&username, &password).await?;
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub async fn login(
     copy_client: State<'_, CopyClient>,
     username: String,

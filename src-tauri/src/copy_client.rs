@@ -40,6 +40,39 @@ impl CopyClient {
         }
     }
 
+    pub async fn register(&self, username: &str, password: &str) -> CopyMangaResult<()> {
+        // 发送注册请求
+        let form = json!({
+            "username": username,
+            "password": password,
+        });
+        let http_resp = self
+            .api_client
+            .post(format!("https://{API_DOMAIN}/api/v3/register"))
+            .header("version", "2.2.5")
+            .header("source", "copyApp")
+            .form(&form)
+            .send()
+            .await?;
+        // 检查http响应状态码
+        let status = http_resp.status();
+        let body = http_resp.text().await?;
+        if status == 210 {
+            return Err(RiskControlError(body).into());
+        } else if status != StatusCode::OK {
+            return Err(anyhow!("注册失败，预料之外的状态码({status}): {body}").into());
+        }
+        // 尝试将body解析为CopyResp
+        let copy_resp = serde_json::from_str::<CopyResp>(&body)
+            .context(format!("注册失败，将body解析为CopyResp失败: {body}"))?;
+        // 检查CopyResp的code字段
+        if copy_resp.code != 200 {
+            return Err(anyhow!("注册失败，预料之外的code: {copy_resp:?}").into());
+        }
+
+        Ok(())
+    }
+
     pub async fn login(&self, username: &str, password: &str) -> CopyMangaResult<LoginRespData> {
         // 对密码进行编码
         const SALT: i32 = 1729;

@@ -19,6 +19,14 @@ async saveConfig(config: Config) : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async register(username: string, password: string) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("register", { username, password }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async login(username: string, password: string) : Promise<Result<LoginRespData, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("login", { username, password }) };
