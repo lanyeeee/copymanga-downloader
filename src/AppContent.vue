@@ -6,6 +6,8 @@ import LoginDialog from "./components/LoginDialog.vue";
 import SearchPane from "./components/SearchPane.vue";
 import ChapterPane from "./components/ChapterPane.vue";
 import DownloadingList from "./components/DownloadingList.vue";
+import {appDataDir} from "@tauri-apps/api/path";
+import {path} from "@tauri-apps/api";
 
 const message = useMessage();
 const notification = useNotification();
@@ -47,6 +49,16 @@ onMounted(async () => {
   config.value = await commands.getConfig();
 });
 
+async function showConfigInFileManager() {
+  const configName = "config.json";
+  const configPath = await path.join(await appDataDir(), configName);
+  const result = await commands.showPathInFileManager(configPath);
+  if (result.status === "error") {
+    notification.error({title: "打开配置文件失败", description: result.error});
+  }
+}
+
+
 async function test() {
   const result = await commands.getComic("modujingbingdenuli");
   console.log(result);
@@ -63,6 +75,7 @@ async function test() {
         </template>
       </n-input>
       <n-button type="primary" @click="loginDialogShowing=true">账号登录</n-button>
+      <n-button @click="showConfigInFileManager">打开配置目录</n-button>
       <n-button @click="test">测试用</n-button>
       <div v-if="userProfile!==undefined" class="flex flex-justify-end">
         <n-avatar round :size="32" :src="userProfile.avatar"/>

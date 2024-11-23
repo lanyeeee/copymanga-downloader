@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
+use anyhow::anyhow;
 use parking_lot::RwLock;
+use path_slash::PathBufExt;
 use tauri::{AppHandle, State};
 
 use crate::{
@@ -141,5 +143,16 @@ pub async fn download_chapters(
     for ep in chapters {
         download_manager.submit_chapter(ep).await?;
     }
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn show_path_in_file_manager(path: &str) -> CommandResult<()> {
+    let path = PathBuf::from_slash(path);
+    if !path.exists() {
+        return Err(anyhow!("路径`{path:?}`不存在").into());
+    }
+    showfile::show_path_in_file_manager(path);
     Ok(())
 }

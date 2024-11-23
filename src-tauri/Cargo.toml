@@ -41,6 +41,8 @@ bytes = { version = "1.8.0" }
 chrono = { version = "0.4.38" }
 fake = { version = "3.0.1" }
 rand = { version = "0.8.5" }
+showfile = { version = "0.1.1" }
+path-slash = { version = "0.2.1" }
 
 [profile.release]
 strip = true

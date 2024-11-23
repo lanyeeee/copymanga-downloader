@@ -82,6 +82,14 @@ async downloadChapters(chapters: ChapterInfo[]) : Promise<Result<null, CommandEr
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("show_path_in_file_manager", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

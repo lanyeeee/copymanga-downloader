@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, ref} from "vue";
-import {Config, events} from "../bindings.ts";
+import {commands, Config, events} from "../bindings.ts";
 import {NProgress, useNotification} from "naive-ui";
 import {open} from "@tauri-apps/plugin-dialog";
 
@@ -112,7 +112,13 @@ onMounted(async () => {
 });
 
 async function showDownloadDirInFileManager() {
-  // TODO: 打开下载目录
+  if (config.value === undefined) {
+    return;
+  }
+  const result = await commands.showPathInFileManager(config.value.downloadDir);
+  if (result.status === "error") {
+    notification.error({title: "打开下载目录失败", description: result.error});
+  }
 }
 
 async function selectDownloadDir() {
