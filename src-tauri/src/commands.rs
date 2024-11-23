@@ -11,8 +11,8 @@ use crate::{
     download_manager::DownloadManager,
     errors::CommandResult,
     responses::{
-        ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, SearchRespData,
-        UserProfileRespData,
+        ChapterInGetChaptersRespData, GetChapterRespData, GetFavoriteRespData, LoginRespData,
+        SearchRespData, UserProfileRespData,
     },
     types::{ChapterInfo, Comic},
 };
@@ -132,6 +132,16 @@ pub async fn get_chapter(
         .get_chapter(comic_path_word, chapter_uuid)
         .await?;
     Ok(get_chapter_resp_data)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn get_favorite(
+    copy_client: State<'_, CopyClient>,
+    page_num: i64,
+) -> CommandResult<GetFavoriteRespData> {
+    let get_favorite_resp_data = copy_client.get_favorite(page_num).await?;
+    Ok(get_favorite_resp_data)
 }
 
 #[tauri::command(async)]

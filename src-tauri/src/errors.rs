@@ -55,6 +55,7 @@ impl From<CopyMangaError> for anyhow::Error {
                 RiskControlError::GetComic(err) => anyhow!(err),
                 RiskControlError::GetChapter(err) => anyhow!(err),
                 RiskControlError::GetChapters(err) => anyhow!(err),
+                RiskControlError::GetFavorite(err) => anyhow!(err),
             },
         }
     }
@@ -75,4 +76,5 @@ pub enum RiskControlError {
     GetComic(String),
     GetChapter(String),
     GetChapters(String),
+    GetFavorite(String),
 }

@@ -40,6 +40,7 @@ pub fn run() {
             get_comic,
             get_group_chapters,
             get_chapter,
+            get_favorite,
             download_chapters,
             show_path_in_file_manager,
         ])
