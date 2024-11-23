@@ -41,6 +41,7 @@ pub fn run() {
             get_group_chapters,
             get_chapter,
             download_chapters,
+            show_path_in_file_manager,
         ])
         .events(tauri_specta::collect_events![DownloadEvent]);
 
