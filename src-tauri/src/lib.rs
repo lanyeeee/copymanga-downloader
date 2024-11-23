@@ -1,3 +1,4 @@
+mod account_pool;
 mod commands;
 mod config;
 mod copy_client;
@@ -9,12 +10,14 @@ mod responses;
 mod types;
 mod utils;
 
+use account_pool::AccountPool;
 use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
 use events::DownloadEvent;
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
+use types::AsyncRwLock;
 
 use crate::commands::*;
 use crate::config::Config;
@@ -76,6 +79,9 @@ pub fn run() {
 
             let download_manager = DownloadManager::new(app.handle());
             app.manage(download_manager);
+
+            let account_pool = AsyncRwLock::new(AccountPool::new(app.handle())?);
+            app.manage(account_pool);
 
             Ok(())
         })

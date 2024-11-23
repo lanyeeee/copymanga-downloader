@@ -38,6 +38,9 @@ tokio = { version = "1.41.0", features = ["full"] }
 parking_lot = { version = "0.12.3", features = ["send_guard"] }
 base64 = { version = "0.22" }
 bytes = { version = "1.8.0" }
+chrono = { version = "0.4.38" }
+fake = { version = "3.0.1" }
+rand = { version = "0.8.5" }
 
 [profile.release]
 strip = true

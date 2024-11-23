@@ -17,8 +17,13 @@ use tokio::{
 };
 
 use crate::{
-    config::Config, copy_client::CopyClient, errors::CopyMangaError, events::DownloadEvent,
-    extensions::AnyhowErrorToStringChain, responses::GetChapterRespData, types::ChapterInfo,
+    config::Config,
+    copy_client::CopyClient,
+    errors::{CopyMangaError, RiskControlError},
+    events::DownloadEvent,
+    extensions::AnyhowErrorToStringChain,
+    responses::GetChapterRespData,
+    types::ChapterInfo,
 };
 
 /// 用于管理下载任务
@@ -226,6 +231,7 @@ impl DownloadManager {
         chapter_info: &ChapterInfo,
     ) -> anyhow::Result<GetChapterRespData> {
         let copy_client = self.copy_client();
+        let mut retry_count = 0;
         loop {
             match copy_client
                 .get_chapter(&chapter_info.comic_path_word, &chapter_info.chapter_uuid)
@@ -233,7 +239,7 @@ impl DownloadManager {
             {
                 Ok(data) => return Ok(data),
                 Err(CopyMangaError::Anyhow(err)) => return Err(err),
-                Err(CopyMangaError::RiskControl(_)) => {
+                Err(CopyMangaError::RiskControl(RiskControlError::Register(_))) => {
                     const RETRY_WAIT_TIME: u32 = 60;
                     for i in 1..=RETRY_WAIT_TIME {
                         let _ = DownloadEvent::ChapterControlRisk {
@@ -243,6 +249,16 @@ impl DownloadManager {
                         .emit(&self.app);
                         tokio::time::sleep(Duration::from_secs(1)).await;
                     }
+                }
+                Err(err) => {
+                    // 随机等待1000-5000ms
+                    let wait_time = 1000 + rand::random::<u64>() % 4000;
+                    tokio::time::sleep(Duration::from_millis(wait_time)).await;
+                    if retry_count < 5 {
+                        retry_count += 1;
+                        continue;
+                    }
+                    return Err(err.into());
                 }
             }
         }
