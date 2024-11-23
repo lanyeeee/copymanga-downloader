@@ -30,6 +30,7 @@ pub fn run() {
             greet,
             get_config,
             save_config,
+            register,
             login,
             get_user_profile,
             search,
