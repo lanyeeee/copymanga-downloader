@@ -140,7 +140,7 @@ impl DownloadManager {
             .chapter
             .contents
             .into_iter()
-            .map(|content| content.url)
+            .map(|content| content.url.replace(".c800x.", ".c1500x."))
             .collect();
         let total = urls.len() as u32;
         // 记录总共需要下载的图片数量
