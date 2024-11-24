@@ -147,7 +147,7 @@ impl DownloadManager {
             .enumerate()
             .map(|(i, url)| {
                 let ord = chapter_resp_data.chapter.words[i];
-                (url, ord)
+                (url, ord + 1)
             })
             .collect();
         let total = urls_with_ord.len() as u32;
