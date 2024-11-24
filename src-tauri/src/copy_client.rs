@@ -392,7 +392,7 @@ impl CopyClient {
             .header("Accept-Encoding", "gzip")
             .header("source", "copyApp")
             .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "1")
+            .header("webp", "0")
             .header("authorization", authorization)
             .header("platform", "4")
             .header("referer", "com.copymanga.app-2.2.5")
