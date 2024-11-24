@@ -171,7 +171,7 @@ impl DownloadManager {
         for (i, url) in urls.iter().enumerate() {
             let manager = self.clone();
             let url = url.clone();
-            let save_path = temp_download_dir.join(format!("{:03}.webp", i + 1));
+            let save_path = temp_download_dir.join(format!("{:03}.jpg", i + 1));
             let ep_id = chapter_info.chapter_uuid.clone();
             let current = current.clone();
             // 创建下载任务
