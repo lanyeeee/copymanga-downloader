@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "copymanga-downloader",
+        "title": "拷贝漫画下载器",
         "width": 800,
         "height": 600
       }
