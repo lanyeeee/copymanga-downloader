@@ -142,7 +142,15 @@ impl DownloadManager {
             .into_iter()
             .map(|content| content.url.replace(".c800x.", ".c1500x."))
             .collect();
-        let total = urls.len() as u32;
+        let urls_with_ord: Vec<(String, i64)> = urls
+            .into_iter()
+            .enumerate()
+            .map(|(i, url)| {
+                let ord = chapter_resp_data.chapter.words[i];
+                (url, ord)
+            })
+            .collect();
+        let total = urls_with_ord.len() as u32;
         // 记录总共需要下载的图片数量
         self.total_image_count.fetch_add(total, Ordering::Relaxed);
         let current = Arc::new(AtomicU32::new(0));
@@ -168,10 +176,10 @@ impl DownloadManager {
         }
         .emit(&self.app);
         // 逐一下载图片
-        for (i, url) in urls.iter().enumerate() {
+        for (url, ord) in urls_with_ord {
             let manager = self.clone();
             let url = url.clone();
-            let save_path = temp_download_dir.join(format!("{:03}.jpg", i + 1));
+            let save_path = temp_download_dir.join(format!("{ord:03}.jpg"));
             let ep_id = chapter_info.chapter_uuid.clone();
             let current = current.clone();
             // 创建下载任务
