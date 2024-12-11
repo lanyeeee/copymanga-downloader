@@ -17,6 +17,17 @@ use crate::{
     types::{ChapterInfo, Comic, ComicInfo},
 };
 
+enum Archive {
+    Cbz,
+}
+impl Archive {
+    pub fn extension(&self) -> &str {
+        match self {
+            Archive::Cbz => "cbz",
+        }
+    }
+}
+
 #[allow(clippy::cast_possible_wrap)]
 #[allow(clippy::cast_possible_truncation)]
 pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
@@ -50,7 +61,7 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         let prefixed_chapter_title = chapter_info.prefixed_chapter_title.clone();
         let group_name = chapter_info.group_name.clone();
         let download_dir = get_download_dir(app, &chapter_info);
-        let export_dir = get_export_dir(app, &chapter_info);
+        let export_dir = get_export_dir(app, &chapter_info, &Archive::Cbz);
         let comic_info_path = export_dir.join("ComicInfo.xml");
         // 生成ComicInfo
         let comic_info = ComicInfo::from(
@@ -69,7 +80,8 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
             "{group_name} - {chapter_title} 创建目录 {export_dir:?} 失败"
         ))?;
         // 创建cbz文件
-        let zip_path = export_dir.join(format!("{prefixed_chapter_title}.cbz"));
+        let extension = Archive::Cbz.extension();
+        let zip_path = export_dir.join(format!("{prefixed_chapter_title}.{extension}"));
         let zip_file = std::fs::File::create(&zip_path).context(format!(
             "{group_name} - {chapter_title} 创建文件 {zip_path:?} 失败"
         ))?;
@@ -131,11 +143,12 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_export_dir(app: &AppHandle, chapter_info: &ChapterInfo) -> PathBuf {
+fn get_export_dir(app: &AppHandle, chapter_info: &ChapterInfo, archive: &Archive) -> PathBuf {
     app.state::<RwLock<Config>>()
         .read()
         .export_dir
         .join(&chapter_info.comic_title)
+        .join(archive.extension())
         .join(&chapter_info.group_name)
 }
 
