@@ -344,7 +344,7 @@ impl DownloadManager {
             return Err(anyhow!("无法获取 {temp_download_dir:?} 的父目录"));
         };
 
-        let download_dir = parent.join(&chapter_info.chapter_title);
+        let download_dir = parent.join(&chapter_info.prefixed_chapter_title);
 
         if download_dir.exists() {
             std::fs::remove_dir_all(&download_dir)
@@ -369,5 +369,5 @@ fn get_temp_download_dir(app: &AppHandle, chapter_info: &ChapterInfo) -> PathBuf
         .download_dir
         .join(&chapter_info.comic_title)
         .join(&chapter_info.group_name)
-        .join(format!(".下载中-{}", chapter_info.chapter_title)) // 以 `.下载中-` 开头，表示是临时目录
+        .join(format!(".下载中-{}", chapter_info.prefixed_chapter_title)) // 以 `.下载中-` 开头，表示是临时目录
 }
