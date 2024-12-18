@@ -15,8 +15,10 @@ use crate::{
     account_pool::{Account, AccountPool},
     config::Config,
     errors::{CopyMangaError, CopyMangaResult, RiskControlError},
+    extensions::SendWithTimeoutMsg,
     responses::{
-        ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData, GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData
+        ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
+        GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
     types::AsyncRwLock,
 };
@@ -53,7 +55,7 @@ impl CopyClient {
             .header("version", "2.2.5")
             .header("source", "copyApp")
             .form(&form)
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -88,7 +90,7 @@ impl CopyClient {
             .api_client
             .post(format!("https://{API_DOMAIN}/api/v3/login"))
             .form(&form)
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -124,7 +126,7 @@ impl CopyClient {
             .api_client
             .get(format!("https://{API_DOMAIN}/api/v3/member/info"))
             .header("authorization", authorization)
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -180,7 +182,7 @@ impl CopyClient {
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
             .header("region", "1")
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -229,7 +231,7 @@ impl CopyClient {
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
             .header("region", "1")
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -326,7 +328,7 @@ impl CopyClient {
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
             .header("region", "1")
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
@@ -398,7 +400,7 @@ impl CopyClient {
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
             .header("region", "1")
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = resp.status();
@@ -434,7 +436,11 @@ impl CopyClient {
 
     pub async fn get_image_bytes(&self, url: &str) -> anyhow::Result<Bytes> {
         // 发送下载图片请求
-        let http_resp = self.img_client.get(url).send().await?;
+        let http_resp = self
+            .img_client
+            .get(url)
+            .send_with_timeout_msg()
+            .await?;
         // 检查http响应状态码
         let status = http_resp.status();
         if status != StatusCode::OK {
@@ -475,7 +481,7 @@ impl CopyClient {
             .header("referer", "com.copymanga.app-2.2.5")
             .header("version", "2.2.5")
             .header("region", "1")
-            .send()
+            .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
         let status = http_resp.status();
