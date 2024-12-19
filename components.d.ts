@@ -9,6 +9,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ChapterPane: typeof import('./src/components/ChapterPane.vue')['default']
     ComicCard: typeof import('./src/components/ComicCard.vue')['default']
+    DownloadedPane: typeof import('./src/components/DownloadedPane.vue')['default']
     DownloadingList: typeof import('./src/components/DownloadingList.vue')['default']
     FavoritePane: typeof import('./src/components/FavoritePane.vue')['default']
     LoginDialog: typeof import('./src/components/LoginDialog.vue')['default']

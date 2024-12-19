@@ -3,11 +3,12 @@ import {computed, ref} from "vue";
 import {Comic, commands, SearchRespData} from "../bindings.ts";
 import {useNotification} from "naive-ui";
 import ComicCard from "./ComicCard.vue";
+import {CurrentTabName} from "../types.ts";
 
 const notification = useNotification();
 
 const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
-const currentTabName = defineModel<"search" | "favorite" | "chapter">("currentTabName", {required: true});
+const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const searchInput = ref<string>("");
 const searchPage = ref<number>(1);
