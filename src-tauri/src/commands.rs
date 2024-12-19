@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use parking_lot::RwLock;
 use path_slash::PathBufExt;
 use tauri::{AppHandle, State};
@@ -153,6 +153,37 @@ pub async fn download_chapters(
     for ep in chapters {
         download_manager.submit_chapter(ep).await?;
     }
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn save_metadata(config: State<RwLock<Config>>, mut comic: Comic) -> CommandResult<()> {
+    // 将所有章节的is_downloaded字段设置为None，这样能使is_downloaded字段在序列化时被忽略
+    for chapter_infos in comic.comic.groups.values_mut() {
+        for chapter_info in chapter_infos.iter_mut() {
+            chapter_info.is_downloaded = None;
+        }
+    }
+
+    let comic_title = comic.comic.name.clone();
+    let comic_json = serde_json::to_string_pretty(&comic).context(format!(
+        "{comic_title} 的元数据保存失败，将Comic序列化为json失败"
+    ))?;
+
+    let download_dir = config.read().download_dir.clone();
+    let metadata_dir = download_dir.join(&comic_title);
+    let metadata_path = metadata_dir.join("元数据.json");
+
+    std::fs::create_dir_all(&metadata_dir).context(format!(
+        "{comic_title} 的元数据保存失败，创建目录 {metadata_dir:?} 失败"
+    ))?;
+
+    std::fs::write(&metadata_path, comic_json).context(format!(
+        "{comic_title} 的元数据保存失败，写入文件 {metadata_path:?} 失败"
+    ))?;
+
     Ok(())
 }
 
