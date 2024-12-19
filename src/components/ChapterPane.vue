@@ -55,14 +55,13 @@ function extractIds(elements: Element[]): string[] {
         if (chapterInfo === undefined) {
           return false;
         }
-        // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-        return !chapterInfo.isDownloaded;
+
+        return chapterInfo.isDownloaded === false;
       });
 }
 
 function onDragStart({event, selection}: SelectionEvent) {
-  // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-  if (!event?.ctrlKey && !event?.metaKey) {
+  if (event?.ctrlKey === false && event?.metaKey === false) {
     selection.clearSelection();
     selectedIds.value.clear();
   }
@@ -78,17 +77,14 @@ function onDropdownSelect(key: "check" | "uncheck" | "check all" | "uncheck all"
   if (key === "check") {
     // 只有未勾选的才会被勾选
     [...selectedIds.value]
-        // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-        .filter(id => !checkedIds.value.includes(id))
+        .filter(id => checkedIds.value.includes(id) === false)
         .forEach(id => checkedIds.value.push(id));
   } else if (key === "uncheck") {
-    // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-    checkedIds.value = checkedIds.value.filter(id => !selectedIds.value.has(id));
+    checkedIds.value = checkedIds.value.filter(id => selectedIds.value.has(id) === false);
   } else if (key === "check all") {
     // 只对currentGroup中的元素进行勾选
     currentGroup.value
-        // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-        ?.filter(c => !c.isDownloaded && !checkedIds.value.includes(c.chapterUuid))
+        ?.filter(c => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid) === false)
         .forEach(c => checkedIds.value.push(c.chapterUuid));
   } else if (key === "uncheck all") {
     // 只对currentGroup中的元素进行取消勾选
@@ -97,8 +93,7 @@ function onDropdownSelect(key: "check" | "uncheck" | "check all" | "uncheck all"
       return;
     }
     // 删除checkedIds中在currentGroupIds中的元素
-    // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-    checkedIds.value = checkedIds.value.filter(id => !currentGroupIds.includes(id));
+    checkedIds.value = checkedIds.value.filter(id => currentGroupIds.includes(id) === false);
   }
 }
 
@@ -111,8 +106,7 @@ async function onContextMenu(e: MouseEvent) {
 }
 
 async function downloadChapters() {
-  // TODO: 永远不要在 js 中用 ! 进行逻辑取反
-  const chapterToDownload = currentGroup.value?.filter(c => !c.isDownloaded && checkedIds.value.includes(c.chapterUuid));
+  const chapterToDownload = currentGroup.value?.filter(c => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid));
   if (chapterToDownload === undefined) {
     return;
   }
