@@ -2,6 +2,9 @@
 import {SelectionArea, SelectionEvent, SelectionOptions} from "@viselect/vue";
 import {computed, nextTick, ref, watch} from "vue";
 import {ChapterInfo, Comic, commands} from "../bindings.ts";
+import {useNotification} from "naive-ui";
+
+const notification = useNotification();
 
 const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
 
@@ -106,12 +109,19 @@ async function onContextMenu(e: MouseEvent) {
 }
 
 async function downloadChapters() {
+  // 创建下载任务前，先创建元数据
+  const result = await commands.saveMetadata(selectedComic.value!);
+  if (result.status === "error") {
+    notification.error({title: "保存元数据失败", description: result.error});
+    return;
+  }
+  // 下载勾选的章节
   const chapterToDownload = currentGroup.value?.filter(c => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid));
   if (chapterToDownload === undefined) {
     return;
   }
   await commands.downloadChapters(chapterToDownload);
-
+  // 更新勾选状态
   for (const downloadedChapter of chapterToDownload) {
     const chapter = currentGroup.value?.find(c => c.chapterUuid === downloadedChapter.chapterUuid);
     if (chapter !== undefined) {
