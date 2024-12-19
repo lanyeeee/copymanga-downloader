@@ -64,8 +64,13 @@ async function test() {
   if (selectedComic.value === undefined) {
     return;
   }
-  const result = await commands.saveMetadata(selectedComic.value);
-  console.log(result);
+  await commands.saveMetadata(selectedComic.value);
+  const result = await commands.getDownloadedComics();
+  if (result.status === "error") {
+    notification.error({title: "获取下载的漫画失败", description: result.error});
+    return;
+  }
+  console.log(result.data);
 }
 
 </script>

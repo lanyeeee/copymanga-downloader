@@ -103,7 +103,7 @@ pub async fn get_comic(
             .await?;
         groups_chapters.insert(group_path_word.clone(), chapters);
     }
-    let comic = Comic::from(&app, get_comic_resp_data, groups_chapters);
+    let comic = Comic::from_resp_data(&app, get_comic_resp_data, groups_chapters);
 
     Ok(comic)
 }
@@ -185,6 +185,32 @@ pub fn save_metadata(config: State<RwLock<Config>>, mut comic: Comic) -> Command
     ))?;
 
     Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn get_downloaded_comics(
+    app: AppHandle,
+    config: State<RwLock<Config>>,
+) -> CommandResult<Vec<Comic>> {
+    let download_dir = config.read().download_dir.clone();
+    // 遍历下载目录，获取所有已下载的漫画
+    let downloaded_comics = std::fs::read_dir(&download_dir)
+        .context(format!("读取下载目录 {download_dir:?} 失败"))?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let metadata_path = entry.path().join("元数据.json");
+            if !metadata_path.exists() {
+                return None;
+            }
+            // TODO: 如果读取元数据失败，应该发送错误Event通知前端，然后才跳过
+            let comic = Comic::from_metadata(&app, &metadata_path).ok()?;
+            Some(comic)
+        })
+        .collect::<Vec<_>>();
+
+    Ok(downloaded_comics)
 }
 
 #[tauri::command(async)]
