@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
+use anyhow::Context;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -34,7 +35,7 @@ pub struct Comic {
     pub groups: HashMap<String, Group>,
 }
 impl Comic {
-    pub fn from(
+    pub fn from_resp_data(
         app: &AppHandle,
         comic_resp_data: GetComicRespData,
         groups_chapters: HashMap<String, Vec<ChapterInGetChaptersRespData>>,
@@ -58,6 +59,27 @@ impl Comic {
             popular,
             groups,
         }
+    }
+
+    pub fn from_metadata(app: &AppHandle, metadata_path: &Path) -> anyhow::Result<Comic> {
+        let comic_json = std::fs::read_to_string(metadata_path).context(format!(
+            "从元数据转为Comic失败，读取元数据文件 {metadata_path:?} 失败"
+        ))?;
+        let mut comic = serde_json::from_str::<Comic>(&comic_json).context(format!(
+            "从元数据转为Comic失败，将 {metadata_path:?} 反序列化为Comic失败"
+        ))?;
+        // 这个comic中的is_downloaded字段是None，需要重新计算
+        for chapter_infos in comic.comic.groups.values_mut() {
+            for chapter_info in chapter_infos.iter_mut() {
+                let comic_title = &comic.comic.name;
+                let group_name = &chapter_info.group_name;
+                let chapter_title = &chapter_info.chapter_title;
+                let is_downloaded =
+                    ChapterInfo::get_is_downloaded(app, comic_title, group_name, chapter_title);
+                chapter_info.is_downloaded = Some(is_downloaded);
+            }
+        }
+        Ok(comic)
     }
 }
 
@@ -226,14 +248,9 @@ impl ChapterInfo {
         let order = chapter.ordered as f64 / 10.0;
         let chapter_title = filename_filter(&chapter.name);
         let prefixed_chapter_title = format!("{order} {chapter_title}");
-        let is_downloaded = app
-            .state::<RwLock<Config>>()
-            .read()
-            .download_dir
-            .join(&comic_title)
-            .join(&group_name)
-            .join(&prefixed_chapter_title)
-            .exists();
+        let is_downloaded =
+            ChapterInfo::get_is_downloaded(app, &comic_title, &group_name, &prefixed_chapter_title);
+
         ChapterInfo {
             chapter_uuid: chapter.uuid,
             chapter_title,
@@ -245,6 +262,21 @@ impl ChapterInfo {
             order,
             is_downloaded: Some(is_downloaded),
         }
+    }
+
+    pub fn get_is_downloaded(
+        app: &AppHandle,
+        comic_title: &str,
+        group_name: &str,
+        prefixed_chapter_title: &str,
+    ) -> bool {
+        app.state::<RwLock<Config>>()
+            .read()
+            .download_dir
+            .join(comic_title)
+            .join(group_name)
+            .join(prefixed_chapter_title)
+            .exists()
     }
 }
 
