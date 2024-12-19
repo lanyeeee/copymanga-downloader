@@ -210,7 +210,8 @@ pub struct ChapterInfo {
     pub group_name: String,
     /// 此章节在group中的顺序
     pub order: f64,
-    pub is_downloaded: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_downloaded: Option<bool>,
 }
 impl ChapterInfo {
     #[allow(clippy::cast_precision_loss)]
@@ -242,7 +243,7 @@ impl ChapterInfo {
             comic_path_word,
             group_name,
             order,
-            is_downloaded,
+            is_downloaded: Some(is_downloaded),
         }
     }
 }

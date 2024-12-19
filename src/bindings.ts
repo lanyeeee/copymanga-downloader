@@ -91,6 +91,14 @@ async downloadChapters(chapters: ChapterInfo[]) : Promise<Result<null, CommandEr
     else return { status: "error", error: e  as any };
 }
 },
+async saveMetadata(comic: Comic) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_metadata", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("show_path_in_file_manager", { path }) };
@@ -128,7 +136,7 @@ prefixedChapterTitle: string; comicUuid: string; comicTitle: string; comicPathWo
 /**
  * 此章节在group中的顺序
  */
-order: number; isDownloaded: boolean }
+order: number; isDownloaded?: boolean | null }
 export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group } }
 export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; img_type: number; seo_baidu: string; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; groups: { [key in string]: ChapterInfo[] } }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }

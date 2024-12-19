@@ -61,7 +61,10 @@ async function showConfigInFileManager() {
 
 
 async function test() {
-  const result = await commands.getFavorite(1);
+  if (selectedComic.value === undefined) {
+    return;
+  }
+  const result = await commands.saveMetadata(selectedComic.value);
   console.log(result);
 }
 
