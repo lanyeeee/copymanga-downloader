@@ -9,6 +9,8 @@ import DownloadingList from "./components/DownloadingList.vue";
 import {appDataDir} from "@tauri-apps/api/path";
 import {path} from "@tauri-apps/api";
 import FavoritePane from "./components/FavoritePane.vue";
+import {CurrentTabName} from "./types.ts";
+import DownloadedPane from "./components/DownloadedPane.vue";
 
 const message = useMessage();
 const notification = useNotification();
@@ -16,7 +18,7 @@ const notification = useNotification();
 const config = ref<Config>();
 const userProfile = ref<UserProfileRespData>();
 const loginDialogShowing = ref<boolean>(false);
-const currentTabName = ref<"search" | "chapter">("search");
+const currentTabName = ref<CurrentTabName>("search");
 const selectedComic = ref<Comic>();
 
 watch(config, async () => {
@@ -100,6 +102,9 @@ async function test() {
           <favorite-pane :user-profile="userProfile"
                          v-model:selected-comic="selectedComic"
                          v-model:current-tab-name="currentTabName"/>
+        </n-tab-pane>
+        <n-tab-pane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show:lazy">
+          <downloaded-pane v-model:selected-comic="selectedComic" v-model:current-tab-name="currentTabName"/>
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="chapter" tab="章节详情" display-directive="show:lazy">
           <chapter-pane v-model:selected-comic="selectedComic"/>

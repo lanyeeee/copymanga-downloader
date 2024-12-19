@@ -3,6 +3,7 @@ import ComicCard from "./ComicCard.vue";
 import {computed, ref, watch} from "vue";
 import {Comic, commands, GetFavoriteRespData, UserProfileRespData} from "../bindings.ts";
 import {useNotification} from "naive-ui";
+import {CurrentTabName} from "../types.ts";
 
 const notification = useNotification();
 
@@ -11,7 +12,7 @@ const props = defineProps<{
 }>();
 
 const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
-const currentTabName = defineModel<"search" | "favorite" | "chapter">("currentTabName", {required: true});
+const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const getFavoriteRespData = ref<GetFavoriteRespData>();
 const pageSelected = ref<number>(1);
