@@ -64,6 +64,7 @@ impl Comic {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
+#[allow(clippy::module_name_repetitions)]
 pub struct ComicDetail {
     pub uuid: String,
     #[serde(rename = "b_404")]
@@ -152,19 +153,14 @@ impl ComicDetail {
             let chapter_infos: Vec<_> = chapters
                 .into_iter()
                 .map(|chapter| {
-                    let chapter_title = filename_filter(&chapter.name);
-                    let is_downloaded =
-                        get_is_downloaded(app, &comic_title, &group_name, &chapter_title);
-
-                    ChapterInfo {
-                        chapter_uuid: chapter.uuid,
-                        chapter_title,
-                        comic_uuid: comic_uuid.clone(),
-                        comic_title: comic_title.clone(),
-                        comic_path_word: comic_path_word.clone(),
-                        group_name: group_name.clone(),
-                        is_downloaded,
-                    }
+                    ChapterInfo::from(
+                        app,
+                        chapter,
+                        comic_title.clone(),
+                        group_name.clone(),
+                        comic_uuid.clone(),
+                        comic_path_word.clone(),
+                    )
                 })
                 .collect();
 
@@ -206,11 +202,49 @@ impl ComicDetail {
 pub struct ChapterInfo {
     pub chapter_uuid: String,
     pub chapter_title: String,
+    /// 以order为前缀的章节标题
+    pub prefixed_chapter_title: String,
     pub comic_uuid: String,
     pub comic_title: String,
     pub comic_path_word: String,
     pub group_name: String,
+    /// 此章节在group中的顺序
+    pub order: f64,
     pub is_downloaded: bool,
+}
+impl ChapterInfo {
+    #[allow(clippy::cast_precision_loss)]
+    pub fn from(
+        app: &AppHandle,
+        chapter: ChapterInGetChaptersRespData,
+        comic_title: String,
+        group_name: String,
+        comic_uuid: String,
+        comic_path_word: String,
+    ) -> ChapterInfo {
+        let order = chapter.ordered as f64 / 10.0;
+        let chapter_title = filename_filter(&chapter.name);
+        let prefixed_chapter_title = format!("{order} {chapter_title}");
+        let is_downloaded = app
+            .state::<RwLock<Config>>()
+            .read()
+            .download_dir
+            .join(&comic_title)
+            .join(&group_name)
+            .join(&prefixed_chapter_title)
+            .exists();
+        ChapterInfo {
+            chapter_uuid: chapter.uuid,
+            chapter_title,
+            prefixed_chapter_title,
+            comic_uuid,
+            comic_title,
+            comic_path_word,
+            group_name,
+            order,
+            is_downloaded,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -305,19 +339,4 @@ impl Group {
             })
             .collect()
     }
-}
-
-fn get_is_downloaded(
-    app: &AppHandle,
-    comic_title: &str,
-    group_name: &str,
-    chapter_title: &str,
-) -> bool {
-    app.state::<RwLock<Config>>()
-        .read()
-        .download_dir
-        .join(comic_title)
-        .join(group_name)
-        .join(chapter_title)
-        .exists()
 }
