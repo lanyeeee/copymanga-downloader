@@ -3,14 +3,14 @@ import { onMounted, ref, watch } from 'vue'
 import { Comic, commands, Config, UserProfileRespData } from './bindings.ts'
 import { useMessage, useNotification } from 'naive-ui'
 import LoginDialog from './components/LoginDialog.vue'
-import SearchPane from './components/SearchPane.vue'
-import ChapterPane from './components/ChapterPane.vue'
-import DownloadingList from './components/DownloadingList.vue'
+import SearchPane from './panes/SearchPane.vue'
+import ChapterPane from './panes/ChapterPane.vue'
+import DownloadingPane from './panes/DownloadingPane.vue'
 import { appDataDir } from '@tauri-apps/api/path'
 import { path } from '@tauri-apps/api'
-import FavoritePane from './components/FavoritePane.vue'
+import FavoritePane from './panes/FavoritePane.vue'
 import { CurrentTabName } from './types.ts'
-import DownloadedPane from './components/DownloadedPane.vue'
+import DownloadedPane from './panes/DownloadedPane.vue'
 
 const message = useMessage()
 const notification = useNotification()
@@ -114,7 +114,7 @@ async function test() {
           <chapter-pane v-model:picked-comic="pickedComic" />
         </n-tab-pane>
       </n-tabs>
-      <downloading-list class="basis-1/2 overflow-auto" v-model:config="config"></downloading-list>
+      <downloading-pane class="basis-1/2 overflow-auto" v-model:config="config"></downloading-pane>
     </div>
     <n-modal v-model:show="loginDialogShowing">
       <login-dialog v-model:showing="loginDialogShowing" v-model:config="config" />

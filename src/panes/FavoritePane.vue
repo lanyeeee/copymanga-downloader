@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ComicCard from './ComicCard.vue'
+import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
 import { Comic, commands, GetFavoriteRespData, UserProfileRespData } from '../bindings.ts'
 import { useNotification } from 'naive-ui'
