@@ -19,7 +19,7 @@ const config = ref<Config>();
 const userProfile = ref<UserProfileRespData>();
 const loginDialogShowing = ref<boolean>(false);
 const currentTabName = ref<CurrentTabName>("search");
-const selectedComic = ref<Comic>();
+const pickedComic = ref<Comic>();
 
 watch(config, async () => {
   if (config.value === undefined) {
@@ -63,10 +63,10 @@ async function showConfigInFileManager() {
 
 
 async function test() {
-  if (selectedComic.value === undefined) {
+  if (pickedComic.value === undefined) {
     return;
   }
-  await commands.saveMetadata(selectedComic.value);
+  await commands.saveMetadata(pickedComic.value);
   const result = await commands.getDownloadedComics();
   if (result.status === "error") {
     notification.error({title: "获取下载的漫画失败", description: result.error});
@@ -96,18 +96,18 @@ async function test() {
     <div class="flex flex-1 overflow-hidden">
       <n-tabs class="h-full basis-1/2" v-model:value="currentTabName" type="line" size="small">
         <n-tab-pane class="h-full overflow-auto p-0!" name="search" tab="漫画搜索" display-directive="show:lazy">
-          <search-pane v-model:selected-comic="selectedComic" v-model:current-tab-name="currentTabName"/>
+          <search-pane v-model:picked-comic="pickedComic" v-model:current-tab-name="currentTabName"/>
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="favorite" tab="漫画收藏" display-directive="show:lazy">
           <favorite-pane :user-profile="userProfile"
-                         v-model:selected-comic="selectedComic"
+                         v-model:picked-comic="pickedComic"
                          v-model:current-tab-name="currentTabName"/>
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show:lazy">
-          <downloaded-pane v-model:selected-comic="selectedComic" v-model:current-tab-name="currentTabName"/>
+          <downloaded-pane v-model:picked-comic="pickedComic" v-model:current-tab-name="currentTabName"/>
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="chapter" tab="章节详情" display-directive="show:lazy">
-          <chapter-pane v-model:selected-comic="selectedComic"/>
+          <chapter-pane v-model:picked-comic="pickedComic"/>
         </n-tab-pane>
       </n-tabs>
       <downloading-list class="basis-1/2 overflow-auto" v-model:config="config"></downloading-list>

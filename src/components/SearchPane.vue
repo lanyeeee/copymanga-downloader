@@ -7,7 +7,7 @@ import {CurrentTabName} from "../types.ts";
 
 const notification = useNotification();
 
-const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
+const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
 const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const searchInput = ref<string>("");
@@ -56,7 +56,7 @@ async function search(keyword: string, page: number) {
         <comic-card v-for="comicInSearch in searchRespData.list"
                     :key="comicInSearch.path_word"
                     :comic-info="comicInSearch"
-                    v-model:selected-comic="selectedComic"
+                    v-model:picked-comic="pickedComic"
                     v-model:current-tab-name="currentTabName"/>
       </div>
       <n-pagination :page-count="searchPageCount"

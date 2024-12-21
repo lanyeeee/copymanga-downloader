@@ -7,7 +7,7 @@ import ComicCard from "./ComicCard.vue";
 
 const notification = useNotification();
 
-const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
+const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
 const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const downloadedComics = ref<Comic[]>([]);
@@ -26,7 +26,7 @@ watch(() => currentTabName.value, async () => {
 }, {immediate: true});
 
 async function onClickItem(comicPathWord: string) {
-  selectedComic.value = downloadedComics.value.find(({comic}) => comic.path_word === comicPathWord);
+  pickedComic.value = downloadedComics.value.find(({comic}) => comic.path_word === comicPathWord);
   currentTabName.value = "chapter";
 }
 
@@ -39,7 +39,7 @@ async function onClickItem(comicPathWord: string) {
                   :key="comic.uuid"
                   :comic-info="comic"
                   :on-click-item="onClickItem"
-                  v-model:selected-comic="selectedComic"
+                  v-model:picked-comic="pickedComic"
                   v-model:current-tab-name="currentTabName"/>
     </div>
   </div>

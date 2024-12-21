@@ -8,7 +8,7 @@ const props = defineProps<{
   onClickItem?: (comic_id: string) => Promise<void>;
 }>();
 
-const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
+const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
 const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const notification = useNotification();
@@ -19,7 +19,7 @@ async function defaultOnClickItem(comicPathWord: string) {
     notification.error({title: "获取漫画失败", description: result.error});
     return;
   }
-  selectedComic.value = result.data;
+  pickedComic.value = result.data;
   currentTabName.value = "chapter";
 }
 
