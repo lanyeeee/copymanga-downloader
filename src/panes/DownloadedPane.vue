@@ -3,7 +3,7 @@ import { Comic, commands } from '../bindings.ts'
 import { CurrentTabName } from '../types.ts'
 import { ref, watch } from 'vue'
 import { useNotification } from 'naive-ui'
-import ComicCard from './ComicCard.vue'
+import ComicCard from '../components/ComicCard.vue'
 
 const notification = useNotification()
 
