@@ -6,7 +6,7 @@ import {useNotification} from "naive-ui";
 
 const notification = useNotification();
 
-const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
+const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
 
 const dropdownX = ref<number>(0);
 const dropdownY = ref<number>(0);
@@ -23,17 +23,17 @@ const selectionAreaRef = ref<InstanceType<typeof SelectionArea>>();
 const currentGroupPath = ref<string>("default");
 
 
-const currentGroup = computed<ChapterInfo[] | undefined>(() => selectedComic.value?.comic.groups[currentGroupPath.value]);
+const currentGroup = computed<ChapterInfo[] | undefined>(() => pickedComic.value?.comic.groups[currentGroupPath.value]);
 const sortedGroups = computed<[string, ChapterInfo[]][] | undefined>(() => {
-  if (selectedComic.value === undefined) {
+  if (pickedComic.value === undefined) {
     return undefined;
   }
 
-  return Object.entries(selectedComic.value.comic.groups)
+  return Object.entries(pickedComic.value.comic.groups)
       .sort((a, b) => b[1].length - a[1].length);
 });
 const groupArray = computed<ChapterInfo[] | undefined>(() => {
-  const groups = selectedComic.value?.comic.groups;
+  const groups = pickedComic.value?.comic.groups;
   if (groups === undefined) {
     return undefined;
   }
@@ -41,7 +41,7 @@ const groupArray = computed<ChapterInfo[] | undefined>(() => {
   return Object.values(groups).flatMap(infos => infos);
 });
 
-watch(selectedComic, () => {
+watch(pickedComic, () => {
   checkedIds.value.length = 0;
   selectedIds.value.clear();
   selectionAreaRef.value?.selection?.clearSelection();
@@ -110,7 +110,7 @@ async function onContextMenu(e: MouseEvent) {
 
 async function downloadChapters() {
   // 创建下载任务前，先创建元数据
-  const result = await commands.saveMetadata(selectedComic.value!);
+  const result = await commands.saveMetadata(pickedComic.value!);
   if (result.status === "error") {
     notification.error({title: "保存元数据失败", description: result.error});
     return;
@@ -132,17 +132,17 @@ async function downloadChapters() {
 }
 
 async function refreshChapters() {
-  if (selectedComic.value === undefined) {
+  if (pickedComic.value === undefined) {
     return;
   }
 
-  const result = await commands.getComic(selectedComic.value.comic.path_word);
+  const result = await commands.getComic(pickedComic.value.comic.path_word);
   if (result.status === "error") {
     console.error(result.error);
     return;
   }
 
-  selectedComic.value = result.data;
+  pickedComic.value = result.data;
 }
 
 </script>
@@ -158,20 +158,20 @@ async function refreshChapters() {
     </div>
     <div class="flex justify-between">
       左键拖动进行框选，右键打开菜单
-      <n-button size="tiny" :disabled="selectedComic===undefined" @click="refreshChapters" class="w-1/6">刷新</n-button>
-      <n-button size="tiny" :disabled="selectedComic===undefined" type="primary" @click="downloadChapters"
+      <n-button size="tiny" :disabled="pickedComic===undefined" @click="refreshChapters" class="w-1/6">刷新</n-button>
+      <n-button size="tiny" :disabled="pickedComic===undefined" type="primary" @click="downloadChapters"
                 class="w-1/4">
         下载勾选章节
       </n-button>
     </div>
-    <n-empty v-if="selectedComic === undefined" description="请先进行漫画搜索">
+    <n-empty v-if="pickedComic === undefined" description="请先进行漫画搜索">
     </n-empty>
     <n-tabs v-else class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small">
       <n-tab-pane
           v-for="[groupPath, _] in sortedGroups"
           :key="groupPath"
           :name="groupPath"
-          :tab="selectedComic.groups[groupPath].name"
+          :tab="pickedComic.groups[groupPath].name"
           class="overflow-auto p-0!">
         <SelectionArea ref="selectionAreaRef"
                        class="selection-container h-full"
@@ -180,7 +180,7 @@ async function refreshChapters() {
                        @move="onDragMove"
                        @start="onDragStart">
           <n-checkbox-group v-model:value="checkedIds" class="grid grid-cols-3 gap-1.5 w-full mb-3">
-            <n-checkbox v-for="{chapterUuid, chapterTitle, isDownloaded} in selectedComic.comic.groups[groupPath]"
+            <n-checkbox v-for="{chapterUuid, chapterTitle, isDownloaded} in pickedComic.comic.groups[groupPath]"
                         :key="chapterUuid"
                         :data-key="chapterUuid"
                         class="selectable hover:bg-gray-200!"

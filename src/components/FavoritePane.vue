@@ -11,7 +11,7 @@ const props = defineProps<{
   userProfile: UserProfileRespData | undefined
 }>();
 
-const selectedComic = defineModel<Comic | undefined>("selectedComic", {required: true});
+const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
 const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
 
 const getFavoriteRespData = ref<GetFavoriteRespData>();
@@ -52,7 +52,7 @@ async function getFavourite(page: number) {
         <comic-card v-for="favoriteItemRespData in getFavoriteRespData.list"
                     :key="favoriteItemRespData.uuid"
                     :comic-info="favoriteItemRespData.comic"
-                    v-model:selected-comic="selectedComic"
+                    v-model:picked-comic="pickedComic"
                     v-model:current-tab-name="currentTabName"/>
       </div>
       <n-pagination :page-count="favoritePageCount"
