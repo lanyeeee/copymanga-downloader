@@ -1,52 +1,53 @@
 <script setup lang="ts">
-import {Comic, commands} from "../bindings.ts";
-import {useNotification} from "naive-ui";
-import {ComicInfo, CurrentTabName} from "../types.ts";
+import { Comic, commands } from '../bindings.ts'
+import { useNotification } from 'naive-ui'
+import { ComicInfo, CurrentTabName } from '../types.ts'
 
 const props = defineProps<{
-  comicInfo: ComicInfo;
-  onClickItem?: (comic_id: string) => Promise<void>;
-}>();
+  comicInfo: ComicInfo
+  onClickItem?: (comic_id: string) => Promise<void>
+}>()
 
-const pickedComic = defineModel<Comic | undefined>("pickedComic", {required: true});
-const currentTabName = defineModel<CurrentTabName>("currentTabName", {required: true});
+const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
+const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 
-const notification = useNotification();
+const notification = useNotification()
 
 async function defaultOnClickItem(comicPathWord: string) {
-  const result = await commands.getComic(comicPathWord);
-  if (result.status === "error") {
-    notification.error({title: "获取漫画失败", description: result.error});
-    return;
+  const result = await commands.getComic(comicPathWord)
+  if (result.status === 'error') {
+    notification.error({ title: '获取漫画失败', description: result.error })
+    return
   }
-  pickedComic.value = result.data;
-  currentTabName.value = "chapter";
+  pickedComic.value = result.data
+  currentTabName.value = 'chapter'
 }
 
 async function onClick() {
-  const {onClickItem, comicInfo} = props;
+  const { onClickItem, comicInfo } = props
   if (onClickItem) {
-    await onClickItem(comicInfo.path_word);
+    await onClickItem(comicInfo.path_word)
   } else {
-    await defaultOnClickItem(comicInfo.path_word);
+    await defaultOnClickItem(comicInfo.path_word)
   }
 }
-
 </script>
 
 <template>
   <n-card content-style="padding: 0.25rem;" hoverable>
     <div class="flex">
-      <img class="w-24 object-cover mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
-           :src="comicInfo.cover"
-           alt=""
-           @click="onClick"/>
+      <img
+        class="w-24 object-cover mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
+        :src="comicInfo.cover"
+        alt=""
+        @click="onClick" />
       <div class="flex flex-col h-full">
-        <span class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
-              @click="onClick">
+        <span
+          class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+          @click="onClick">
           {{ comicInfo.name }}
         </span>
-        <span v-html="`作者：${comicInfo.author.map(a => a.name)}`" class="text-red"></span>
+        <span v-html="`作者：${comicInfo.author.map((a) => a.name)}`" class="text-red"></span>
       </div>
     </div>
   </n-card>
