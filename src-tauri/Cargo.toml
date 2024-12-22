@@ -23,7 +23,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = { version = "2" }
 
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1" }
+yaserde = { version = "0.11.2", features = ["yaserde_derive"] }
 
 specta = { version = "2.0.0-rc" }
 tauri-specta = { version = "2.0.0-rc", features = ["derive", "typescript"] }
@@ -43,6 +44,7 @@ fake = { version = "3.0.1" }
 rand = { version = "0.8.5" }
 showfile = { version = "0.1.1" }
 path-slash = { version = "0.2.1" }
+zip = { version = "2.2.0", default-features = false }
 
 [profile.release]
 strip = true
