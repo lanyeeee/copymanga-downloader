@@ -15,7 +15,7 @@ use account_pool::AccountPool;
 use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
-use events::DownloadEvent;
+use events::{DownloadEvent, ExportCbzEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use types::AsyncRwLock;
@@ -48,7 +48,7 @@ pub fn run() {
             export_cbz,
             show_path_in_file_manager,
         ])
-        .events(tauri_specta::collect_events![DownloadEvent]);
+        .events(tauri_specta::collect_events![DownloadEvent, ExportCbzEvent]);
 
     #[cfg(debug_assertions)]
     builder

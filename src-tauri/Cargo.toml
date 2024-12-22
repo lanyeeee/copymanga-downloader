@@ -46,6 +46,7 @@ showfile = { version = "0.1.1" }
 path-slash = { version = "0.2.1" }
 zip = { version = "2.2.0", default-features = false }
 rayon = { version = "1.10.0" }
+uuid = { version = "1.11.0" }
 
 [profile.release]
 strip = true
