@@ -510,6 +510,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-specta",
  "tokio",
+ "uuid",
  "yaserde",
  "zip",
 ]
