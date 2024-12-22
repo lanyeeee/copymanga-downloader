@@ -73,12 +73,13 @@ async function test() {
     return
   }
   await commands.saveMetadata(pickedComic.value)
-  const result = await commands.getDownloadedComics()
+  const result = await commands.exportCbz(pickedComic.value)
   if (result.status === 'error') {
     notification.error({ title: '获取下载的漫画失败', description: result.error })
     return
   }
   console.log(result.data)
+
 }
 </script>
 

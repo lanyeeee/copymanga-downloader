@@ -21,7 +21,7 @@ const favoritePageCount = computed(() => {
   if (getFavoriteRespData.value === undefined) {
     return 0
   }
-
+  // FIXME: 有潜在的页码错误问题，例如当total为36时，应该返回2，但实际返回3，应该改用向上取整
   return Math.floor(getFavoriteRespData.value.total / 18) + 1
 })
 
