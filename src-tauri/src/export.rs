@@ -2,6 +2,7 @@ use std::{io::Write, path::PathBuf};
 
 use anyhow::{anyhow, Context};
 use parking_lot::RwLock;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tauri::{AppHandle, Manager};
 use zip::{write::SimpleFileOptions, ZipWriter};
 
@@ -25,8 +26,9 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         perform_indent: true,
         ..Default::default()
     };
-    // TODO: 使用Rayon并行处理以提高效率
-    for chapter_info in downloaded_chapters {
+    // 并发处理
+    let downloaded_chapters = downloaded_chapters.into_par_iter();
+    downloaded_chapters.try_for_each(|chapter_info| -> anyhow::Result<()> {
         let chapter_title = chapter_info.chapter_title.clone();
         let prefixed_chapter_title = chapter_info.prefixed_chapter_title.clone();
         let group_name = chapter_info.group_name.clone();
@@ -95,7 +97,9 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         zip_writer.finish().context(format!(
             "{group_name} - {chapter_title} 关闭 {zip_path:?} 失败"
         ))?;
-    }
+
+        Ok(())
+    })?;
 
     Ok(())
 }
