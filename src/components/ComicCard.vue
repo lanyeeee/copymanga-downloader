@@ -5,7 +5,6 @@ import { ComicInfo, CurrentTabName } from '../types.ts'
 
 const props = defineProps<{
   comicInfo: ComicInfo
-  onClickItem?: (comic_id: string) => Promise<void>
 }>()
 
 const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
@@ -13,23 +12,14 @@ const currentTabName = defineModel<CurrentTabName>('currentTabName', { required:
 
 const notification = useNotification()
 
-async function defaultOnClickItem(comicPathWord: string) {
-  const result = await commands.getComic(comicPathWord)
+async function pickComic() {
+  const result = await commands.getComic(props.comicInfo.path_word)
   if (result.status === 'error') {
     notification.error({ title: '获取漫画失败', description: result.error })
     return
   }
   pickedComic.value = result.data
   currentTabName.value = 'chapter'
-}
-
-async function onClick() {
-  const { onClickItem, comicInfo } = props
-  if (onClickItem) {
-    await onClickItem(comicInfo.path_word)
-  } else {
-    await defaultOnClickItem(comicInfo.path_word)
-  }
 }
 </script>
 
@@ -40,11 +30,11 @@ async function onClick() {
         class="w-24 object-cover mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
         :src="comicInfo.cover"
         alt=""
-        @click="onClick" />
+        @click="pickComic" />
       <div class="flex flex-col h-full">
         <span
           class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
-          @click="onClick">
+          @click="pickComic">
           {{ comicInfo.name }}
         </span>
         <span v-html="`作者：${comicInfo.author.map((a) => a.name)}`" class="text-red"></span>
