@@ -73,13 +73,6 @@ async function test() {
     return
   }
   await commands.saveMetadata(pickedComic.value)
-  const result = await commands.exportCbz(pickedComic.value)
-  if (result.status === 'error') {
-    notification.error({ title: '获取下载的漫画失败', description: result.error })
-    return
-  }
-  console.log(result.data)
-
 }
 </script>
 
@@ -109,7 +102,10 @@ async function test() {
             v-model:current-tab-name="currentTabName" />
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="downloaded" tab="本地库存" display-directive="show:lazy">
-          <downloaded-pane v-model:picked-comic="pickedComic" v-model:current-tab-name="currentTabName" />
+          <downloaded-pane
+            v-model:config="config"
+            v-model:picked-comic="pickedComic"
+            v-model:current-tab-name="currentTabName" />
         </n-tab-pane>
         <n-tab-pane class="h-full overflow-auto p-0!" name="chapter" tab="章节详情" display-directive="show:lazy">
           <chapter-pane v-model:picked-comic="pickedComic" />
