@@ -5,6 +5,7 @@ mod copy_client;
 mod download_manager;
 mod errors;
 mod events;
+mod export;
 mod extensions;
 mod responses;
 mod types;
@@ -14,7 +15,7 @@ use account_pool::AccountPool;
 use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
-use events::DownloadEvent;
+use events::{DownloadEvent, ExportCbzEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use types::AsyncRwLock;
@@ -42,9 +43,12 @@ pub fn run() {
             get_chapter,
             get_favorite,
             download_chapters,
+            save_metadata,
+            get_downloaded_comics,
+            export_cbz,
             show_path_in_file_manager,
         ])
-        .events(tauri_specta::collect_events![DownloadEvent]);
+        .events(tauri_specta::collect_events![DownloadEvent, ExportCbzEvent]);
 
     #[cfg(debug_assertions)]
     builder

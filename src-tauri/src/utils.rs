@@ -9,7 +9,6 @@ pub fn filename_filter(s: &str) -> String {
             '<' => '《',
             '>' => '》',
             '|' => '丨',
-            '.' => '·',
             _ => c,
         })
         .collect::<String>()

@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
+use anyhow::Context;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -34,7 +35,7 @@ pub struct Comic {
     pub groups: HashMap<String, Group>,
 }
 impl Comic {
-    pub fn from(
+    pub fn from_resp_data(
         app: &AppHandle,
         comic_resp_data: GetComicRespData,
         groups_chapters: HashMap<String, Vec<ChapterInGetChaptersRespData>>,
@@ -58,6 +59,31 @@ impl Comic {
             popular,
             groups,
         }
+    }
+
+    pub fn from_metadata(app: &AppHandle, metadata_path: &Path) -> anyhow::Result<Comic> {
+        let comic_json = std::fs::read_to_string(metadata_path).context(format!(
+            "从元数据转为Comic失败，读取元数据文件 {metadata_path:?} 失败"
+        ))?;
+        let mut comic = serde_json::from_str::<Comic>(&comic_json).context(format!(
+            "从元数据转为Comic失败，将 {metadata_path:?} 反序列化为Comic失败"
+        ))?;
+        // 这个comic中的is_downloaded字段是None，需要重新计算
+        for chapter_infos in comic.comic.groups.values_mut() {
+            for chapter_info in chapter_infos.iter_mut() {
+                let comic_title = &comic.comic.name;
+                let group_name = &chapter_info.group_name;
+                let prefixed_chapter_title = &chapter_info.prefixed_chapter_title;
+                let is_downloaded = ChapterInfo::get_is_downloaded(
+                    app,
+                    comic_title,
+                    group_name,
+                    prefixed_chapter_title,
+                );
+                chapter_info.is_downloaded = Some(is_downloaded);
+            }
+        }
+        Ok(comic)
     }
 }
 
@@ -101,15 +127,23 @@ pub struct ComicDetail {
     #[serde(rename = "last_chapter")]
     pub last_chapter: LastChapter,
     pub popular: i64,
+    /// `group_path_word` -> `chapter_infos`
     pub groups: HashMap<String, Vec<ChapterInfo>>,
 }
 impl ComicDetail {
+    #[allow(clippy::cast_precision_loss)]
     fn from(
         app: &AppHandle,
         comic_resp_data: GetComicRespData,
         mut groups_chapters: HashMap<String, Vec<ChapterInGetChaptersRespData>>,
     ) -> ComicDetail {
         let comic_detail_resp_data = comic_resp_data.comic;
+
+        let comic_status = if comic_detail_resp_data.status.value == 0 {
+            ComicStatus::Ongoing
+        } else {
+            ComicStatus::Completed
+        };
 
         let free_type = LabeledValue::from(comic_detail_resp_data.free_type);
         let restrict = LabeledValue::from(comic_detail_resp_data.restrict);
@@ -160,6 +194,8 @@ impl ComicDetail {
                         group_name.clone(),
                         comic_uuid.clone(),
                         comic_path_word.clone(),
+                        group_path_word.clone(),
+                        comic_status.clone(),
                     )
                 })
                 .collect();
@@ -204,15 +240,24 @@ pub struct ChapterInfo {
     pub chapter_title: String,
     /// 以order为前缀的章节标题
     pub prefixed_chapter_title: String,
+    /// 此章节有多少页
+    pub chapter_size: i64,
     pub comic_uuid: String,
     pub comic_title: String,
     pub comic_path_word: String,
+    pub group_path_word: String,
     pub group_name: String,
+    /// 此章节对应的group有多少章节
+    pub group_size: i64,
     /// 此章节在group中的顺序
     pub order: f64,
-    pub is_downloaded: bool,
+    /// 漫画的连载状态
+    pub comic_status: ComicStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_downloaded: Option<bool>,
 }
 impl ChapterInfo {
+    #[allow(clippy::too_many_arguments)] // TODO: 参数太多了，得想办法减少
     #[allow(clippy::cast_precision_loss)]
     pub fn from(
         app: &AppHandle,
@@ -221,30 +266,55 @@ impl ChapterInfo {
         group_name: String,
         comic_uuid: String,
         comic_path_word: String,
+        group_path_word: String,
+        comic_status: ComicStatus,
     ) -> ChapterInfo {
         let order = chapter.ordered as f64 / 10.0;
         let chapter_title = filename_filter(&chapter.name);
         let prefixed_chapter_title = format!("{order} {chapter_title}");
-        let is_downloaded = app
-            .state::<RwLock<Config>>()
-            .read()
-            .download_dir
-            .join(&comic_title)
-            .join(&group_name)
-            .join(&prefixed_chapter_title)
-            .exists();
+        let is_downloaded =
+            ChapterInfo::get_is_downloaded(app, &comic_title, &group_name, &prefixed_chapter_title);
+
         ChapterInfo {
             chapter_uuid: chapter.uuid,
             chapter_title,
+            chapter_size: chapter.size,
             prefixed_chapter_title,
             comic_uuid,
             comic_title,
             comic_path_word,
+            group_path_word,
             group_name,
-            order,
-            is_downloaded,
+            group_size: chapter.count,
+            order: chapter.ordered as f64 / 10.0,
+            comic_status,
+            is_downloaded: Some(is_downloaded),
         }
     }
+
+    pub fn get_is_downloaded(
+        app: &AppHandle,
+        comic_title: &str,
+        group_name: &str,
+        prefixed_chapter_title: &str,
+    ) -> bool {
+        app.state::<RwLock<Config>>()
+            .read()
+            .download_dir
+            .join(comic_title)
+            .join(group_name)
+            .join(prefixed_chapter_title)
+            .exists()
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+#[allow(clippy::module_name_repetitions)]
+pub enum ComicStatus {
+    #[default]
+    Ongoing,
+    Completed,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
