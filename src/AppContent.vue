@@ -72,7 +72,10 @@ async function test() {
   if (pickedComic.value === undefined) {
     return
   }
-  await commands.saveMetadata(pickedComic.value)
+  const result = await commands.exportPdf(pickedComic.value)
+  if (result.status === 'error') {
+    notification.error({ title: '导出PDF失败', description: result.error })
+  }
 }
 </script>
 
