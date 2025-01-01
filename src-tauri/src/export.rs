@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context};
-use flate2::{write::ZlibEncoder, Compression};
 use lopdf::{
     content::{Content, Operation},
     dictionary, Bookmark, Document, Object, Stream,
@@ -304,8 +303,8 @@ fn create_pdf(chapter_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()
         "Pages" => pages_id,
     });
     doc.trailer.set("Root", catalog_id);
-    // 压缩所有未压缩的流
-    compress_pdf(&mut doc).context(format!("压缩`{pdf_path:?}`失败"))?;
+
+    doc.compress();
 
     doc.save(pdf_path)
         .context(format!("保存`{pdf_path:?}`失败"))?;
@@ -433,38 +432,11 @@ fn merge_pdf(chapter_export_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
     }
     // 重新编号doc的对象
     doc.renumber_objects();
-    // 压缩所有未压缩的流
-    compress_pdf(&mut doc).context(format!("压缩`{pdf_path:?}`失败"))?;
+
+    doc.compress();
 
     doc.save(pdf_path)
         .context(format!("保存`{pdf_path:?}`失败"))?;
-    Ok(())
-}
-
-/// 压缩`doc`中的流对象
-fn compress_pdf(doc: &mut Document) -> anyhow::Result<()> {
-    for object in doc.objects.values_mut() {
-        // 只压缩流对象
-        let Object::Stream(ref mut stream) = *object else {
-            continue;
-        };
-        // 只压缩允许压缩的流对象
-        if !stream.allows_compression {
-            continue;
-        }
-        // 如果已经压缩，跳过
-        if stream.dict.get(b"Filter").is_ok() {
-            continue;
-        }
-        // 压缩流对象
-        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
-        encoder.write_all(stream.content.as_slice())?;
-        let compressed = encoder.finish()?;
-        if compressed.len() + 19 < stream.content.len() {
-            stream.dict.set("Filter", "FlateDecode");
-            stream.set_content(compressed);
-        }
-    }
     Ok(())
 }
 

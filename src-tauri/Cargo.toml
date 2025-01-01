@@ -49,7 +49,6 @@ rayon = { version = "1.10.0" }
 uuid = { version = "1.11.0" }
 lopdf = { git = "https://github.com/lanyeeee/lopdf", features = ["embed_image_jpeg"] }
 image = { version = "0.25.2", default-features = false, features = ["jpeg"] }
-flate2 = { version = "1.0.34" }
 
 [profile.release]
 strip = true
