@@ -36,11 +36,13 @@ const groupInfos = computed<GroupInfo[]>(() => {
   return infos
 })
 
+// 选中漫画，切换到章节页
 async function pickComic() {
   pickedComic.value = props.comic
   currentTabName.value = 'chapter'
 }
 
+// 导出cbz
 async function exportCbz() {
   const result = await commands.exportCbz(props.comic)
   if (result.status === 'error') {
