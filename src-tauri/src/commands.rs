@@ -234,6 +234,15 @@ pub fn export_cbz(app: AppHandle, comic: Comic) -> CommandResult<()> {
 
 #[tauri::command(async)]
 #[specta::specta]
+#[allow(clippy::needless_pass_by_value)]
+pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
+    let comic_title = comic.comic.name.clone();
+    export::pdf(&app, comic).context(format!("漫画`{comic_title}`导出pdf失败"))?;
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
 pub fn show_path_in_file_manager(path: &str) -> CommandResult<()> {
     let path = PathBuf::from_slash(path);
     if !path.exists() {
