@@ -17,8 +17,9 @@ type ProgressData = {
 const notification = useNotification()
 
 const config = defineModel<Config>('config', { required: true })
-
+// 章节下载进度
 const progresses = ref<Map<string, ProgressData>>(new Map())
+// 总下载进度
 const overallProgress = ref<ProgressData>({
   comicTitle: '总进度',
   chapterTitle: '总进度',
@@ -28,7 +29,7 @@ const overallProgress = ref<ProgressData>({
   indicator: '',
   retryAfter: 0,
 })
-
+// 按总图片数排序的下载进度
 const sortedProgresses = computed(() => {
   const progressesArray = Array.from(progresses.value.entries())
   progressesArray.sort((a, b) => {
@@ -38,6 +39,7 @@ const sortedProgresses = computed(() => {
 })
 
 onMounted(async () => {
+  // 监听下载事件
   await events.downloadEvent.listen(({ payload: downloadEvent }) => {
     if (downloadEvent.event == 'ChapterPending') {
       const { chapterUuid, comicTitle, chapterTitle } = downloadEvent.data
@@ -111,6 +113,7 @@ onMounted(async () => {
   })
 })
 
+// 用文件管理器打开下载目录
 async function showDownloadDirInFileManager() {
   if (config.value === undefined) {
     return
@@ -121,6 +124,7 @@ async function showDownloadDirInFileManager() {
   }
 }
 
+// 通过对话框选择下载目录
 async function selectDownloadDir() {
   const selectedDirPath = await open({ directory: true })
   if (selectedDirPath === null) {

@@ -9,12 +9,14 @@ const notification = useNotification()
 
 const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
 const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
-
+// 搜索输入框的值
 const searchInput = ref<string>('')
-const searchPage = ref<number>(1)
+// 当前页码
+const currentPage = ref<number>(1)
+// 搜索返回的数据
 const searchRespData = ref<SearchRespData>()
-
-const searchPageCount = computed(() => {
+// 总页数
+const pageCount = computed(() => {
   const LIMIT = 20
   if (searchRespData.value === undefined) {
     return 0
@@ -25,7 +27,7 @@ const searchPageCount = computed(() => {
 
 async function search(keyword: string, page: number) {
   console.log(keyword, page)
-  searchPage.value = page
+  currentPage.value = page
   const result = await commands.search(keyword, page)
   if (result.status === 'error') {
     notification.error({ title: '搜索失败', description: result.error })
@@ -58,10 +60,7 @@ async function search(keyword: string, page: number) {
           v-model:picked-comic="pickedComic"
           v-model:current-tab-name="currentTabName" />
       </div>
-      <n-pagination
-        :page-count="searchPageCount"
-        :page="searchPage"
-        @update:page="search(searchInput.trim(), $event)" />
+      <n-pagination :page-count="pageCount" :page="currentPage" @update:page="search(searchInput.trim(), $event)" />
     </div>
   </div>
 </template>

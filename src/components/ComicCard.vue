@@ -12,6 +12,7 @@ const currentTabName = defineModel<CurrentTabName>('currentTabName', { required:
 
 const notification = useNotification()
 
+// 获取漫画信息，将漫画信息存入pickedComic，并切换到章节页
 async function pickComic() {
   const result = await commands.getComic(props.comicInfo.path_word)
   if (result.status === 'error') {
