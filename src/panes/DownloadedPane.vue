@@ -13,8 +13,6 @@ interface ProgressData {
   progressMessage: MessageReactive
 }
 
-const PAGE_SIZE = 20
-
 const notification = useNotification()
 const message = useMessage()
 
@@ -22,155 +20,131 @@ const config = defineModel<Config>('config', { required: true })
 const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
 const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 
-const downloadedComics = ref<Comic[]>([])
-const pageSelected = ref<number>(1)
-const progresses = ref<Map<string, ProgressData>>(new Map())
+const { currentPage, pageCount, currentPageComics } = useDownloadedComics()
+useProgressTracking()
 
-const downloadedPageCount = computed(() => {
-  return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
-})
-// 当前在页面上显示的漫画
-const showingDownloadedComics = computed(() => {
-  const start = (pageSelected.value - 1) * PAGE_SIZE
-  const end = start + PAGE_SIZE
-  return downloadedComics.value.slice(start, end)
-})
-
-watch(
-  () => currentTabName.value,
-  async () => {
-    if (currentTabName.value !== 'downloaded') {
-      return
-    }
-
-    const result = await commands.getDownloadedComics()
-    if (result.status === 'error') {
-      notification.error({ title: '获取本地库存失败', description: result.error })
-      return
-    }
-    downloadedComics.value = result.data
-  },
-  { immediate: true },
-)
-
-onMounted(async () => {
-  await events.exportCbzEvent.listen(async ({ payload: exportEvent }) => {
-    if (exportEvent.event === 'Start') {
-      const { uuid, comicTitle, total } = exportEvent.data
-      progresses.value.set(uuid, {
-        comicTitle,
-        current: 0,
-        total,
-        progressMessage: message.loading(
-          () => {
-            const progressData = progresses.value.get(uuid)
-            if (progressData === undefined) {
-              return ''
-            }
-            return `${progressData.comicTitle} 正在导出cbz(${progressData.current}/${progressData.total})`
-          },
-          { duration: 0 },
-        ),
-      })
-    } else if (exportEvent.event === 'Progress') {
-      const { uuid, current } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
-        return
-      }
-      progressData.current = current
-    } else if (exportEvent.event === 'End') {
-      const { uuid } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
-        return
-      }
-      progressData.progressMessage.type = 'success'
-      progressData.progressMessage.content = `${progressData.comicTitle} 导出cbz完成(${progressData.current}/${progressData.total})`
-      setTimeout(() => {
-        progressData.progressMessage.destroy()
-        progresses.value.delete(uuid)
-      }, 3000)
-    }
+function useDownloadedComics() {
+  const PAGE_SIZE = 20
+  // 已下载的漫画
+  const downloadedComics = ref<Comic[]>([])
+  // 当前页码
+  const currentPage = ref<number>(1)
+  // 总页数
+  const pageCount = computed(() => {
+    return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
+  })
+  // 当前页的漫画
+  const currentPageComics = computed(() => {
+    const start = (currentPage.value - 1) * PAGE_SIZE
+    const end = start + PAGE_SIZE
+    return downloadedComics.value.slice(start, end)
   })
 
-  await events.exportPdfEvent.listen(async ({ payload: exportEvent }) => {
-    if (exportEvent.event === 'CreateStart') {
-      const { uuid, comicTitle, total } = exportEvent.data
-      progresses.value.set(uuid, {
-        comicTitle,
-        current: 0,
-        total,
-        progressMessage: message.loading(
-          () => {
-            const progressData = progresses.value.get(uuid)
-            if (progressData === undefined) {
-              return ''
-            }
-            return `${progressData.comicTitle} 正在创建pdf(${progressData.current}/${progressData.total})`
-          },
-          { duration: 0 },
-        ),
-      })
-    } else if (exportEvent.event === 'CreateProgress') {
-      const { uuid, current } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
+  // 监听标签页变化，更新下载的漫画列表
+  watch(
+    () => currentTabName.value,
+    async () => {
+      if (currentTabName.value !== 'downloaded') {
         return
       }
+
+      const result = await commands.getDownloadedComics()
+      if (result.status === 'error') {
+        useNotification().error({ title: '获取本地库存失败', description: result.error })
+        return
+      }
+      downloadedComics.value = result.data
+    },
+    { immediate: true },
+  )
+
+  return { currentPage, pageCount, currentPageComics }
+}
+
+function useProgressTracking() {
+  const progresses = ref<Map<string, ProgressData>>(new Map())
+
+  // 处理导出CBZ事件
+  const handleCbzEvents = async () => {
+    await events.exportCbzEvent.listen(async ({ payload: exportEvent }) => {
+      if (exportEvent.event === 'Start') {
+        const { uuid, comicTitle, total } = exportEvent.data
+        createProgress(uuid, comicTitle, total, '正在导出cbz')
+      } else if (exportEvent.event === 'Progress') {
+        updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'End') {
+        completeProgress(exportEvent.data.uuid, '导出cbz完成')
+      }
+    })
+  }
+
+  // 处理导出PDF事件
+  const handlePdfEvents = async () => {
+    await events.exportPdfEvent.listen(async ({ payload: exportEvent }) => {
+      if (exportEvent.event === 'CreateStart') {
+        const { uuid, comicTitle, total } = exportEvent.data
+        createProgress(uuid, comicTitle, total, '正在创建pdf')
+      } else if (exportEvent.event === 'CreateProgress') {
+        updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'CreateEnd') {
+        completeProgress(exportEvent.data.uuid, '创建pdf完成')
+      } else if (exportEvent.event === 'MergeStart') {
+        const { uuid, comicTitle, total } = exportEvent.data
+        createProgress(uuid, comicTitle, total, '正在合并pdf')
+      } else if (exportEvent.event === 'MergeProgress') {
+        updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'MergeEnd') {
+        completeProgress(exportEvent.data.uuid, '合并pdf完成')
+      }
+    })
+  }
+
+  // 创建进度message
+  function createProgress(uuid: string, comicTitle: string, total: number, actionMessage: string) {
+    progresses.value.set(uuid, {
+      comicTitle,
+      current: 0,
+      total,
+      progressMessage: message.loading(
+        () => {
+          const progressData = progresses.value.get(uuid)
+          if (progressData === undefined) return ''
+          return `${progressData.comicTitle} ${actionMessage}(${progressData.current}/${progressData.total})`
+        },
+        { duration: 0 },
+      ),
+    })
+  }
+
+  // 更新进度message
+  function updateProgress({ uuid, current }: { uuid: string; current: number }) {
+    const progressData = progresses.value.get(uuid)
+    if (progressData) {
       progressData.current = current
-    } else if (exportEvent.event === 'CreateEnd') {
-      const { uuid } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
-        return
-      }
+    }
+  }
+
+  // 将进度message标记为完成
+  function completeProgress(uuid: string, actionMessage: string) {
+    const progressData = progresses.value.get(uuid)
+    if (progressData) {
       progressData.progressMessage.type = 'success'
-      progressData.progressMessage.content = `${progressData.comicTitle} 创建pdf完成(${progressData.current}/${progressData.total})`
-      setTimeout(() => {
-        progressData.progressMessage.destroy()
-        progresses.value.delete(uuid)
-      }, 3000)
-    } else if (exportEvent.event === 'MergeStart') {
-      const { uuid, comicTitle, total } = exportEvent.data
-      progresses.value.set(uuid, {
-        comicTitle,
-        current: 0,
-        total,
-        progressMessage: message.loading(
-          () => {
-            const progressData = progresses.value.get(uuid)
-            if (progressData === undefined) {
-              return ''
-            }
-            return `${progressData.comicTitle} 正在合并pdf(${progressData.current}/${progressData.total})`
-          },
-          { duration: 0 },
-        ),
-      })
-    } else if (exportEvent.event === 'MergeProgress') {
-      const { uuid, current } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
-        return
-      }
-      progressData.current = current
-    } else if (exportEvent.event === 'MergeEnd') {
-      const { uuid } = exportEvent.data
-      const progressData = progresses.value.get(uuid)
-      if (progressData === undefined) {
-        return
-      }
-      progressData.progressMessage.type = 'success'
-      progressData.progressMessage.content = `${progressData.comicTitle} 合并pdf完成(${progressData.current}/${progressData.total})`
+      progressData.progressMessage.content = `${progressData.comicTitle} ${actionMessage}(${progressData.current}/${progressData.total})`
       setTimeout(() => {
         progressData.progressMessage.destroy()
         progresses.value.delete(uuid)
       }, 3000)
     }
-  })
-})
+  }
 
+  // 监听导出事件
+  onMounted(async () => {
+    await handleCbzEvents()
+    await handlePdfEvents()
+  })
+}
+
+// 用文件管理器打开导出目录
 async function showExportDirInFileManager() {
   if (config.value === undefined) {
     return
@@ -181,6 +155,7 @@ async function showExportDirInFileManager() {
   }
 }
 
+// 选择导出目录
 async function selectExportDir() {
   const selectedDirPath = await open({ directory: true })
   if (selectedDirPath === null) {
@@ -206,13 +181,13 @@ async function selectExportDir() {
     <div class="flex flex-col gap-row-1 overflow-auto p-2">
       <div class="flex flex-col gap-row-2 overflow-auto">
         <downloaded-comic-card
-          v-for="comic in showingDownloadedComics"
+          v-for="comic in currentPageComics"
           :key="comic.comic.uuid"
           :comic="comic"
           v-model:picked-comic="pickedComic"
           v-model:current-tab-name="currentTabName" />
       </div>
-      <n-pagination :page-count="downloadedPageCount" :page="pageSelected" @update:page="pageSelected = $event" />
+      <n-pagination :page-count="pageCount" :page="currentPage" @update:page="currentPage = $event" />
     </div>
   </div>
 </template>
