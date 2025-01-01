@@ -93,6 +93,82 @@ onMounted(async () => {
       }, 3000)
     }
   })
+
+  await events.exportPdfEvent.listen(async ({ payload: exportEvent }) => {
+    if (exportEvent.event === 'CreateStart') {
+      const { uuid, comicTitle, total } = exportEvent.data
+      progresses.value.set(uuid, {
+        comicTitle,
+        current: 0,
+        total,
+        progressMessage: message.loading(
+          () => {
+            const progressData = progresses.value.get(uuid)
+            if (progressData === undefined) {
+              return ''
+            }
+            return `${progressData.comicTitle} 正在创建pdf(${progressData.current}/${progressData.total})`
+          },
+          { duration: 0 },
+        ),
+      })
+    } else if (exportEvent.event === 'CreateProgress') {
+      const { uuid, current } = exportEvent.data
+      const progressData = progresses.value.get(uuid)
+      if (progressData === undefined) {
+        return
+      }
+      progressData.current = current
+    } else if (exportEvent.event === 'CreateEnd') {
+      const { uuid } = exportEvent.data
+      const progressData = progresses.value.get(uuid)
+      if (progressData === undefined) {
+        return
+      }
+      progressData.progressMessage.type = 'success'
+      progressData.progressMessage.content = `${progressData.comicTitle} 创建pdf完成(${progressData.current}/${progressData.total})`
+      setTimeout(() => {
+        progressData.progressMessage.destroy()
+        progresses.value.delete(uuid)
+      }, 3000)
+    } else if (exportEvent.event === 'MergeStart') {
+      const { uuid, comicTitle, total } = exportEvent.data
+      progresses.value.set(uuid, {
+        comicTitle,
+        current: 0,
+        total,
+        progressMessage: message.loading(
+          () => {
+            const progressData = progresses.value.get(uuid)
+            if (progressData === undefined) {
+              return ''
+            }
+            return `${progressData.comicTitle} 正在合并pdf(${progressData.current}/${progressData.total})`
+          },
+          { duration: 0 },
+        ),
+      })
+    } else if (exportEvent.event === 'MergeProgress') {
+      const { uuid, current } = exportEvent.data
+      const progressData = progresses.value.get(uuid)
+      if (progressData === undefined) {
+        return
+      }
+      progressData.current = current
+    } else if (exportEvent.event === 'MergeEnd') {
+      const { uuid } = exportEvent.data
+      const progressData = progresses.value.get(uuid)
+      if (progressData === undefined) {
+        return
+      }
+      progressData.progressMessage.type = 'success'
+      progressData.progressMessage.content = `${progressData.comicTitle} 合并pdf完成(${progressData.current}/${progressData.total})`
+      setTimeout(() => {
+        progressData.progressMessage.destroy()
+        progresses.value.delete(uuid)
+      }, 3000)
+    }
+  })
 })
 
 async function showExportDirInFileManager() {

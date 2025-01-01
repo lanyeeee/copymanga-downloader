@@ -115,6 +115,14 @@ async exportCbz(comic: Comic) : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async exportPdf(comic: Comic) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_pdf", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("show_path_in_file_manager", { path }) };
@@ -130,10 +138,12 @@ async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> 
 
 export const events = __makeEvents__<{
 downloadEvent: DownloadEvent,
-exportCbzEvent: ExportCbzEvent
+exportCbzEvent: ExportCbzEvent,
+exportPdfEvent: ExportPdfEvent
 }>({
 downloadEvent: "download-event",
-exportCbzEvent: "export-cbz-event"
+exportCbzEvent: "export-cbz-event",
+exportPdfEvent: "export-pdf-event"
 })
 
 /** user-defined constants **/
@@ -182,6 +192,7 @@ export type Config = { token: string; downloadDir: string; exportDir: string }
 export type ContentRespData = { url: string }
 export type DownloadEvent = { event: "ChapterPending"; data: { chapterUuid: string; comicTitle: string; chapterTitle: string } } | { event: "ChapterControlRisk"; data: { chapterUuid: string; retryAfter: number } } | { event: "ChapterStart"; data: { chapterUuid: string; total: number } } | { event: "ChapterEnd"; data: { chapterUuid: string; errMsg: string | null } } | { event: "ImageSuccess"; data: { chapterUuid: string; url: string; current: number } } | { event: "ImageError"; data: { chapterUuid: string; url: string; errMsg: string } } | { event: "OverallUpdate"; data: { downloadedImageCount: number; totalImageCount: number; percentage: number } } | { event: "OverallSpeed"; data: { speed: string } }
 export type ExportCbzEvent = { event: "Start"; data: { uuid: string; comicTitle: string; total: number } } | { event: "Progress"; data: { uuid: string; current: number } } | { event: "End"; data: { uuid: string } }
+export type ExportPdfEvent = { event: "CreateStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "CreateProgress"; data: { uuid: string; current: number } } | { event: "CreateEnd"; data: { uuid: string } } | { event: "MergeStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "MergeProgress"; data: { uuid: string; current: number } } | { event: "MergeEnd"; data: { uuid: string } }
 export type FavoriteItemRespData = { uuid: number; b_folder: boolean; comic: ComicInGetFavoriteRespData }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
 export type GetFavoriteRespData = Pagination<FavoriteItemRespData>
