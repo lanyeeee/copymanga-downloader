@@ -209,7 +209,7 @@ async function reloadPickedComic() {
         :key="groupPath"
         :name="groupPath"
         :tab="pickedComic.groups[groupPath].name"
-        class="overflow-auto p-0!">
+        class="overflow-auto p-0! h-full">
         <SelectionArea
           ref="selectionAreaRef"
           class="selection-container h-full"
@@ -231,6 +231,17 @@ async function reloadPickedComic() {
         </SelectionArea>
       </n-tab-pane>
     </n-tabs>
+    <n-card v-if="pickedComic !== undefined" content-style="padding: 0.25rem;" hoverable>
+      <div class="flex">
+        <img class="w-24 mr-4" :src="pickedComic?.comic.cover" alt="" />
+        <div class="flex flex-col h-full">
+          <span class="font-bold text-xl line-clamp-3">
+            {{ pickedComic.comic.name }}
+          </span>
+          <span v-html="`作者：${pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
+        </div>
+      </div>
+    </n-card>
 
     <n-dropdown
       placement="bottom-start"
@@ -246,7 +257,7 @@ async function reloadPickedComic() {
 
 <style scoped>
 .selection-container {
-  @apply user-select-none overflow-auto;
+  @apply select-none overflow-auto;
 }
 
 .selection-container .selected {
