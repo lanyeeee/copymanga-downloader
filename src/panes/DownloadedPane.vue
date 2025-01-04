@@ -62,10 +62,11 @@ function useDownloadedComics() {
 }
 
 function useProgressTracking() {
+  // TODO: 没必要用ref包装Map，直接用Map就行
   const progresses = ref<Map<string, ProgressData>>(new Map())
 
   // 处理导出CBZ事件
-  const handleCbzEvents = async () => {
+  async function handleExportCbzEvents() {
     await events.exportCbzEvent.listen(async ({ payload: exportEvent }) => {
       if (exportEvent.event === 'Start') {
         const { uuid, comicTitle, total } = exportEvent.data
@@ -79,7 +80,7 @@ function useProgressTracking() {
   }
 
   // 处理导出PDF事件
-  const handlePdfEvents = async () => {
+  async function handleExportPdfEvents() {
     await events.exportPdfEvent.listen(async ({ payload: exportEvent }) => {
       if (exportEvent.event === 'CreateStart') {
         const { uuid, comicTitle, total } = exportEvent.data
@@ -95,6 +96,28 @@ function useProgressTracking() {
         updateProgress(exportEvent.data)
       } else if (exportEvent.event === 'MergeEnd') {
         completeProgress(exportEvent.data.uuid, '合并pdf完成')
+      }
+    })
+  }
+
+  let updateMessage: MessageReactive | undefined
+
+  // 处理更新已下载漫画事件
+  async function handleUpdateEvents() {
+    await events.updateDownloadedComicsEvent.listen(async ({ payload: updateEvent }) => {
+      if (updateEvent.event === 'GettingComics') {
+        const { total } = updateEvent.data
+        updateMessage = message.loading(`正在获取已下载漫画的最新数据(0/${total})`, { duration: 0 })
+      } else if (updateEvent.event === 'ComicGot' && updateMessage !== undefined) {
+        const { current, total } = updateEvent.data
+        updateMessage.content = `正在获取已下载漫画的最新数据(${current}/${total})`
+      } else if (updateEvent.event === 'DownloadTaskCreated' && updateMessage !== undefined) {
+        updateMessage.type = 'success'
+        updateMessage.content = '已为需要更新的章节创建下载任务'
+        setTimeout(() => {
+          updateMessage?.destroy()
+          updateMessage = undefined
+        }, 3000)
       }
     })
   }
@@ -139,8 +162,9 @@ function useProgressTracking() {
 
   // 监听导出事件
   onMounted(async () => {
-    await handleCbzEvents()
-    await handlePdfEvents()
+    await handleExportCbzEvents()
+    await handleExportPdfEvents()
+    await handleUpdateEvents()
   })
 }
 
@@ -163,10 +187,18 @@ async function selectExportDir() {
   }
   config.value.exportDir = selectedDirPath
 }
+
+// 更新已下载漫画
+async function updateDownloadedComics() {
+  const result = await commands.updateDownloadedComics()
+  if (result.status === 'error') {
+    notification.error({ title: '更新库存漫画失败', description: result.error, duration: 0 })
+  }
+}
 </script>
 
 <template>
-  <div class="h-full flex flex-col overflow-auto">
+  <div class="h-full flex flex-col overflow-auto gap-row-1">
     <div class="flex gap-col-1">
       <n-input
         v-model:value="config.exportDir"
@@ -174,11 +206,12 @@ async function selectExportDir() {
         readonly
         placeholder="请选择漫画目录"
         @click="selectExportDir">
-        <template #prefix>导出目录：</template>
+        <template #prefix>导出目录</template>
       </n-input>
-      <n-button size="tiny" @click="showExportDirInFileManager">打开导出目录</n-button>
+      <n-button size="tiny" @click="showExportDirInFileManager">打开目录</n-button>
+      <n-button size="tiny" @click="updateDownloadedComics">更新库存</n-button>
     </div>
-    <div class="flex flex-col gap-row-1 overflow-auto p-2">
+    <div class="flex flex-col gap-row-1 overflow-auto p-2 pt-0">
       <div class="flex flex-col gap-row-2 overflow-auto">
         <downloaded-comic-card
           v-for="comic in currentPageComics"
