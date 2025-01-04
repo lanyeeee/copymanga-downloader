@@ -98,3 +98,16 @@ pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]
     MergeEnd { uuid: String },
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(tag = "event", content = "data")]
+pub enum UpdateDownloadedComicsEvent {
+    #[serde(rename_all = "camelCase")]
+    GettingComics { total: i64 },
+
+    #[serde(rename_all = "camelCase")]
+    ComicGot { current: i64, total: i64 },
+
+    #[serde(rename_all = "camelCase")]
+    DownloadTaskCreated,
+}
