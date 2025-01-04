@@ -123,6 +123,14 @@ async exportPdf(comic: Comic) : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateDownloadedComics() : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_downloaded_comics") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("show_path_in_file_manager", { path }) };
@@ -139,11 +147,13 @@ async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> 
 export const events = __makeEvents__<{
 downloadEvent: DownloadEvent,
 exportCbzEvent: ExportCbzEvent,
-exportPdfEvent: ExportPdfEvent
+exportPdfEvent: ExportPdfEvent,
+updateDownloadedComicsEvent: UpdateDownloadedComicsEvent
 }>({
 downloadEvent: "download-event",
 exportCbzEvent: "export-cbz-event",
-exportPdfEvent: "export-pdf-event"
+exportPdfEvent: "export-pdf-event",
+updateDownloadedComicsEvent: "update-downloaded-comics-event"
 })
 
 /** user-defined constants **/
@@ -204,6 +214,7 @@ export type Pagination<T> = { list: T[]; total: number; limit: number; offset: n
 export type RestrictRespData = { value: number; display: string }
 export type SearchRespData = Pagination<ComicInSearchRespData>
 export type Theme = { name: string; path_word: string }
+export type UpdateDownloadedComicsEvent = { event: "GettingComics"; data: { total: number } } | { event: "ComicGot"; data: { current: number; total: number } } | { event: "DownloadTaskCreated" }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/
