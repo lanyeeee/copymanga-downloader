@@ -69,12 +69,9 @@ async function showConfigInFileManager() {
 }
 
 async function test() {
-  if (pickedComic.value === undefined) {
-    return
-  }
-  const result = await commands.exportPdf(pickedComic.value)
+  const result = await commands.updateDownloadedComics()
   if (result.status === 'error') {
-    notification.error({ title: '导出PDF失败', description: result.error })
+    notification.error({ description: result.error })
   }
 }
 </script>
