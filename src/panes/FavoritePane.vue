@@ -52,7 +52,7 @@ async function getFavourite(page: number) {
 <template>
   <div class="h-full flex flex-col">
     <div v-if="getFavoriteRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
-      <div class="flex flex-col gap-row-2 overflow-auto">
+      <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
           v-for="favoriteItemRespData in getFavoriteRespData.list"
           :key="favoriteItemRespData.uuid"
