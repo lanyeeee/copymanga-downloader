@@ -212,7 +212,7 @@ async function updateDownloadedComics() {
       <n-button size="tiny" @click="updateDownloadedComics">更新库存</n-button>
     </div>
     <div class="flex flex-col gap-row-1 overflow-auto p-2 pt-0">
-      <div class="flex flex-col gap-row-2 overflow-auto">
+      <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <downloaded-comic-card
           v-for="comic in currentPageComics"
           :key="comic.comic.uuid"

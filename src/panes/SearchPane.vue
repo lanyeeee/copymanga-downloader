@@ -52,7 +52,7 @@ async function search(keyword: string, page: number) {
       <n-button size="tiny" @click="search(searchInput.trim(), 1)">搜索</n-button>
     </div>
     <div v-if="searchRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
-      <div class="flex flex-col gap-row-2 overflow-auto pb-2">
+      <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
           v-for="comicInSearch in searchRespData.list"
           :key="comicInSearch.path_word"

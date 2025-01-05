@@ -85,7 +85,7 @@ async function test() {
       <n-button type="primary" @click="loginDialogShowing = true">账号登录</n-button>
       <n-button @click="showConfigInFileManager">打开配置目录</n-button>
       <n-button @click="test">测试用</n-button>
-      <div v-if="userProfile !== undefined" class="flex flex-justify-end">
+      <div v-if="userProfile !== undefined" class="flex flex-justify-end items-center">
         <n-avatar round :size="32" :src="userProfile.avatar" />
         <span class="whitespace-nowrap">{{ userProfile.nickname }}</span>
       </div>
