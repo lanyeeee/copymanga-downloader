@@ -30,7 +30,7 @@ specta = { version = "2.0.0-rc" }
 tauri-specta = { version = "2.0.0-rc", features = ["derive", "typescript"] }
 specta-typescript = { version = "0.0.7" }
 
-reqwest = { version = "0.12.9", features = ["rustls-tls", "gzip"], default-features = false }
+reqwest = { version = "0.12.9", features = ["native-tls", "gzip"], default-features = false }
 reqwest-retry = { version = "0.7.0" }
 reqwest-middleware = { version = "0.4.0" }
 
@@ -47,6 +47,8 @@ path-slash = { version = "0.2.1" }
 zip = { version = "2.2.0", default-features = false }
 rayon = { version = "1.10.0" }
 uuid = { version = "1.11.0" }
+lopdf = { git = "https://github.com/lanyeeee/lopdf", features = ["embed_image_jpeg"] }
+image = { version = "0.25.2", default-features = false, features = ["jpeg"] }
 
 [profile.release]
 strip = true
