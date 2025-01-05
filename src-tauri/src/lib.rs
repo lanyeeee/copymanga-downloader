@@ -15,7 +15,7 @@ use account_pool::AccountPool;
 use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
-use events::{DownloadEvent, ExportCbzEvent};
+use events::{DownloadEvent, ExportCbzEvent, ExportPdfEvent, UpdateDownloadedComicsEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use types::AsyncRwLock;
@@ -46,9 +46,16 @@ pub fn run() {
             save_metadata,
             get_downloaded_comics,
             export_cbz,
+            export_pdf,
+            update_downloaded_comics,
             show_path_in_file_manager,
         ])
-        .events(tauri_specta::collect_events![DownloadEvent, ExportCbzEvent]);
+        .events(tauri_specta::collect_events![
+            DownloadEvent,
+            ExportCbzEvent,
+            ExportPdfEvent,
+            UpdateDownloadedComicsEvent,
+        ]);
 
     #[cfg(debug_assertions)]
     builder

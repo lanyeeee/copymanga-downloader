@@ -36,15 +36,25 @@ const groupInfos = computed<GroupInfo[]>(() => {
   return infos
 })
 
+// 选中漫画，切换到章节页
 async function pickComic() {
   pickedComic.value = props.comic
   currentTabName.value = 'chapter'
 }
 
+// 导出cbz
 async function exportCbz() {
   const result = await commands.exportCbz(props.comic)
   if (result.status === 'error') {
     notification.error({ title: '导出cbz失败', description: result.error })
+    return
+  }
+}
+
+async function exportPdf() {
+  const result = await commands.exportPdf(props.comic)
+  if (result.status === 'error') {
+    notification.error({ title: '导出pdf失败', description: result.error })
     return
   }
 }
@@ -68,7 +78,10 @@ async function exportCbz() {
         <span v-for="groupInfo in groupInfos" :key="groupInfo.name">
           {{ groupInfo.name }}({{ groupInfo.downloaded }}/{{ groupInfo.total }})
         </span>
-        <n-button size="tiny" class="ml-auto mt-auto" @click="exportCbz">导出cbz</n-button>
+        <div class="flex ml-auto mt-auto gap-col-2">
+          <n-button size="tiny" @click="exportCbz">导出cbz</n-button>
+          <n-button size="tiny" @click="exportPdf">导出pdf</n-button>
+        </div>
       </div>
     </div>
   </n-card>

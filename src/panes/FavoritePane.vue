@@ -13,18 +13,19 @@ const props = defineProps<{
 
 const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
 const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
-
+// 获取收藏返回的数据
 const getFavoriteRespData = ref<GetFavoriteRespData>()
-const pageSelected = ref<number>(1)
-
-const favoritePageCount = computed(() => {
+// 当前页码
+const currentPage = ref<number>(1)
+// 总页数
+const pageCount = computed(() => {
   if (getFavoriteRespData.value === undefined) {
     return 0
   }
   // FIXME: 有潜在的页码错误问题，例如当total为36时，应该返回2，但实际返回3，应该改用向上取整
   return Math.floor(getFavoriteRespData.value.total / 18) + 1
 })
-
+// 如果用户信息变化，重新获取收藏
 watch(
   () => props.userProfile,
   async () => {
@@ -38,7 +39,7 @@ watch(
 )
 
 async function getFavourite(page: number) {
-  pageSelected.value = page
+  currentPage.value = page
   const result = await commands.getFavorite(page)
   if (result.status === 'error') {
     notification.error({ title: '获取收藏失败', description: result.error })
@@ -51,7 +52,7 @@ async function getFavourite(page: number) {
 <template>
   <div class="h-full flex flex-col">
     <div v-if="getFavoriteRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
-      <div class="flex flex-col gap-row-2 overflow-auto">
+      <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
           v-for="favoriteItemRespData in getFavoriteRespData.list"
           :key="favoriteItemRespData.uuid"
@@ -59,7 +60,7 @@ async function getFavourite(page: number) {
           v-model:picked-comic="pickedComic"
           v-model:current-tab-name="currentTabName" />
       </div>
-      <n-pagination :page-count="favoritePageCount" :page="pageSelected" @update:page="getFavourite($event)" />
+      <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavourite($event)" />
     </div>
   </div>
 </template>

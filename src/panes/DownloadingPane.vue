@@ -17,8 +17,9 @@ type ProgressData = {
 const notification = useNotification()
 
 const config = defineModel<Config>('config', { required: true })
-
+// 章节下载进度
 const progresses = ref<Map<string, ProgressData>>(new Map())
+// 总下载进度
 const overallProgress = ref<ProgressData>({
   comicTitle: '总进度',
   chapterTitle: '总进度',
@@ -28,7 +29,7 @@ const overallProgress = ref<ProgressData>({
   indicator: '',
   retryAfter: 0,
 })
-
+// 按总图片数排序的下载进度
 const sortedProgresses = computed(() => {
   const progressesArray = Array.from(progresses.value.entries())
   progressesArray.sort((a, b) => {
@@ -38,6 +39,7 @@ const sortedProgresses = computed(() => {
 })
 
 onMounted(async () => {
+  // 监听下载事件
   await events.downloadEvent.listen(({ payload: downloadEvent }) => {
     if (downloadEvent.event == 'ChapterPending') {
       const { chapterUuid, comicTitle, chapterTitle } = downloadEvent.data
@@ -111,6 +113,7 @@ onMounted(async () => {
   })
 })
 
+// 用文件管理器打开下载目录
 async function showDownloadDirInFileManager() {
   if (config.value === undefined) {
     return
@@ -121,6 +124,7 @@ async function showDownloadDirInFileManager() {
   }
 }
 
+// 通过对话框选择下载目录
 async function selectDownloadDir() {
   const selectedDirPath = await open({ directory: true })
   if (selectedDirPath === null) {
@@ -131,8 +135,8 @@ async function selectDownloadDir() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-row-1">
-    <n-h3 class="m-be-0">下载列表</n-h3>
+  <div class="flex flex-col">
+    <div class="h-8.5 text-5">下载列表</div>
     <div class="flex gap-col-1">
       <n-input
         v-model:value="config.downloadDir"
@@ -140,13 +144,13 @@ async function selectDownloadDir() {
         readonly
         placeholder="请选择漫画目录"
         @click="selectDownloadDir">
-        <template #prefix>下载目录：</template>
+        <template #prefix>下载目录</template>
       </n-input>
-      <n-button size="tiny" @click="showDownloadDirInFileManager">打开下载目录</n-button>
+      <n-button size="tiny" @click="showDownloadDirInFileManager">打开目录</n-button>
     </div>
     <div class="grid grid-cols-[1fr_4fr_2fr]">
       <span class="text-ellipsis whitespace-nowrap overflow-hidden">{{ overallProgress.chapterTitle }}</span>
-      <n-progress :percentage="overallProgress.percentage" indicator-placement="inside" :height="21">
+      <n-progress :percentage="overallProgress.percentage" indicator-placement="inside" :height="16">
         {{ overallProgress.indicator }}
       </n-progress>
       <span>{{ overallProgress.current }}/{{ overallProgress.total }}</span>
@@ -159,7 +163,13 @@ async function selectDownloadDir() {
       <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ chapterTitle }}</span>
       <div v-if="retryAfter !== 0">风控中，将在{{ retryAfter }}秒后自动重试</div>
       <span v-else-if="total === 0">等待中</span>
-      <n-progress v-else class="" :percentage="percentage">{{ current }}/{{ total }}</n-progress>
+      <n-progress v-else :percentage="percentage">{{ current }}/{{ total }}</n-progress>
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.n-progress-content) {
+  @apply h-full;
+}
+</style>

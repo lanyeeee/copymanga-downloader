@@ -12,7 +12,7 @@ const config = defineModel<Config>('config', { required: true })
 const username = ref<string>('')
 const password = ref<string>('')
 
-async function onLogin() {
+async function login() {
   if (username.value === '') {
     message.error('请输入用户名')
     return
@@ -38,9 +38,9 @@ async function onLogin() {
     :showIcon="false"
     title="账号登录"
     positive-text="登录"
-    @positive-click="onLogin"
+    @positive-click="login"
     @close="showing = false"
-    @keydown.enter="onLogin">
+    @keydown.enter="login">
     <n-input v-model:value="username" placeholder="">
       <template #prefix>用户名:</template>
     </n-input>
