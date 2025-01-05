@@ -14,13 +14,22 @@ const notification = useNotification()
 
 // 获取漫画信息，将漫画信息存入pickedComic，并切换到章节页
 async function pickComic() {
-  const result = await commands.getComic(props.comicInfo.path_word)
-  if (result.status === 'error') {
-    notification.error({ title: '获取漫画失败', description: result.error })
+  const getComicResult = await commands.getComic(props.comicInfo.path_word)
+  if (getComicResult.status === 'error') {
+    notification.error({ title: '获取漫画失败', description: getComicResult.error })
     return
   }
-  pickedComic.value = result.data
+
+  pickedComic.value = getComicResult.data
   currentTabName.value = 'chapter'
+  // 如果获取到的漫画中有已下载的章节，则保存元数据
+  let chapterInfos = Object.values(getComicResult.data.comic.groups).flat()
+  if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
+    const saveMetadataResult = await commands.saveMetadata(getComicResult.data)
+    if (saveMetadataResult.status === 'error') {
+      notification.error({ title: '保存元数据失败', description: saveMetadataResult.error })
+    }
+  }
 }
 </script>
 

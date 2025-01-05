@@ -35,7 +35,7 @@ function useChapters() {
       return undefined
     }
 
-    return Object.values(groups).flatMap((infos) => infos)
+    return Object.values(groups).flatMap((infos) => infos) // TODO: 可以改成flat()
   })
 
   // 下载勾选的章节
@@ -64,7 +64,6 @@ function useChapters() {
       const chapter = currentGroup.value?.find((c) => c.chapterUuid === downloadedChapter.chapterUuid)
       if (chapter !== undefined) {
         chapter.isDownloaded = true
-        checkedIds.value = checkedIds.value.filter((id) => id !== downloadedChapter.chapterUuid)
       }
     }
   }
@@ -105,8 +104,12 @@ function useDropdown() {
       checkedIds.value = checkedIds.value.filter((id) => !selectedIds.value.has(id))
     } else if (key === 'check all') {
       currentGroup.value
+        // TODO: 改用 === false，不要用 !，因为isDownloaded可能是undefined和null
         ?.filter((c) => !c.isDownloaded && !checkedIds.value.includes(c.chapterUuid))
         .forEach((c) => checkedIds.value.push(c.chapterUuid))
+      // TODO: 可以考虑下面这种写法
+      // const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
+      // checkedIds.value = [...new Set([...checkedIds.value, ...currentGroupIds])]
     } else if (key === 'uncheck all') {
       const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
       checkedIds.value = checkedIds.value.filter((id) => !currentGroupIds.includes(id))
@@ -138,7 +141,7 @@ function useSelectionArea() {
       .filter(Boolean)
       .filter((id) => {
         const chapterInfo = currentGroup.value?.find((chapter) => chapter.chapterUuid === id)
-        return chapterInfo && !chapterInfo.isDownloaded
+        return chapterInfo && !chapterInfo.isDownloaded // TODO: 改用 === false，不要用 !，因为isDownloaded可能是undefined和null
       }) as string[]
   }
 
@@ -169,13 +172,21 @@ async function reloadPickedComic() {
     return
   }
 
-  const result = await commands.getComic(pickedComic.value.comic.path_word)
-  if (result.status === 'error') {
-    console.error(result.error)
+  const getComicResult = await commands.getComic(pickedComic.value.comic.path_word)
+  if (getComicResult.status === 'error') {
+    notification.error({ title: '刷新失败', description: getComicResult.error })
     return
   }
 
-  pickedComic.value = result.data
+  pickedComic.value = getComicResult.data
+  // 如果获取到的漫画中有已下载的章节，则保存元数据
+  let chapterInfos = Object.values(getComicResult.data.comic.groups).flat()
+  if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
+    const saveMetadataResult = await commands.saveMetadata(getComicResult.data)
+    if (saveMetadataResult.status === 'error') {
+      notification.error({ title: '保存元数据失败', description: saveMetadataResult.error })
+    }
+  }
 }
 </script>
 
