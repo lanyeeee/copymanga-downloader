@@ -1,11 +1,8 @@
-# 拷贝漫画下载器
-
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/db209271-874b-45f9-9a3d-d6b6e18b3d40" width="200" style="align-self: center"/>
+    <img src="https://github.com/user-attachments/assets/205af036-3324-45ae-983d-f188a8db677c" style="align-self: center"/>
 </p>
 
-
-
+# 拷贝漫画下载器
 一个用于 mangacopy.com 拷贝漫画 copymanga 的多线程下载器，带图形界面，带收藏夹，**支持下载下架的漫画，没有每分钟15次API请求的限制**，下载速度飞快。图形界面基于[Tauri](https://v2.tauri.app/start/)
 
 在[Release页面](https://github.com/lanyeeee/copymanga-downloader/releases)可以直接下载
