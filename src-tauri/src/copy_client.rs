@@ -131,9 +131,10 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        // TODO: 处理401状态码，token错误或过期
         if status == 210 {
             return Err(RiskControlError::GetUserProfile(body).into());
+        } else if status == 401 {
+            return Err(anyhow!("获取用户信息失败，token错误或过期: {body}").into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取用户信息失败，预料之外的状态码({status}): {body}").into());
         }
@@ -436,11 +437,7 @@ impl CopyClient {
 
     pub async fn get_image_bytes(&self, url: &str) -> anyhow::Result<Bytes> {
         // 发送下载图片请求
-        let http_resp = self
-            .img_client
-            .get(url)
-            .send_with_timeout_msg()
-            .await?;
+        let http_resp = self.img_client.get(url).send_with_timeout_msg().await?;
         // 检查http响应状态码
         let status = http_resp.status();
         if status != StatusCode::OK {
