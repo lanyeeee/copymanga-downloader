@@ -313,8 +313,7 @@ impl CopyClient {
             "in_mainland": false,
             "platform": 4,
         });
-        // TODO: 错误提示改成 获取章节分页
-        // 发送获取章节请求
+        // 发送获取章节分页请求
         let http_resp = self.api_client
             .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
             .query(&params)
@@ -337,20 +336,21 @@ impl CopyClient {
         if status == 210 {
             return Err(RiskControlError::GetChapters(body).into());
         } else if status != StatusCode::OK {
-            return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
+            return Err(anyhow!("获取章节分页失败，预料之外的状态码({status}): {body}").into());
         }
         // 尝试将body解析为CopyResp
-        let copy_resp = serde_json::from_str::<CopyResp>(&body)
-            .context(format!("获取章节失败，将body解析为CopyResp失败: {body}"))?;
+        let copy_resp = serde_json::from_str::<CopyResp>(&body).context(format!(
+            "获取章节分页失败，将body解析为CopyResp失败: {body}"
+        ))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}").into());
+            return Err(anyhow!("获取章节分页失败，预料之外的code: {copy_resp:?}").into());
         }
-        // 尝试将CopyResp的results字段解析为ChapterRespData
+        // 尝试将CopyResp的results字段解析为GetChaptersRespData
         let results_str = copy_resp.results.to_string();
         let get_chapters_resp_data = serde_json::from_str::<GetChaptersRespData>(&results_str)
             .context(format!(
-                "获取章节失败，将results解析为ChapterRespData失败: {results_str}"
+                "获取章节分页失败，将results解析为GetChaptersRespData失败: {results_str}"
             ))?;
 
         Ok(get_chapters_resp_data)
@@ -425,11 +425,11 @@ impl CopyClient {
         if copy_resp.code != 200 {
             return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}").into());
         }
-        // 尝试将CopyResp的results字段解析为ChapterRespData
+        // 尝试将CopyResp的results字段解析为GetChapterRespData
         let results_str = copy_resp.results.to_string();
         let get_chapter_resp_data = serde_json::from_str::<GetChapterRespData>(&results_str)
             .context(format!(
-                "获取章节失败，将results解析为ChapterRespData失败: {results_str}"
+                "获取章节失败，将results解析为GetChapterRespData失败: {results_str}"
             ))?;
 
         Ok(get_chapter_resp_data)
