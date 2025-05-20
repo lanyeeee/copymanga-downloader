@@ -214,7 +214,7 @@ export type Pagination<T> = { list: T[]; total: number; limit: number; offset: n
 export type RestrictRespData = { value: number; display: string }
 export type SearchRespData = Pagination<ComicInSearchRespData>
 export type Theme = { name: string; path_word: string }
-export type UpdateDownloadedComicsEvent = { event: "GettingComics"; data: { total: number } } | { event: "ComicGot"; data: { current: number; total: number } } | { event: "DownloadTaskCreated" }
+export type UpdateDownloadedComicsEvent = { event: "GettingComics"; data: { total: number } } | { event: "GetComicError"; data: { comicTitle: string; errMsg: string } } | { event: "ComicGot"; data: { current: number; total: number } } | { event: "DownloadTaskCreated" }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/

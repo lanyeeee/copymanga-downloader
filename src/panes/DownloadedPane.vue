@@ -61,8 +61,9 @@ function useDownloadedComics() {
   return { currentPage, pageCount, currentPageComics }
 }
 
+let updateMessage: MessageReactive | undefined
+
 function useProgressTracking() {
-  // TODO: 没必要用ref包装Map，直接用Map就行
   const progresses = ref<Map<string, ProgressData>>(new Map())
 
   // 处理导出CBZ事件
@@ -100,14 +101,19 @@ function useProgressTracking() {
     })
   }
 
-  let updateMessage: MessageReactive | undefined
-
   // 处理更新已下载漫画事件
   async function handleUpdateEvents() {
     await events.updateDownloadedComicsEvent.listen(async ({ payload: updateEvent }) => {
       if (updateEvent.event === 'GettingComics') {
         const { total } = updateEvent.data
         updateMessage = message.loading(`正在获取已下载漫画的最新数据(0/${total})`, { duration: 0 })
+      } else if (updateEvent.event === 'GetComicError' && updateMessage !== undefined) {
+        const { comicTitle, errMsg } = updateEvent.data
+        notification.warning({
+          title: `获取漫画 ${comicTitle} 的数据失败`,
+          description: errMsg,
+          duration: 0,
+        })
       } else if (updateEvent.event === 'ComicGot' && updateMessage !== undefined) {
         const { current, total } = updateEvent.data
         updateMessage.content = `正在获取已下载漫画的最新数据(${current}/${total})`
@@ -192,6 +198,10 @@ async function selectExportDir() {
 async function updateDownloadedComics() {
   const result = await commands.updateDownloadedComics()
   if (result.status === 'error') {
+    setTimeout(() => {
+      updateMessage?.destroy()
+      updateMessage = undefined
+    }, 3000)
     notification.error({ title: '更新库存漫画失败', description: result.error, duration: 0 })
   }
 }

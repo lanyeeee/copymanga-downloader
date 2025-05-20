@@ -275,12 +275,23 @@ pub async fn update_downloaded_comics(
         join_set.spawn(async move {
             // 获取最新的漫画信息
             let permit = sem.acquire().await?;
-            let comic = get_comic(
-                app.clone(),
-                app.state::<CopyClient>(),
-                &downloaded_comic.comic.path_word,
-            )
-            .await?;
+            let client = app.state::<CopyClient>();
+            let path_word = &downloaded_comic.comic.path_word;
+            let comic = match get_comic(app.clone(), client, path_word).await {
+                Ok(comic) => comic,
+                Err(err) => {
+                    // 发送获取漫画失败事件
+                    let _ = UpdateDownloadedComicsEvent::GetComicError {
+                        comic_title: downloaded_comic.comic.name.clone(),
+                        err_msg: err.0,
+                    }
+                    .emit(&app);
+                    let current = current.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    // 发送获取到漫画事件
+                    let _ = UpdateDownloadedComicsEvent::ComicGot { current, total }.emit(&app);
+                    return Ok::<(), CommandError>(());
+                }
+            };
             drop(permit);
             // 将最新的漫画信息保存到元数据文件
             save_metadata(app.state::<RwLock<Config>>(), comic.clone())?;
