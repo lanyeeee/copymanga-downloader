@@ -7,7 +7,7 @@ use crate::extensions::AnyhowErrorToStringChain;
 pub type CommandResult<T> = Result<T, CommandError>;
 
 #[derive(Debug, Type)]
-pub struct CommandError(String);
+pub struct CommandError(pub String);
 impl Serialize for CommandError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

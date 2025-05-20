@@ -106,6 +106,12 @@ pub enum UpdateDownloadedComicsEvent {
     GettingComics { total: i64 },
 
     #[serde(rename_all = "camelCase")]
+    GetComicError {
+        comic_title: String,
+        err_msg: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
     ComicGot { current: i64, total: i64 },
 
     #[serde(rename_all = "camelCase")]
