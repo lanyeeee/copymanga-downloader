@@ -162,6 +162,7 @@ updateDownloadedComicsEvent: "update-downloaded-comics-event"
 
 /** user-defined types **/
 
+export type ApiDomainMode = "Default" | "Custom"
 export type Author = { name: string; alias: string | null; path_word: string }
 export type AuthorRespData = { name: string; alias: string | null; path_word: string }
 export type ChapterInGetChapterRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null; contents: ContentRespData[]; words: number[]; is_long: boolean }
@@ -198,7 +199,7 @@ export type ComicInGetFavoriteRespData = { uuid: string; b_display: boolean; nam
 export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = string
-export type Config = { token: string; downloadDir: string; exportDir: string }
+export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string }
 export type ContentRespData = { url: string }
 export type DownloadEvent = { event: "ChapterPending"; data: { chapterUuid: string; comicTitle: string; chapterTitle: string } } | { event: "ChapterControlRisk"; data: { chapterUuid: string; retryAfter: number } } | { event: "ChapterStart"; data: { chapterUuid: string; total: number } } | { event: "ChapterEnd"; data: { chapterUuid: string; errMsg: string | null } } | { event: "ImageSuccess"; data: { chapterUuid: string; url: string; current: number } } | { event: "ImageError"; data: { chapterUuid: string; url: string; errMsg: string } } | { event: "OverallUpdate"; data: { downloadedImageCount: number; totalImageCount: number; percentage: number } } | { event: "OverallSpeed"; data: { speed: string } }
 export type ExportCbzEvent = { event: "Start"; data: { uuid: string; comicTitle: string; total: number } } | { event: "Progress"; data: { uuid: string; current: number } } | { event: "End"; data: { uuid: string } }
