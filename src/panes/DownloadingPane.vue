@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { commands, Config, events } from '../bindings.ts'
 import { NProgress, useNotification } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
+import SettingsDialog from '../components/SettingsDialog.vue'
 
 type ProgressData = {
   comicTitle: string
@@ -17,6 +18,7 @@ type ProgressData = {
 const notification = useNotification()
 
 const config = defineModel<Config>('config', { required: true })
+const settingsDialogShowing = ref<boolean>(false)
 // 章节下载进度
 const progresses = ref<Map<string, ProgressData>>(new Map())
 // 总下载进度
@@ -147,6 +149,7 @@ async function selectDownloadDir() {
         <template #prefix>下载目录</template>
       </n-input>
       <n-button size="tiny" @click="showDownloadDirInFileManager">打开目录</n-button>
+      <n-button size="tiny" @click="settingsDialogShowing = true">更多配置</n-button>
     </div>
     <div class="grid grid-cols-[1fr_4fr_2fr]">
       <span class="text-ellipsis whitespace-nowrap overflow-hidden">{{ overallProgress.chapterTitle }}</span>
@@ -165,6 +168,7 @@ async function selectDownloadDir() {
       <span v-else-if="total === 0">等待中</span>
       <n-progress v-else :percentage="percentage">{{ current }}/{{ total }}</n-progress>
     </div>
+    <settings-dialog v-model:showing="settingsDialogShowing" v-model:config="config" />
   </div>
 </template>
 
