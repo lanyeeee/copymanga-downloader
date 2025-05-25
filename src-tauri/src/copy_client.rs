@@ -23,8 +23,6 @@ use crate::{
     types::AsyncRwLock,
 };
 
-const API_DOMAIN: &str = "api.mangacopy.com";
-
 #[derive(Clone)]
 pub struct CopyClient {
     app: AppHandle,
@@ -49,9 +47,10 @@ impl CopyClient {
             "username": username,
             "password": password,
         });
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
-            .post(format!("https://{API_DOMAIN}/api/v3/register"))
+            .post(format!("https://{api_domain}/api/v3/register"))
             .header("version", "2.2.5")
             .header("source", "copyApp")
             .form(&form)
@@ -86,9 +85,10 @@ impl CopyClient {
             "salt": SALT,
         });
         // 发送登录请求
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
-            .post(format!("https://{API_DOMAIN}/api/v3/login"))
+            .post(format!("https://{api_domain}/api/v3/login"))
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -122,9 +122,10 @@ impl CopyClient {
     pub async fn get_user_profile(&self) -> CopyMangaResult<UserProfileRespData> {
         let authorization = self.get_authorization();
         // 发送获取用户信息请求
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/member/info"))
+            .get(format!("https://{api_domain}/api/v3/member/info"))
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -168,9 +169,10 @@ impl CopyClient {
             "platform": 4,
         });
         // 发送搜索请求
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/search/comic"))
+            .get(format!("https://{api_domain}/api/v3/search/comic"))
             .query(&params)
             .header("User-Agent", "COPY/2.2.5")
             .header("Accept", "application/json")
@@ -215,10 +217,11 @@ impl CopyClient {
             "platform": 4,
         });
         // 发送获取漫画请求
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
             .get(format!(
-                "https://{API_DOMAIN}/api/v3/comic2/{comic_path_word}"
+                "https://{api_domain}/api/v3/comic2/{comic_path_word}"
             ))
             .query(&params)
             .header("User-Agent", "COPY/2.2.5")
@@ -314,8 +317,9 @@ impl CopyClient {
             "platform": 4,
         });
         // 发送获取章节分页请求
+        let api_domain = self.get_api_domain();
         let http_resp = self.api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
+            .get(format!("https://{api_domain}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
             .query(&params)
             .header("User-Agent", "COPY/2.2.5")
             .header("Accept", "application/json")
@@ -384,10 +388,11 @@ impl CopyClient {
             "platform": 4,
         });
         // 发送获取章节请求
+        let api_domain = self.get_api_domain();
         let resp = self
             .api_client
             .get(format!(
-                "https://{API_DOMAIN}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"
+                "https://{api_domain}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"
             ))
             .query(&params)
             .header("User-Agent", "COPY/2.2.5")
@@ -463,9 +468,10 @@ impl CopyClient {
             "platform": 4,
         });
         // 发送获取收藏请求
+        let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
-            .get(format!("https://{API_DOMAIN}/api/v3/member/collect/comics"))
+            .get(format!("https://{api_domain}/api/v3/member/collect/comics"))
             .query(&params)
             .header("User-Agent", "COPY/2.2.5")
             .header("Accept", "application/json")
@@ -510,6 +516,10 @@ impl CopyClient {
             .state::<RwLock<Config>>()
             .read()
             .get_authorization()
+    }
+
+    fn get_api_domain(&self) -> String {
+        self.app.state::<RwLock<Config>>().read().get_api_domain()
     }
 
     async fn get_account_from_pool(&self) -> Option<Arc<RwLock<Account>>> {
