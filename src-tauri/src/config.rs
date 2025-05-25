@@ -4,12 +4,16 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
+const DEFAULT_API_DOMAIN: &str = "api.mangacopy.com";
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     pub token: String,
     pub download_dir: PathBuf,
     pub export_dir: PathBuf,
+    pub api_domain_mode: ApiDomainMode,
+    pub custom_api_domain: String,
 }
 
 impl Config {
@@ -68,10 +72,27 @@ impl Config {
             token: String::new(),
             download_dir: app_data_dir.join("漫画下载"),
             export_dir: app_data_dir.join("漫画导出"),
+            api_domain_mode: ApiDomainMode::default(),
+            custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
         }
     }
 
     pub fn get_authorization(&self) -> String {
         format!("Token {}", self.token)
     }
+
+    pub fn get_api_domain(&self) -> String {
+        if self.api_domain_mode == ApiDomainMode::Custom {
+            self.custom_api_domain.clone()
+        } else {
+            DEFAULT_API_DOMAIN.to_string()
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum ApiDomainMode {
+    #[default]
+    Default,
+    Custom,
 }
