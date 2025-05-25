@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/205af036-3324-45ae-983d-f188a8db677c" style="align-self: center"/>
+    <img src="https://github.com/user-attachments/assets/b6b17723-0640-49c2-a975-b75dd68f944c" style="align-self: center"/>
 </p>
 
 # 拷贝漫画下载器
