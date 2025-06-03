@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
-const DEFAULT_API_DOMAIN: &str = "www.copy20.com";
+const DEFAULT_API_DOMAIN: &str = "api.copy-manga.com";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]

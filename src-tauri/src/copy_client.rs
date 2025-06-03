@@ -51,6 +51,11 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/register"))
+            .header("User-Agent", "COPY/2.2.5")
+            .header("source", "copyApp")
+            .header("platform", "3")
+            .header("version", "2.2.5")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -87,6 +92,7 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/login"))
+            .header("User-Agent", "COPY/2.2.5")
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -124,6 +130,18 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/info"))
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("platform", "3")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .header("device", "V417IR")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -172,6 +190,19 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/search/comic"))
             .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "3")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .header("device", "V417IR")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -205,12 +236,12 @@ impl CopyClient {
         });
         // 发送获取漫画请求
         let api_domain = self.get_api_domain();
+        let url = format!("https://{api_domain}/api/v3/comic2/{comic_path_word}");
         let http_resp = self
             .api_client
-            .get(format!(
-                "https://{api_domain}/api/v3/comic2/{comic_path_word}"
-            ))
+            .get(url)
             .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -296,6 +327,19 @@ impl CopyClient {
         let api_domain = self.get_api_domain();
         let http_resp = self.api_client
             .get(format!("https://{api_domain}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("authorization", "Token")
+            .header("platform", "3")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .header("device", "V417IR")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .query(&params)
             .send_with_timeout_msg()
             .await?;
@@ -354,13 +398,24 @@ impl CopyClient {
         });
         // 发送获取章节请求
         let api_domain = self.get_api_domain();
+        let url =
+            format!("https://{api_domain}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}");
         let resp = self
             .api_client
-            .get(format!(
-                "https://{api_domain}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"
-            ))
+            .get(url)
             .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
             .header("webp", "0")
+            .header("platform", "3")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .header("device", "V417IR")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -429,6 +484,18 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/collect/comics"))
             .query(&params)
+            .header("User-Agent", "COPY/2.2.5")
+            .header("Accept", "application/json")
+            .header("Accept-Encoding", "gzip")
+            .header("source", "copyApp")
+            .header("deviceinfo", "DCO-AL00-DCO-AL00")
+            .header("webp", "1")
+            .header("platform", "3")
+            .header("referer", "com.copymanga.app-2.2.5")
+            .header("version", "2.2.5")
+            .header("region", "1")
+            .header("device", "V417IR")
+            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -488,28 +555,12 @@ fn create_img_client() -> ClientWithMiddleware {
 }
 
 fn create_api_client() -> ClientWithMiddleware {
-    use reqwest::header::{HeaderMap, HeaderValue};
     let retry_policy = ExponentialBackoff::builder()
         .base(1) // 指数为1，保证重试间隔为1秒不变
         .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
         .build_with_total_retry_duration(Duration::from_secs(5)); // 重试总时长为5秒
 
-    let to_header_value = HeaderValue::from_static;
-
-    let mut headers = HeaderMap::new();
-    headers.insert("User-Agent", to_header_value("COPY/2.2.5"));
-    headers.insert("Accept", to_header_value("application/json"));
-    headers.insert("Accept-Encoding", to_header_value("gzip"));
-    headers.insert("source", to_header_value("copyApp"));
-    headers.insert("deviceinfo", to_header_value("DCO-AL00-DCO-AL00"));
-    headers.insert("webp", to_header_value("1"));
-    headers.insert("platform", to_header_value("4"));
-    headers.insert("referer", to_header_value("com.copymanga.app-2.2.5"));
-    headers.insert("version", to_header_value("2.2.5"));
-    headers.insert("region", to_header_value("1"));
-
     let client = reqwest::ClientBuilder::new()
-        .default_headers(headers)
         .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
         .build()
         .unwrap();
