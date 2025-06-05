@@ -51,11 +51,7 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/register"))
-            .header("User-Agent", "COPY/2.2.5")
-            .header("source", "copyApp")
-            .header("platform", "3")
-            .header("version", "2.2.5")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
+            .header("dt", get_dt())
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -92,7 +88,7 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/login"))
-            .header("User-Agent", "COPY/2.2.5")
+            .header("dt", get_dt())
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -124,25 +120,13 @@ impl CopyClient {
     }
 
     pub async fn get_user_profile(&self) -> CopyMangaResult<UserProfileRespData> {
-        let authorization = self.get_authorization();
         // 发送获取用户信息请求
         let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/info"))
-            .header("User-Agent", "COPY/2.2.5")
-            .header("Accept", "application/json")
-            .header("Accept-Encoding", "gzip")
-            .header("source", "copyApp")
-            .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "1")
-            .header("platform", "3")
-            .header("referer", "com.copymanga.app-2.2.5")
-            .header("version", "2.2.5")
-            .header("region", "1")
-            .header("device", "V417IR")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
-            .header("authorization", authorization)
+            .header("dt", get_dt())
+            .header("authorization", self.get_authorization())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -190,19 +174,7 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/search/comic"))
             .query(&params)
-            .header("User-Agent", "COPY/2.2.5")
-            .header("Accept", "application/json")
-            .header("Accept-Encoding", "gzip")
-            .header("source", "copyApp")
-            .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "1")
-            .header("authorization", "Token")
-            .header("platform", "3")
-            .header("referer", "com.copymanga.app-2.2.5")
-            .header("version", "2.2.5")
-            .header("region", "1")
-            .header("device", "V417IR")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
+            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -241,7 +213,7 @@ impl CopyClient {
             .api_client
             .get(url)
             .query(&params)
-            .header("User-Agent", "COPY/2.2.5")
+            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -325,22 +297,14 @@ impl CopyClient {
         });
         // 发送获取章节分页请求
         let api_domain = self.get_api_domain();
-        let http_resp = self.api_client
-            .get(format!("https://{api_domain}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"))
-            .header("User-Agent", "COPY/2.2.5")
-            .header("Accept", "application/json")
-            .header("Accept-Encoding", "gzip")
-            .header("source", "copyApp")
-            .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "1")
-            .header("authorization", "Token")
-            .header("platform", "3")
-            .header("referer", "com.copymanga.app-2.2.5")
-            .header("version", "2.2.5")
-            .header("region", "1")
-            .header("device", "V417IR")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
+        let url = format!(
+            "https://{api_domain}/api/v3/comic/{comic_path_word}/group/{group_path_word}/chapters"
+        );
+        let http_resp = self
+            .api_client
+            .get(url)
             .query(&params)
+            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -404,18 +368,7 @@ impl CopyClient {
             .api_client
             .get(url)
             .query(&params)
-            .header("User-Agent", "COPY/2.2.5")
-            .header("Accept", "application/json")
-            .header("Accept-Encoding", "gzip")
-            .header("source", "copyApp")
-            .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "0")
-            .header("platform", "3")
-            .header("referer", "com.copymanga.app-2.2.5")
-            .header("version", "2.2.5")
-            .header("region", "1")
-            .header("device", "V417IR")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
+            .header("dt", get_dt())
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -470,7 +423,6 @@ impl CopyClient {
 
     pub async fn get_favorite(&self, page_num: i64) -> CopyMangaResult<GetFavoriteRespData> {
         const LIMIT: i64 = 18;
-        let authorization = self.get_authorization();
         let params = json!({
             "limit": LIMIT,
             "offset": (page_num - 1) * LIMIT,
@@ -484,19 +436,8 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/collect/comics"))
             .query(&params)
-            .header("User-Agent", "COPY/2.2.5")
-            .header("Accept", "application/json")
-            .header("Accept-Encoding", "gzip")
-            .header("source", "copyApp")
-            .header("deviceinfo", "DCO-AL00-DCO-AL00")
-            .header("webp", "1")
-            .header("platform", "3")
-            .header("referer", "com.copymanga.app-2.2.5")
-            .header("version", "2.2.5")
-            .header("region", "1")
-            .header("device", "V417IR")
-            .header("umstring", "d8c31fb914fe4e3c9a8fe6eaadc641bc")
-            .header("authorization", authorization)
+            .header("dt", get_dt())
+            .header("authorization", self.get_authorization())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -544,6 +485,10 @@ impl CopyClient {
     }
 }
 
+fn get_dt() -> String {
+    chrono::Local::now().format("%Y.%m.%d").to_string()
+}
+
 fn create_img_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
 
@@ -555,12 +500,32 @@ fn create_img_client() -> ClientWithMiddleware {
 }
 
 fn create_api_client() -> ClientWithMiddleware {
+    use reqwest::header::{HeaderMap, HeaderValue};
+
     let retry_policy = ExponentialBackoff::builder()
         .base(1) // 指数为1，保证重试间隔为1秒不变
         .jitter(Jitter::Bounded) // 重试间隔在1秒左右波动
         .build_with_total_retry_duration(Duration::from_secs(5)); // 重试总时长为5秒
 
+    let from_static = HeaderValue::from_static;
+
+    let mut headers = HeaderMap::new();
+    headers.insert("User-Agent", from_static("COPY/2.3.0"));
+    headers.insert("Accept", from_static("application/json"));
+    headers.insert("Accept-Encoding", from_static("gzip"));
+    headers.insert("source", from_static("copyApp"));
+    headers.insert("deviceinfo", from_static("DCO-AL00-DCO-AL00"));
+    headers.insert("webp", from_static("1"));
+    headers.insert("authorization", from_static("Token"));
+    headers.insert("platform", from_static("3"));
+    headers.insert("referer", from_static("com.copymanga.app-2.3.0"));
+    headers.insert("version", from_static("2.3.0"));
+    headers.insert("region", from_static("1"));
+    headers.insert("device", from_static("V417IR"));
+    headers.insert("umstring", from_static("d8c31fb914fe4e3c9a8fe6eaadc641bc"));
+
     let client = reqwest::ClientBuilder::new()
+        .default_headers(headers)
         .timeout(Duration::from_secs(3)) // 每个请求超过3秒就超时
         .build()
         .unwrap();
