@@ -74,6 +74,8 @@ function useProgressTracking() {
         createProgress(uuid, comicTitle, total, '正在导出cbz')
       } else if (exportEvent.event === 'Progress') {
         updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'Error') {
+        failProgress(exportEvent.data.uuid, '导出cbz失败')
       } else if (exportEvent.event === 'End') {
         completeProgress(exportEvent.data.uuid, '导出cbz完成')
       }
@@ -88,6 +90,8 @@ function useProgressTracking() {
         createProgress(uuid, comicTitle, total, '正在创建pdf')
       } else if (exportEvent.event === 'CreateProgress') {
         updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'CreateError') {
+        failProgress(exportEvent.data.uuid, '创建pdf失败')
       } else if (exportEvent.event === 'CreateEnd') {
         completeProgress(exportEvent.data.uuid, '创建pdf完成')
       } else if (exportEvent.event === 'MergeStart') {
@@ -95,6 +99,8 @@ function useProgressTracking() {
         createProgress(uuid, comicTitle, total, '正在合并pdf')
       } else if (exportEvent.event === 'MergeProgress') {
         updateProgress(exportEvent.data)
+      } else if (exportEvent.event === 'MergeError') {
+        failProgress(exportEvent.data.uuid, '合并pdf失败')
       } else if (exportEvent.event === 'MergeEnd') {
         completeProgress(exportEvent.data.uuid, '合并pdf完成')
       }
@@ -159,6 +165,19 @@ function useProgressTracking() {
     if (progressData) {
       progressData.progressMessage.type = 'success'
       progressData.progressMessage.content = `${progressData.comicTitle} ${actionMessage}(${progressData.current}/${progressData.total})`
+      setTimeout(() => {
+        progressData.progressMessage.destroy()
+        progresses.value.delete(uuid)
+      }, 3000)
+    }
+  }
+
+  // 将进度message标记为失败
+  function failProgress(uuid: string, errorMessage: string) {
+    const progressData = progresses.value.get(uuid)
+    if (progressData) {
+      progressData.progressMessage.type = 'error'
+      progressData.progressMessage.content = `${progressData.comicTitle} 导出失败(${progressData.current}/${progressData.total}): ${errorMessage}`
       setTimeout(() => {
         progressData.progressMessage.destroy()
         progresses.value.delete(uuid)

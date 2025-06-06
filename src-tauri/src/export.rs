@@ -35,6 +35,23 @@ impl Archive {
     }
 }
 
+struct CbzErrorEventGuard {
+    uuid: String,
+    app: AppHandle,
+    success: bool,
+}
+
+impl Drop for CbzErrorEventGuard {
+    fn drop(&mut self) {
+        if self.success {
+            return;
+        }
+
+        let uuid = self.uuid.clone();
+        let _ = ExportCbzEvent::Error { uuid }.emit(&self.app);
+    }
+}
+
 #[allow(clippy::cast_possible_wrap)]
 #[allow(clippy::cast_possible_truncation)]
 pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
@@ -53,6 +70,12 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         total: downloaded_chapters.len() as u32,
     }
     .emit(app);
+    // 如果success为false，drop时发送Error事件
+    let mut error_event_guard = CbzErrorEventGuard {
+        uuid: event_uuid.clone(),
+        app: app.clone(),
+        success: false,
+    };
     // 用来记录导出进度
     let current = Arc::new(AtomicU32::new(0));
     // 并发处理
@@ -136,10 +159,46 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
 
         Ok(())
     })?;
+    // 标记为成功，后面drop时就不会发送Error事件
+    error_event_guard.success = true;
     // 发送导出cbz完成事件
     let _ = ExportCbzEvent::End { uuid: event_uuid }.emit(app);
 
     Ok(())
+}
+
+struct PdfCreateErrorEventGuard {
+    uuid: String,
+    app: AppHandle,
+    success: bool,
+}
+
+impl Drop for PdfCreateErrorEventGuard {
+    fn drop(&mut self) {
+        if self.success {
+            return;
+        }
+
+        let uuid = self.uuid.clone();
+        let _ = ExportPdfEvent::CreateError { uuid }.emit(&self.app);
+    }
+}
+
+struct PdfMergeErrorEventGuard {
+    uuid: String,
+    app: AppHandle,
+    success: bool,
+}
+
+impl Drop for PdfMergeErrorEventGuard {
+    fn drop(&mut self) {
+        if self.success {
+            return;
+        }
+
+        let uuid = self.uuid.clone();
+        let _ = ExportPdfEvent::MergeError { uuid }.emit(&self.app);
+    }
 }
 
 #[allow(clippy::cast_possible_truncation)]
@@ -154,6 +213,12 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         total: downloaded_chapters.len() as u32,
     }
     .emit(app);
+    // 如果success为false，drop时发送CreateError事件
+    let mut create_error_event_guard = PdfCreateErrorEventGuard {
+        uuid: event_uuid.clone(),
+        app: app.clone(),
+        success: false,
+    };
     // 用来记录创建pdf的进度
     let current = Arc::new(AtomicU32::new(0));
     // 并发处理
@@ -183,6 +248,8 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         .emit(app);
         Ok(())
     })?;
+    // 标记为成功，后面drop时就不会发送CreateError事件
+    create_error_event_guard.success = true;
     // 发送创建pdf完成事件
     let _ = ExportPdfEvent::CreateEnd { uuid: event_uuid }.emit(app);
 
@@ -201,6 +268,12 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         total: chapter_export_dirs.len() as u32,
     }
     .emit(app);
+    // 如果success为false，drop时发送MergeError事件
+    let mut merge_error_event_guard = PdfMergeErrorEventGuard {
+        uuid: event_uuid.clone(),
+        app: app.clone(),
+        success: false,
+    };
     // 合并PDF很吃内存，为了减少爆内存的发生，不使用并发处理，而是逐个合并
     for (i, chapter_export_dir) in chapter_export_dirs.iter().enumerate() {
         let group_name = chapter_export_dir
@@ -223,6 +296,8 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
         }
         .emit(app);
     }
+    // 标记为成功，后面drop时就不会发送MergeError事件
+    merge_error_event_guard.success = true;
     // 发送合并pdf完成事件
     let _ = ExportPdfEvent::MergeEnd { uuid: event_uuid }.emit(app);
     Ok(())
