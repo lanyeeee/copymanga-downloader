@@ -50,7 +50,7 @@ pub struct ComicInGetComicRespData {
     #[serde(rename = "img_type")]
     pub img_type: i64,
     #[serde(rename = "seo_baidu")]
-    pub seo_baidu: String,
+    pub seo_baidu: Option<String>,
     pub region: LabeledValueRespData,
     pub status: LabeledValueRespData,
     pub author: Vec<AuthorRespData>,
