@@ -20,6 +20,7 @@ use crate::{
     config::Config,
     events::{ExportCbzEvent, ExportPdfEvent},
     types::{ChapterInfo, Comic, ComicInfo},
+    utils,
 };
 
 enum Archive {
@@ -325,8 +326,8 @@ fn create_pdf(chapter_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()
 
         let buffer = read_image_to_buffer(&image_path)
             .context(format!("将`{image_path:?}`读取到buffer失败"))?;
-        let (width, height) = image::image_dimensions(&image_path)
-            .context(format!("获取`{image_path:?}`的尺寸失败"))?;
+        let (width, height) =
+            utils::get_dimensions(&buffer).context(format!("获取`{image_path:?}`的尺寸失败"))?;
         let image_stream = lopdf::xobject::image_from(buffer)
             .context(format!("创建`{image_path:?}`的图片流失败"))?;
         // 将图片流添加到doc中
