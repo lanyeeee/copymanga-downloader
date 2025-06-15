@@ -3,10 +3,13 @@ description: 反馈遇到的问题
 labels: [bug]
 title: "[Bug] 修改我！未修改标题的issue将被自动关闭"
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        为了使我更好地帮助你，请提供以下信息。以及修改上方的标题
+      label: 在提交BUG之前
+      description: 请先尝试使用最新版，也许这个问题已经在最新版修复
+      options:
+        - label: 我尝试使用了最新版，我确定这个问题在最新版中依然存在
+          required: true
   - type: checkboxes
     attributes:
       label: 复现步骤很重要
