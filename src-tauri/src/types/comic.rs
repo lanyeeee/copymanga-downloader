@@ -112,8 +112,6 @@ pub struct ComicDetail {
     pub free_type: LabeledValue,
     pub restrict: LabeledValue,
     pub reclass: LabeledValue,
-    #[serde(rename = "img_type")]
-    pub img_type: i64,
     #[serde(rename = "seo_baidu")]
     pub seo_baidu: Option<String>,
     pub region: LabeledValue,
@@ -217,7 +215,6 @@ impl ComicDetail {
             free_type,
             restrict,
             reclass,
-            img_type: comic_detail_resp_data.img_type,
             seo_baidu: comic_detail_resp_data.seo_baidu,
             region,
             status,
