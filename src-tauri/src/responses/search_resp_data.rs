@@ -25,14 +25,12 @@ impl DerefMut for SearchRespData {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ComicInSearchRespData {
-    pub name: String,
     pub alias: Option<String>,
+    pub author: Vec<AuthorRespData>,
+    pub ban: i64,
+    pub cover: String,
+    pub name: String,
     #[serde(rename = "path_word")]
     pub path_word: String,
-    pub cover: String,
-    pub ban: i64,
-    #[serde(rename = "img_type")]
-    pub img_type: i64,
-    pub author: Vec<AuthorRespData>,
     pub popular: i64,
 }
