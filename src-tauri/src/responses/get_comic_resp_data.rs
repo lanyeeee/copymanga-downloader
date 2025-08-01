@@ -47,8 +47,6 @@ pub struct ComicInGetComicRespData {
     pub free_type: LabeledValueRespData,
     pub restrict: LabeledValueRespData,
     pub reclass: LabeledValueRespData,
-    #[serde(rename = "img_type")]
-    pub img_type: i64,
     #[serde(rename = "seo_baidu")]
     pub seo_baidu: Option<String>,
     pub region: LabeledValueRespData,
