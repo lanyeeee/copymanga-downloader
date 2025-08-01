@@ -196,7 +196,7 @@ export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban
 groups: { [key in string]: ChapterInfo[] } }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
 export type ComicInGetFavoriteRespData = { uuid: string; b_display: boolean; name: string; path_word: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetime_updated: string; last_chapter_id: string; last_chapter_name: string }
-export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; img_type: number; author: AuthorRespData[]; popular: number }
+export type ComicInSearchRespData = { alias: string | null; author: AuthorRespData[]; ban: number; cover: string; name: string; path_word: string; popular: number }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = string
 export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string }
