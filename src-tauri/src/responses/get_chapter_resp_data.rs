@@ -57,8 +57,6 @@ pub struct ChapterInGetChapterRespData {
     pub group_path_word: String,
     #[serde(rename = "type")]
     pub type_field: i64,
-    #[serde(rename = "img_type")]
-    pub img_type: i64,
     pub news: String,
     #[serde(rename = "datetime_created")]
     pub datetime_created: String,

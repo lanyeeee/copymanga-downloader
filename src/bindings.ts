@@ -165,8 +165,8 @@ updateDownloadedComicsEvent: "update-downloaded-comics-event"
 export type ApiDomainMode = "Default" | "Custom"
 export type Author = { name: string; alias: string | null; path_word: string }
 export type AuthorRespData = { name: string; alias: string | null; path_word: string }
-export type ChapterInGetChapterRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null; contents: ContentRespData[]; words: number[]; is_long: boolean }
-export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; img_type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
+export type ChapterInGetChapterRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; news: string; datetime_created: string; prev: string | null; next: string | null; contents: ContentRespData[]; words: number[]; is_long: boolean }
+export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
 export type ChapterInfo = { chapterUuid: string; chapterTitle: string; 
 /**
  * 以order为前缀的章节标题
@@ -189,14 +189,14 @@ order: number;
  */
 comicStatus: ComicStatus; isDownloaded?: boolean | null }
 export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group } }
-export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; img_type: number; seo_baidu: string | null; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; 
+export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; seo_baidu: string | null; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; 
 /**
  * `group_path_word` -> `chapter_infos`
  */
 groups: { [key in string]: ChapterInfo[] } }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
 export type ComicInGetFavoriteRespData = { uuid: string; b_display: boolean; name: string; path_word: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetime_updated: string; last_chapter_id: string; last_chapter_name: string }
-export type ComicInSearchRespData = { alias: string | null; author: AuthorRespData[]; ban: number; cover: string; name: string; path_word: string; popular: number }
+export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; author: AuthorRespData[]; popular: number }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = string
 export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string }
