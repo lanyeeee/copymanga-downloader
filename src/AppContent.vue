@@ -11,6 +11,7 @@ import { path } from '@tauri-apps/api'
 import FavoritePane from './panes/FavoritePane.vue'
 import { CurrentTabName } from './types.ts'
 import DownloadedPane from './panes/DownloadedPane.vue'
+import AboutDialog from './components/AboutDialog.vue'
 
 const message = useMessage()
 const notification = useNotification()
@@ -18,6 +19,7 @@ const notification = useNotification()
 const config = ref<Config>()
 const userProfile = ref<UserProfileRespData>()
 const loginDialogShowing = ref<boolean>(false)
+const aboutDialogShowing = ref<boolean>(false)
 const currentTabName = ref<CurrentTabName>('search')
 const pickedComic = ref<Comic>()
 
@@ -67,13 +69,6 @@ async function showConfigInFileManager() {
     notification.error({ title: '打开配置文件失败', description: result.error })
   }
 }
-
-async function test() {
-  const result = await commands.updateDownloadedComics()
-  if (result.status === 'error') {
-    notification.error({ description: result.error })
-  }
-}
 </script>
 
 <template>
@@ -84,7 +79,7 @@ async function test() {
       </n-input>
       <n-button type="primary" @click="loginDialogShowing = true">账号登录</n-button>
       <n-button @click="showConfigInFileManager">打开配置目录</n-button>
-      <n-button @click="test">测试用</n-button>
+      <n-button @click="aboutDialogShowing = true">关于</n-button>
       <div v-if="userProfile !== undefined" class="flex flex-justify-end items-center">
         <n-avatar round :size="32" :src="userProfile.avatar" />
         <span class="whitespace-nowrap">{{ userProfile.nickname }}</span>
@@ -116,5 +111,6 @@ async function test() {
     <n-modal v-model:show="loginDialogShowing">
       <login-dialog v-model:showing="loginDialogShowing" v-model:config="config" />
     </n-modal>
+    <about-dialog v-model:showing="aboutDialogShowing" />
   </div>
 </template>
