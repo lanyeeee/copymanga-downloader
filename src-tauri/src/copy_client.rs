@@ -51,7 +51,6 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/register"))
-            .header("dt", get_dt())
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -88,7 +87,6 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .post(format!("https://{api_domain}/api/v3/login"))
-            .header("dt", get_dt())
             .form(&form)
             .send_with_timeout_msg()
             .await?;
@@ -125,7 +123,6 @@ impl CopyClient {
         let http_resp = self
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/info"))
-            .header("dt", get_dt())
             .header("authorization", self.get_authorization())
             .send_with_timeout_msg()
             .await?;
@@ -166,7 +163,7 @@ impl CopyClient {
             "offset": offset,
             "q": keyword,
             "q_type": "",
-            "platform": 4,
+            "platform": 1,
         });
         // 发送搜索请求
         let api_domain = self.get_api_domain();
@@ -174,7 +171,6 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/search/comic"))
             .query(&params)
-            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -203,8 +199,7 @@ impl CopyClient {
 
     pub async fn get_comic(&self, comic_path_word: &str) -> CopyMangaResult<GetComicRespData> {
         let params = json!({
-            "in_mainland": false,
-            "platform": 4,
+            "platform": 1,
         });
         // 发送获取漫画请求
         let api_domain = self.get_api_domain();
@@ -213,7 +208,6 @@ impl CopyClient {
             .api_client
             .get(url)
             .query(&params)
-            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -245,7 +239,7 @@ impl CopyClient {
         comic_path_word: &str,
         group_path_word: &str,
     ) -> CopyMangaResult<Vec<ChapterInGetChaptersRespData>> {
-        const LIMIT: i64 = 500;
+        const LIMIT: i64 = 100;
         let mut chapters = vec![];
         // 获取第一页的章节
         let mut first_chapters_resp_data = self
@@ -292,8 +286,6 @@ impl CopyClient {
         let params = json!({
             "limit": limit,
             "offset": offset,
-            "in_mainland": false,
-            "platform": 4,
         });
         // 发送获取章节分页请求
         let api_domain = self.get_api_domain();
@@ -304,7 +296,6 @@ impl CopyClient {
             .api_client
             .get(url)
             .query(&params)
-            .header("dt", get_dt())
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码
@@ -357,8 +348,7 @@ impl CopyClient {
         let authorization = format!("Token {token}");
 
         let params = json!({
-            "in_mainland": false,
-            "platform": 4,
+            "platform": 1,
         });
         // 发送获取章节请求
         let api_domain = self.get_api_domain();
@@ -368,7 +358,6 @@ impl CopyClient {
             .api_client
             .get(url)
             .query(&params)
-            .header("dt", get_dt())
             .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
@@ -428,7 +417,6 @@ impl CopyClient {
             "offset": (page_num - 1) * LIMIT,
             "free_type": 1,
             "ordering": "-datetime_modifier",
-            "platform": 4,
         });
         // 发送获取收藏请求
         let api_domain = self.get_api_domain();
@@ -436,7 +424,6 @@ impl CopyClient {
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/collect/comics"))
             .query(&params)
-            .header("dt", get_dt())
             .header("authorization", self.get_authorization())
             .send_with_timeout_msg()
             .await?;
@@ -485,10 +472,6 @@ impl CopyClient {
     }
 }
 
-fn get_dt() -> String {
-    chrono::Local::now().format("%Y.%m.%d").to_string()
-}
-
 fn create_img_client() -> ClientWithMiddleware {
     let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
 
@@ -510,19 +493,12 @@ fn create_api_client() -> ClientWithMiddleware {
     let from_static = HeaderValue::from_static;
 
     let mut headers = HeaderMap::new();
-    headers.insert("User-Agent", from_static("COPY/2.3.0"));
+    headers.insert("User-Agent", from_static("COPY/3.0.0"));
     headers.insert("Accept", from_static("application/json"));
-    headers.insert("Accept-Encoding", from_static("gzip"));
-    headers.insert("source", from_static("copyApp"));
-    headers.insert("deviceinfo", from_static("DCO-AL00-DCO-AL00"));
+    headers.insert("version", from_static("2025.08.15"));
+    headers.insert("platform", from_static("1"));
     headers.insert("webp", from_static("1"));
-    headers.insert("authorization", from_static("Token"));
-    headers.insert("platform", from_static("3"));
-    headers.insert("referer", from_static("com.copymanga.app-2.3.0"));
-    headers.insert("version", from_static("2.3.0"));
     headers.insert("region", from_static("1"));
-    headers.insert("device", from_static("V417IR"));
-    headers.insert("umstring", from_static("d8c31fb914fe4e3c9a8fe6eaadc641bc"));
 
     let client = reqwest::ClientBuilder::new()
         .default_headers(headers)
