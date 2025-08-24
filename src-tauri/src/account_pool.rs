@@ -93,6 +93,7 @@ impl AccountPool {
         };
         let account = Arc::new(RwLock::new(account));
         self.accounts.push(account.clone());
+        self.save().context("保存新注册的账号失败".to_string())?;
 
         Ok(account)
     }
