@@ -46,6 +46,7 @@ impl CopyClient {
         let form = json!({
             "username": username,
             "password": password,
+            "source": "freeSite"
         });
         let api_domain = self.get_api_domain();
         let http_resp = self
