@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
+use image::ImageFormat;
 use parking_lot::RwLock;
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
@@ -178,11 +179,17 @@ impl DownloadManager {
         for (url, ord) in urls_with_ord {
             let manager = self.clone();
             let url = url.clone();
-            let save_path = temp_download_dir.join(format!("{ord:03}.webp"));
-            let ep_id = chapter_info.chapter_uuid.clone();
+            let temp_download_dir = temp_download_dir.clone();
+            let chapter_uuid = chapter_info.chapter_uuid.clone();
             let current = current.clone();
             // 创建下载任务
-            join_set.spawn(manager.download_image(url, save_path, ep_id, current));
+            join_set.spawn(manager.download_image(
+                url,
+                temp_download_dir,
+                ord,
+                chapter_uuid,
+                current,
+            ));
         }
         // 逐一处理完成的下载任务
         while let Some(Ok(())) = join_set.join_next().await {
@@ -274,7 +281,8 @@ impl DownloadManager {
     async fn download_image(
         self,
         url: String,
-        save_path: PathBuf,
+        temp_download_dir: PathBuf,
+        ord: i64,
         chapter_uuid: String,
         current: Arc<AtomicU32>,
     ) {
@@ -293,8 +301,8 @@ impl DownloadManager {
                 return;
             }
         };
-        let image_data = match self.copy_client().get_image_bytes(&url).await {
-            Ok(data) => data,
+        let (img_data, img_format) = match self.copy_client().get_img_data_and_format(&url).await {
+            Ok(data_and_format) => data_and_format,
             Err(err) => {
                 let err = err.context(format!("下载图片 {url} 失败"));
                 // 发送下载图片失败事件
@@ -308,8 +316,24 @@ impl DownloadManager {
             }
         };
         drop(permit);
+
+        let extension = match img_format {
+            ImageFormat::WebP => "webp",
+            ImageFormat::Jpeg => "jpg",
+            _ => {
+                let _ = DownloadEvent::ImageError {
+                    chapter_uuid: chapter_uuid.clone(),
+                    url: url.clone(),
+                    err_msg: format!("{img_format:?}格式不支持"),
+                }
+                .emit(&self.app);
+                return;
+            }
+        };
+
+        let save_path = temp_download_dir.join(format!("{ord:03}.{extension}"));
         // 保存图片
-        if let Err(err) = std::fs::write(&save_path, &image_data).map_err(anyhow::Error::from) {
+        if let Err(err) = std::fs::write(&save_path, &img_data).map_err(anyhow::Error::from) {
             let err = err.context(format!("保存图片 {save_path:?} 失败"));
             // 发送下载图片失败事件
             let _ = DownloadEvent::ImageError {
@@ -322,7 +346,7 @@ impl DownloadManager {
         }
         // 记录下载字节数
         self.byte_per_sec
-            .fetch_add(image_data.len() as u64, Ordering::Relaxed);
+            .fetch_add(img_data.len() as u64, Ordering::Relaxed);
         // 更新章节下载进度
         let current = current.fetch_add(1, Ordering::Relaxed) + 1;
         // 发送下载图片成功事件

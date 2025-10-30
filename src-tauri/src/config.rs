@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
+use crate::types::DownloadFormat;
+
 const DEFAULT_API_DOMAIN: &str = "api.2025copy.com";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -14,6 +16,7 @@ pub struct Config {
     pub export_dir: PathBuf,
     pub api_domain_mode: ApiDomainMode,
     pub custom_api_domain: String,
+    pub download_format: DownloadFormat,
 }
 
 impl Config {
@@ -74,6 +77,7 @@ impl Config {
             export_dir: app_data_dir.join("漫画导出"),
             api_domain_mode: ApiDomainMode::default(),
             custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
+            download_format: DownloadFormat::Webp,
         }
     }
 
