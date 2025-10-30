@@ -1,8 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::{io::Cursor, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
 use bytes::Bytes;
+use image::ImageFormat;
 use parking_lot::RwLock;
 use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
@@ -20,7 +21,7 @@ use crate::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
         GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
-    types::AsyncRwLock,
+    types::{AsyncRwLock, DownloadFormat},
 };
 
 #[derive(Clone)]
@@ -394,7 +395,7 @@ impl CopyClient {
         Ok(get_chapter_resp_data)
     }
 
-    pub async fn get_image_bytes(&self, url: &str) -> anyhow::Result<Bytes> {
+    pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
         // 发送下载图片请求
         let http_resp = self.img_client.get(url).send_with_timeout_msg().await?;
         // 检查http响应状态码
@@ -405,10 +406,49 @@ impl CopyClient {
                 "下载图片 {url} 失败，预料之外的状态码({status}): {body}"
             ));
         }
+        // 获取 resp headers 的 content-type 字段
+        let content_type = http_resp
+            .headers()
+            .get("content-type")
+            .ok_or(anyhow!("响应中没有content-type字段"))?
+            .to_str()
+            .context("响应中的content-type字段不是utf-8字符串")?
+            .to_string();
         // 读取图片数据
         let image_data = http_resp.bytes().await?;
+        let original_format = match content_type.as_str() {
+            "image/webp" => ImageFormat::WebP,
+            "image/jpeg" => ImageFormat::Jpeg,
+            _ => return Err(anyhow!("原图出现了意料之外的格式: {content_type}")),
+        };
+        // 确定目标格式
+        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let target_format = match download_format {
+            DownloadFormat::Webp => ImageFormat::WebP,
+            DownloadFormat::Jpeg => ImageFormat::Jpeg,
+        };
+        // 如果原始格式与目标格式相同，直接返回
+        if original_format == target_format {
+            return Ok((image_data, original_format));
+        }
+        // 否则需要将图片转换为目标格式
+        let img =
+            image::load_from_memory(&image_data).context("将图片数据转换为DynamicImage失败")?;
+        let mut converted_data = Vec::new();
+        match target_format {
+            ImageFormat::Jpeg => img
+                .to_rgb8()
+                .write_to(&mut Cursor::new(&mut converted_data), target_format),
+            ImageFormat::WebP => img
+                .to_rgba8()
+                .write_to(&mut Cursor::new(&mut converted_data), target_format),
+            _ => return Err(anyhow!("这里不应该出现目标格式`{target_format:?}`")),
+        }
+        .context(format!(
+            "将`{original_format:?}`转换为`{target_format:?}`失败"
+        ))?;
 
-        Ok(image_data)
+        Ok((Bytes::from(converted_data), target_format))
     }
 
     pub async fn get_favorite(&self, page_num: i64) -> CopyMangaResult<GetFavoriteRespData> {
