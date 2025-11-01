@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { commands, Config, events } from '../bindings.ts'
 import { NProgress, useNotification } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
-import SettingsDialog from '../components/SettingsDialog.vue'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 type ProgressData = {
   comicTitle: string
@@ -18,7 +18,6 @@ type ProgressData = {
 const notification = useNotification()
 
 const config = defineModel<Config>('config', { required: true })
-const settingsDialogShowing = ref<boolean>(false)
 // 章节下载进度
 const progresses = ref<Map<string, ProgressData>>(new Map())
 // 总下载进度
@@ -138,20 +137,18 @@ async function selectDownloadDir() {
 
 <template>
   <div class="flex flex-col">
-    <div class="h-8.5 text-5">下载列表</div>
-    <div class="flex gap-col-1">
-      <n-input
-        v-model:value="config.downloadDir"
-        size="tiny"
-        readonly
-        placeholder="请选择漫画目录"
-        @click="selectDownloadDir">
-        <template #prefix>下载目录</template>
-      </n-input>
-      <n-button size="tiny" @click="showDownloadDirInFileManager">打开目录</n-button>
-      <n-button size="tiny" @click="settingsDialogShowing = true">更多配置</n-button>
-    </div>
-    <div class="grid grid-cols-[1fr_4fr_2fr]">
+    <n-input-group class="box-border px-2 pt-2">
+      <n-input-group-label size="small">下载目录</n-input-group-label>
+      <n-input v-model:value="config.downloadDir" size="small" readonly @click="selectDownloadDir" />
+      <n-button class="w-10" size="small" @click="showDownloadDirInFileManager">
+        <template #icon>
+          <n-icon size="20">
+            <PhFolderOpen />
+          </n-icon>
+        </template>
+      </n-button>
+    </n-input-group>
+    <div class="grid grid-cols-[1fr_4fr_2fr] px-2">
       <span class="text-ellipsis whitespace-nowrap overflow-hidden">{{ overallProgress.chapterTitle }}</span>
       <n-progress :percentage="overallProgress.percentage" indicator-placement="inside" :height="16">
         {{ overallProgress.indicator }}
@@ -159,7 +156,7 @@ async function selectDownloadDir() {
       <span>{{ overallProgress.current }}/{{ overallProgress.total }}</span>
     </div>
     <div
-      class="grid grid-cols-[1fr_1fr_2fr]"
+      class="grid grid-cols-[1fr_1fr_2fr] px-2"
       v-for="[chapterUuid, { comicTitle, chapterTitle, percentage, current, total, retryAfter }] in sortedProgresses"
       :key="chapterUuid">
       <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ comicTitle }}</span>
@@ -168,7 +165,6 @@ async function selectDownloadDir() {
       <span v-else-if="total === 0">等待中</span>
       <n-progress v-else :percentage="percentage">{{ current }}/{{ total }}</n-progress>
     </div>
-    <settings-dialog v-model:showing="settingsDialogShowing" v-model:config="config" />
   </div>
 </template>
 

@@ -2,15 +2,15 @@
 import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { ChapterInfo, Comic, commands } from '../bindings.ts'
-import { useMessage, useNotification } from 'naive-ui'
+import { useMessage, useNotification, DropdownOption } from 'naive-ui'
 
 const notification = useNotification()
 const message = useMessage()
 
 const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
 
-const { currentGroupPath, currentGroup, sortedGroups, chapterInfos, downloadChapters } = useChapters()
-const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown, onDropdownSelect } = useDropdown()
+const { currentGroupPath, currentGroup, sortedGroups, downloadChapters } = useChapters()
+const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
 const { selectionAreaRef, checkedIds, selectedIds, unselectAll, updateSelectedIds } = useSelectionArea()
 
 function useChapters() {
@@ -27,15 +27,6 @@ function useChapters() {
     }
 
     return Object.entries(pickedComic.value.comic.groups).sort((a, b) => b[1].length - a[1].length)
-  })
-  // 所有章节
-  const chapterInfos = computed<ChapterInfo[] | undefined>(() => {
-    const groups = pickedComic.value?.comic.groups
-    if (groups === undefined) {
-      return undefined
-    }
-
-    return Object.values(groups).flatMap((infos) => infos) // TODO: 可以改成flat()
   })
 
   // 下载勾选的章节
@@ -68,7 +59,7 @@ function useChapters() {
     }
   }
 
-  return { currentGroupPath, currentGroup, sortedGroups, chapterInfos, downloadChapters }
+  return { currentGroupPath, currentGroup, sortedGroups, downloadChapters }
 }
 
 function useDropdown() {
@@ -79,11 +70,57 @@ function useDropdown() {
   // 是否显示dropdown
   const dropdownShowing = ref<boolean>(false)
   // dropdown选项
-  const dropdownOptions = [
-    { label: '勾选', key: 'check' },
-    { label: '取消勾选', key: 'uncheck' },
-    { label: '全选', key: 'check all' },
-    { label: '取消全选', key: 'uncheck all' },
+  const dropdownOptions: DropdownOption[] = [
+    {
+      label: '勾选',
+      key: 'check',
+      props: {
+        onClick: () => {
+          // 只有未勾选的才会被勾选
+          ;[...selectedIds.value]
+            .filter((id) => !checkedIds.value.includes(id))
+            .forEach((id) => checkedIds.value.push(id))
+          dropdownShowing.value = false
+        },
+      },
+    },
+    {
+      label: '取消勾选',
+      key: 'uncheck',
+      props: {
+        onClick: () => {
+          checkedIds.value = checkedIds.value.filter((id) => !selectedIds.value.has(id))
+          dropdownShowing.value = false
+        },
+      },
+    },
+    {
+      label: '全选',
+      key: 'check all',
+      props: {
+        onClick: () => {
+          currentGroup.value
+            // TODO: 改用 === false，不要用 !，因为isDownloaded可能是undefined和null
+            ?.filter((c) => !c.isDownloaded && !checkedIds.value.includes(c.chapterUuid))
+            .forEach((c) => checkedIds.value.push(c.chapterUuid))
+          // TODO: 可以考虑下面这种写法
+          // const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
+          // checkedIds.value = [...new Set([...checkedIds.value, ...currentGroupIds])]
+          dropdownShowing.value = false
+        },
+      },
+    },
+    {
+      label: '取消全选',
+      key: 'uncheck all',
+      props: {
+        onClick: () => {
+          const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
+          checkedIds.value = checkedIds.value.filter((id) => !currentGroupIds.includes(id))
+          dropdownShowing.value = false
+        },
+      },
+    },
   ]
 
   // 显示dropdown
@@ -95,28 +132,7 @@ function useDropdown() {
     dropdownY.value = e.clientY
   }
 
-  // dropdown选项点击事件
-  function onDropdownSelect(key: 'check' | 'uncheck' | 'check all' | 'uncheck all') {
-    dropdownShowing.value = false
-    if (key === 'check') {
-      ;[...selectedIds.value].filter((id) => !checkedIds.value.includes(id)).forEach((id) => checkedIds.value.push(id))
-    } else if (key === 'uncheck') {
-      checkedIds.value = checkedIds.value.filter((id) => !selectedIds.value.has(id))
-    } else if (key === 'check all') {
-      currentGroup.value
-        // TODO: 改用 === false，不要用 !，因为isDownloaded可能是undefined和null
-        ?.filter((c) => !c.isDownloaded && !checkedIds.value.includes(c.chapterUuid))
-        .forEach((c) => checkedIds.value.push(c.chapterUuid))
-      // TODO: 可以考虑下面这种写法
-      // const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
-      // checkedIds.value = [...new Set([...checkedIds.value, ...currentGroupIds])]
-    } else if (key === 'uncheck all') {
-      const currentGroupIds = currentGroup.value?.map((c) => c.chapterUuid) ?? []
-      checkedIds.value = checkedIds.value.filter((id) => !currentGroupIds.includes(id))
-    }
-  }
-
-  return { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown, onDropdownSelect }
+  return { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown }
 }
 
 function useSelectionArea() {
@@ -192,28 +208,12 @@ async function reloadPickedComic() {
 
 <template>
   <div class="h-full flex flex-col">
-    <div class="flex flex-justify-around">
-      <span>总章数：{{ chapterInfos?.length }}</span>
-      <n-divider vertical></n-divider>
-      <span>已下载：{{ chapterInfos?.filter((c) => c.isDownloaded).length }}</span>
-      <n-divider vertical></n-divider>
-      <span>已勾选：{{ checkedIds.length }}</span>
-    </div>
-    <div class="flex justify-between">
+    <div v-if="pickedComic !== undefined" class="flex items-center select-none pt-2 gap-1 px-2">
       左键拖动进行框选，右键打开菜单
-      <n-button size="tiny" :disabled="pickedComic === undefined" @click="reloadPickedComic" class="w-1/6">
-        刷新
-      </n-button>
-      <n-button
-        size="tiny"
-        :disabled="pickedComic === undefined"
-        type="primary"
-        @click="downloadChapters"
-        class="w-1/4">
-        下载勾选章节
-      </n-button>
+      <n-button class="ml-auto" size="small" @click="reloadPickedComic">刷新</n-button>
+      <n-button size="small" type="primary" @click="downloadChapters">下载勾选章节</n-button>
     </div>
-    <n-empty v-if="pickedComic === undefined" description="请先选择漫画(漫画搜索、漫画收藏、本地库存)"></n-empty>
+    <n-empty v-if="pickedComic === undefined" description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
     <n-tabs v-else class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small">
       <n-tab-pane
         v-for="[groupPath, _] in sortedGroups"
@@ -223,7 +223,7 @@ async function reloadPickedComic() {
         class="overflow-auto p-0! h-full">
         <SelectionArea
           ref="selectionAreaRef"
-          class="selection-container h-full"
+          class="selection-container flex flex-col flex-1 px-2 overflow-auto h-full"
           :options="{ selectables: '.selectable', features: { deselectOnBlur: true } } as SelectionOptions"
           @contextmenu="showDropdown"
           @move="updateSelectedIds"
@@ -242,17 +242,15 @@ async function reloadPickedComic() {
         </SelectionArea>
       </n-tab-pane>
     </n-tabs>
-    <n-card v-if="pickedComic !== undefined" content-style="padding: 0.25rem;" hoverable>
-      <div class="flex">
-        <img class="w-24 mr-4" :src="pickedComic?.comic.cover" alt="" />
-        <div class="flex flex-col h-full">
-          <span class="font-bold text-xl line-clamp-3">
-            {{ pickedComic.comic.name }}
-          </span>
-          <span v-html="`作者：${pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
-        </div>
+    <div v-if="pickedComic !== undefined" class="flex p-2 pt-0">
+      <img class="w-24 mr-4 object-cover" :src="pickedComic?.comic.cover" alt="" />
+      <div class="flex flex-col h-full">
+        <span class="font-bold text-xl line-clamp-3">
+          {{ pickedComic.comic.name }}
+        </span>
+        <span v-html="`作者：${pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
       </div>
-    </n-card>
+    </div>
 
     <n-dropdown
       placement="bottom-start"
@@ -261,8 +259,7 @@ async function reloadPickedComic() {
       :y="dropdownY"
       :options="dropdownOptions"
       :show="dropdownShowing"
-      :on-clickoutside="() => (dropdownShowing = false)"
-      @select="onDropdownSelect" />
+      :on-clickoutside="() => (dropdownShowing = false)" />
   </div>
 </template>
 

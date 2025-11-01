@@ -4,6 +4,8 @@ import { Comic, commands, SearchRespData } from '../bindings.ts'
 import { useNotification } from 'naive-ui'
 import ComicCard from '../components/ComicCard.vue'
 import { CurrentTabName } from '../types.ts'
+import FloatLabelInput from '../components/FloatLabelInput.vue'
+import { PhMagnifyingGlass } from '@phosphor-icons/vue'
 
 const notification = useNotification()
 
@@ -11,6 +13,8 @@ const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: tr
 const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 // 搜索输入框的值
 const searchInput = ref<string>('')
+// 是否正在搜索
+const searching = ref<boolean>(false)
 // 当前页码
 const currentPage = ref<number>(1)
 // 搜索返回的数据
@@ -28,29 +32,37 @@ const pageCount = computed(() => {
 async function search(keyword: string, page: number) {
   console.log(keyword, page)
   currentPage.value = page
+  searching.value = true
+
   const result = await commands.search(keyword, page)
   if (result.status === 'error') {
     notification.error({ title: '搜索失败', description: result.error })
+    searching.value = false
     return
   }
   searchRespData.value = result.data
+
+  searching.value = false
 }
 </script>
 
 <template>
   <div class="h-full flex flex-col">
-    <div class="flex">
-      <n-input
-        class="text-align-left"
-        size="tiny"
+    <n-input-group class="box-border px-2 pt-2">
+      <FloatLabelInput
+        label="关键词"
+        size="small"
         v-model:value="searchInput"
-        placeholder=""
         clearable
-        @keydown.enter="search(searchInput.trim(), 1)">
-        <template #prefix>关键词:</template>
-      </n-input>
-      <n-button size="tiny" @click="search(searchInput.trim(), 1)">搜索</n-button>
-    </div>
+        @keydown.enter="search(searchInput.trim(), 1)" />
+      <n-button :loading="searching" type="primary" size="small" class="w-15%" @click="search(searchInput.trim(), 1)">
+        <template #icon>
+          <n-icon size="22">
+            <PhMagnifyingGlass />
+          </n-icon>
+        </template>
+      </n-button>
+    </n-input-group>
     <div v-if="searchRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card

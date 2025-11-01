@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { commands, Config } from '../bindings.ts'
 import { useMessage, useNotification } from 'naive-ui'
+import FloatLabelInput from './FloatLabelInput.vue'
 
 const message = useMessage()
 const notification = useNotification()
@@ -33,19 +34,19 @@ async function login() {
 </script>
 
 <template>
-  <n-dialog
-    class="flex flex-col"
-    :showIcon="false"
-    title="账号登录"
-    positive-text="登录"
-    @positive-click="login"
-    @close="showing = false"
-    @keydown.enter="login">
-    <n-input v-model:value="username" placeholder="">
-      <template #prefix>用户名:</template>
-    </n-input>
-    <n-input v-model:value="password" type="password" placeholder="" show-password-on="mousedown">
-      <template #prefix>密码:</template>
-    </n-input>
-  </n-dialog>
+  <n-modal v-model:show="showing">
+    <n-dialog
+      class="flex flex-col"
+      :showIcon="false"
+      title="账号登录"
+      positive-text="登录"
+      @positive-click="login"
+      @close="showing = false"
+      @keydown.enter="login">
+      <div class="flex flex-col gap-2">
+        <FloatLabelInput label="用户名" v-model:value="username" />
+        <FloatLabelInput label="密码" v-model:value="password" type="password" />
+      </div>
+    </n-dialog>
+  </n-modal>
 </template>

@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { MessageReactive, useMessage, useNotification } from 'naive-ui'
 import DownloadedComicCard from '../components/DownloadedComicCard.vue'
 import { open } from '@tauri-apps/plugin-dialog'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 interface ProgressData {
   comicTitle: string
@@ -228,18 +229,21 @@ async function updateDownloadedComics() {
 
 <template>
   <div class="h-full flex flex-col overflow-auto gap-row-1">
-    <div class="flex gap-col-1">
-      <n-input
-        v-model:value="config.exportDir"
-        size="tiny"
-        readonly
-        placeholder="请选择漫画目录"
-        @click="selectExportDir">
-        <template #prefix>导出目录</template>
-      </n-input>
-      <n-button size="tiny" @click="showExportDirInFileManager">打开目录</n-button>
-      <n-button size="tiny" @click="updateDownloadedComics">更新库存</n-button>
+    <div class="flex gap-1 box-border px-2 pt-2">
+      <n-input-group>
+        <n-input-group-label size="small">导出目录</n-input-group-label>
+        <n-input v-model:value="config.exportDir" size="small" readonly @click="selectExportDir" />
+        <n-button class="w-10" size="small" @click="showExportDirInFileManager">
+          <template #icon>
+            <n-icon size="20">
+              <PhFolderOpen />
+            </n-icon>
+          </template>
+        </n-button>
+      </n-input-group>
+      <n-button size="small" @click="updateDownloadedComics">更新库存</n-button>
     </div>
+
     <div class="flex flex-col gap-row-1 overflow-auto p-2 pt-0">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <downloaded-comic-card
