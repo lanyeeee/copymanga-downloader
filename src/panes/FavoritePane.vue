@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
-import { Comic, commands, GetFavoriteRespData, UserProfileRespData } from '../bindings.ts'
+import { commands, GetFavoriteRespData } from '../bindings.ts'
 import { useNotification } from 'naive-ui'
-import { CurrentTabName } from '../types.ts'
+import { useStore } from '../store.ts'
+
+const store = useStore()
 
 const notification = useNotification()
 
-const props = defineProps<{
-  userProfile: UserProfileRespData | undefined
-}>()
-
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 // 获取收藏返回的数据
 const getFavoriteRespData = ref<GetFavoriteRespData>()
 // 当前页码
@@ -27,9 +23,9 @@ const pageCount = computed(() => {
 })
 // 如果用户信息变化，重新获取收藏
 watch(
-  () => props.userProfile,
+  () => store.userProfile,
   async () => {
-    if (props.userProfile === undefined) {
+    if (store.userProfile === undefined) {
       getFavoriteRespData.value = undefined
       return
     }
@@ -56,9 +52,7 @@ async function getFavourite(page: number) {
         <comic-card
           v-for="favoriteItemRespData in getFavoriteRespData.list"
           :key="favoriteItemRespData.uuid"
-          :comic-info="favoriteItemRespData.comic"
-          v-model:picked-comic="pickedComic"
-          v-model:current-tab-name="currentTabName" />
+          :comic-info="favoriteItemRespData.comic" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavourite($event)" />
     </div>

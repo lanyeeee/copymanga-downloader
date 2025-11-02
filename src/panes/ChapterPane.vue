@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
 import { computed, nextTick, ref, watch } from 'vue'
-import { ChapterInfo, Comic, commands } from '../bindings.ts'
+import { ChapterInfo, commands } from '../bindings.ts'
 import { useMessage, useNotification, DropdownOption } from 'naive-ui'
+import { useStore } from '../store.ts'
+
+const store = useStore()
 
 const notification = useNotification()
 const message = useMessage()
-
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
 
 const { currentGroupPath, currentGroup, sortedGroups, downloadChapters } = useChapters()
 const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
@@ -18,25 +19,25 @@ function useChapters() {
   const currentGroupPath = ref<string>('default')
   // 当前tab的分组
   const currentGroup = computed<ChapterInfo[] | undefined>(
-    () => pickedComic.value?.comic.groups[currentGroupPath.value],
+    () => store.pickedComic?.comic.groups[currentGroupPath.value],
   )
   // 按章节数排序的分组
   const sortedGroups = computed<[string, ChapterInfo[]][] | undefined>(() => {
-    if (pickedComic.value === undefined) {
+    if (store.pickedComic === undefined) {
       return undefined
     }
 
-    return Object.entries(pickedComic.value.comic.groups).sort((a, b) => b[1].length - a[1].length)
+    return Object.entries(store.pickedComic.comic.groups).sort((a, b) => b[1].length - a[1].length)
   })
 
   // 下载勾选的章节
   async function downloadChapters() {
-    if (pickedComic.value === undefined) {
+    if (store.pickedComic === undefined) {
       message.error('请先选择漫画')
       return
     }
     // 创建下载任务前，先创建元数据
-    const result = await commands.saveMetadata(pickedComic.value)
+    const result = await commands.saveMetadata(store.pickedComic)
     if (result.status === 'error') {
       notification.error({ title: '保存元数据失败', description: result.error })
       return
@@ -143,12 +144,15 @@ function useSelectionArea() {
   // SelectionArea组件的ref
   const selectionAreaRef = ref<InstanceType<typeof SelectionArea>>()
   // 如果漫画变了，清空勾选和选中状态
-  watch(pickedComic, () => {
-    checkedIds.value.length = 0
-    selectedIds.value.clear()
-    selectionAreaRef.value?.selection?.clearSelection()
-    currentGroupPath.value = 'default'
-  })
+  watch(
+    () => store.pickedComic,
+    () => {
+      checkedIds.value.length = 0
+      selectedIds.value.clear()
+      selectionAreaRef.value?.selection?.clearSelection()
+      currentGroupPath.value = 'default'
+    },
+  )
 
   // 提取章节id
   function extractIds(elements: Element[]): string[] {
@@ -184,17 +188,17 @@ function useSelectionArea() {
 
 // 重新加载选中的漫画
 async function reloadPickedComic() {
-  if (pickedComic.value === undefined) {
+  if (store.pickedComic === undefined) {
     return
   }
 
-  const getComicResult = await commands.getComic(pickedComic.value.comic.path_word)
+  const getComicResult = await commands.getComic(store.pickedComic.comic.path_word)
   if (getComicResult.status === 'error') {
     notification.error({ title: '刷新失败', description: getComicResult.error })
     return
   }
 
-  pickedComic.value = getComicResult.data
+  store.pickedComic = getComicResult.data
   // 如果获取到的漫画中有已下载的章节，则保存元数据
   let chapterInfos = Object.values(getComicResult.data.comic.groups).flat()
   if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
@@ -208,18 +212,18 @@ async function reloadPickedComic() {
 
 <template>
   <div class="h-full flex flex-col">
-    <div v-if="pickedComic !== undefined" class="flex items-center select-none pt-2 gap-1 px-2">
+    <div v-if="store.pickedComic !== undefined" class="flex items-center select-none pt-2 gap-1 px-2">
       左键拖动进行框选，右键打开菜单
       <n-button class="ml-auto" size="small" @click="reloadPickedComic">刷新</n-button>
       <n-button size="small" type="primary" @click="downloadChapters">下载勾选章节</n-button>
     </div>
-    <n-empty v-if="pickedComic === undefined" description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
+    <n-empty v-if="store.pickedComic === undefined" description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
     <n-tabs v-else class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small">
       <n-tab-pane
-        v-for="[groupPath, _] in sortedGroups"
+        v-for="[groupPath] in sortedGroups"
         :key="groupPath"
         :name="groupPath"
-        :tab="pickedComic.groups[groupPath].name"
+        :tab="store.pickedComic.groups[groupPath].name"
         class="overflow-auto p-0! h-full">
         <SelectionArea
           ref="selectionAreaRef"
@@ -230,7 +234,7 @@ async function reloadPickedComic() {
           @start="unselectAll">
           <n-checkbox-group v-model:value="checkedIds" class="grid grid-cols-3 gap-1.5 w-full mb-3">
             <n-checkbox
-              v-for="{ chapterUuid, chapterTitle, isDownloaded } in pickedComic.comic.groups[groupPath]"
+              v-for="{ chapterUuid, chapterTitle, isDownloaded } in store.pickedComic.comic.groups[groupPath]"
               :key="chapterUuid"
               :data-key="chapterUuid"
               class="selectable hover:bg-gray-200!"
@@ -242,13 +246,13 @@ async function reloadPickedComic() {
         </SelectionArea>
       </n-tab-pane>
     </n-tabs>
-    <div v-if="pickedComic !== undefined" class="flex p-2 pt-0">
-      <img class="w-24 mr-4 object-cover" :src="pickedComic?.comic.cover" alt="" />
+    <div v-if="store.pickedComic !== undefined" class="flex p-2 pt-0">
+      <img class="w-24 mr-4 object-cover" :src="store.pickedComic?.comic.cover" alt="" />
       <div class="flex flex-col h-full">
         <span class="font-bold text-xl line-clamp-3">
-          {{ pickedComic.comic.name }}
+          {{ store.pickedComic.comic.name }}
         </span>
-        <span v-html="`作者：${pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
+        <span v-html="`作者：${store.pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
       </div>
     </div>
 

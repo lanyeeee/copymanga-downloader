@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { Comic, commands, Config, events } from '../bindings.ts'
-import { CurrentTabName } from '../types.ts'
+import { Comic, commands, events } from '../bindings.ts'
 import { computed, onMounted, ref, watch } from 'vue'
 import { MessageReactive, useMessage, useNotification } from 'naive-ui'
 import DownloadedComicCard from '../components/DownloadedComicCard.vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
+import { useStore } from '../store.ts'
 
 interface ProgressData {
   comicTitle: string
@@ -14,12 +14,10 @@ interface ProgressData {
   progressMessage: MessageReactive
 }
 
+const store = useStore()
+
 const notification = useNotification()
 const message = useMessage()
-
-const config = defineModel<Config>('config', { required: true })
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 
 const { currentPage, pageCount, currentPageComics } = useDownloadedComics()
 useProgressTracking()
@@ -43,9 +41,9 @@ function useDownloadedComics() {
 
   // 监听标签页变化，更新下载的漫画列表
   watch(
-    () => currentTabName.value,
+    () => store.currentTabName,
     async () => {
-      if (currentTabName.value !== 'downloaded') {
+      if (store.currentTabName !== 'downloaded') {
         return
       }
 
@@ -196,10 +194,10 @@ function useProgressTracking() {
 
 // 用文件管理器打开导出目录
 async function showExportDirInFileManager() {
-  if (config.value === undefined) {
+  if (store.config === undefined) {
     return
   }
-  const result = await commands.showPathInFileManager(config.value.exportDir)
+  const result = await commands.showPathInFileManager(store.config.exportDir)
   if (result.status === 'error') {
     notification.error({ title: '打开导出目录失败', description: result.error })
   }
@@ -207,11 +205,15 @@ async function showExportDirInFileManager() {
 
 // 选择导出目录
 async function selectExportDir() {
+  if (store.config === undefined) {
+    return
+  }
+
   const selectedDirPath = await open({ directory: true })
   if (selectedDirPath === null) {
     return
   }
-  config.value.exportDir = selectedDirPath
+  store.config.exportDir = selectedDirPath
 }
 
 // 更新已下载漫画
@@ -228,11 +230,11 @@ async function updateDownloadedComics() {
 </script>
 
 <template>
-  <div class="h-full flex flex-col overflow-auto gap-row-1">
+  <div v-if="store.config !== undefined" class="h-full flex flex-col overflow-auto gap-row-1">
     <div class="flex gap-1 box-border px-2 pt-2">
       <n-input-group>
         <n-input-group-label size="small">导出目录</n-input-group-label>
-        <n-input v-model:value="config.exportDir" size="small" readonly @click="selectExportDir" />
+        <n-input v-model:value="store.config.exportDir" size="small" readonly @click="selectExportDir" />
         <n-button class="w-10" size="small" @click="showExportDirInFileManager">
           <template #icon>
             <n-icon size="20">
@@ -246,12 +248,7 @@ async function updateDownloadedComics() {
 
     <div class="flex flex-col gap-row-1 overflow-auto p-2 pt-0">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
-        <downloaded-comic-card
-          v-for="comic in currentPageComics"
-          :key="comic.comic.uuid"
-          :comic="comic"
-          v-model:picked-comic="pickedComic"
-          v-model:current-tab-name="currentTabName" />
+        <downloaded-comic-card v-for="comic in currentPageComics" :key="comic.comic.uuid" :comic="comic" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="currentPage = $event" />
     </div>

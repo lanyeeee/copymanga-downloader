@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { Comic, commands } from '../bindings.ts'
+import { commands } from '../bindings.ts'
 import { useNotification } from 'naive-ui'
-import { ComicInfo, CurrentTabName } from '../types.ts'
+import { ComicInfo } from '../types.ts'
+import { useStore } from '../store.ts'
+
+const store = useStore()
 
 const props = defineProps<{
   comicInfo: ComicInfo
 }>()
-
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 
 const notification = useNotification()
 
@@ -20,8 +20,8 @@ async function pickComic() {
     return
   }
 
-  pickedComic.value = getComicResult.data
-  currentTabName.value = 'chapter'
+  store.pickedComic = getComicResult.data
+  store.currentTabName = 'chapter'
   // 如果获取到的漫画中有已下载的章节，则保存元数据
   let chapterInfos = Object.values(getComicResult.data.comic.groups).flat()
   if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {

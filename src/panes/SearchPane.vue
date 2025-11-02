@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Comic, commands, SearchRespData } from '../bindings.ts'
+import { commands, SearchRespData } from '../bindings.ts'
 import { useNotification } from 'naive-ui'
 import ComicCard from '../components/ComicCard.vue'
-import { CurrentTabName } from '../types.ts'
 import FloatLabelInput from '../components/FloatLabelInput.vue'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
 
 const notification = useNotification()
 
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 // 搜索输入框的值
 const searchInput = ref<string>('')
 // 是否正在搜索
@@ -68,9 +65,7 @@ async function search(keyword: string, page: number) {
         <comic-card
           v-for="comicInSearch in searchRespData.list"
           :key="comicInSearch.path_word"
-          :comic-info="comicInSearch"
-          v-model:picked-comic="pickedComic"
-          v-model:current-tab-name="currentTabName" />
+          :comic-info="comicInSearch" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="search(searchInput.trim(), $event)" />
     </div>

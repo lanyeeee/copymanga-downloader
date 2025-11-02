@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { commands, Config } from '../bindings.ts'
+import { commands } from '../bindings.ts'
 import { useMessage, useNotification } from 'naive-ui'
 import FloatLabelInput from './FloatLabelInput.vue'
+import { useStore } from '../store.ts'
+
+const store = useStore()
 
 const message = useMessage()
 const notification = useNotification()
 
 const showing = defineModel<boolean>('showing', { required: true })
-const config = defineModel<Config>('config', { required: true })
 
 const username = ref<string>('')
 const password = ref<string>('')
 
 async function login() {
+  if (store.config === undefined) {
+    return
+  }
   if (username.value === '') {
     message.error('请输入用户名')
     return
@@ -28,7 +33,7 @@ async function login() {
     return
   }
   message.success('登录成功')
-  config.value.token = result.data.token
+  store.config.token = result.data.token
   showing.value = false
 }
 </script>

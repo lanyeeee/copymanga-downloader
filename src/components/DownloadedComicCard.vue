@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Comic, ComicDetail, commands } from '../bindings.ts'
-import { CurrentTabName } from '../types.ts'
 import { computed } from 'vue'
 import { useNotification } from 'naive-ui'
+import { useStore } from '../store.ts'
 
 interface GroupInfo {
   name: string
@@ -10,14 +10,13 @@ interface GroupInfo {
   total: number
 }
 
+const store = useStore()
+
 const notification = useNotification()
 
 const props = defineProps<{
   comic: Comic
 }>()
-
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
 
 const comicDetail = computed<ComicDetail>(() => props.comic.comic)
 const groupInfos = computed<GroupInfo[]>(() => {
@@ -38,8 +37,8 @@ const groupInfos = computed<GroupInfo[]>(() => {
 
 // 选中漫画，切换到章节页
 async function pickComic() {
-  pickedComic.value = props.comic
-  currentTabName.value = 'chapter'
+  store.pickedComic = props.comic
+  store.currentTabName = 'chapter'
 }
 
 // 导出cbz

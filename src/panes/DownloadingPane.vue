@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { commands, Config, events } from '../bindings.ts'
+import { commands, events } from '../bindings.ts'
 import { NProgress, useNotification } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
+import { useStore } from '../store.ts'
 
 type ProgressData = {
   comicTitle: string
@@ -15,9 +16,10 @@ type ProgressData = {
   retryAfter: number
 }
 
+const store = useStore()
+
 const notification = useNotification()
 
-const config = defineModel<Config>('config', { required: true })
 // 章节下载进度
 const progresses = ref<Map<string, ProgressData>>(new Map())
 // 总下载进度
@@ -116,10 +118,11 @@ onMounted(async () => {
 
 // 用文件管理器打开下载目录
 async function showDownloadDirInFileManager() {
-  if (config.value === undefined) {
+  if (store.config === undefined) {
     return
   }
-  const result = await commands.showPathInFileManager(config.value.downloadDir)
+
+  const result = await commands.showPathInFileManager(store.config.downloadDir)
   if (result.status === 'error') {
     notification.error({ title: '打开下载目录失败', description: result.error })
   }
@@ -127,19 +130,23 @@ async function showDownloadDirInFileManager() {
 
 // 通过对话框选择下载目录
 async function selectDownloadDir() {
+  if (store.config === undefined) {
+    return
+  }
+
   const selectedDirPath = await open({ directory: true })
   if (selectedDirPath === null) {
     return
   }
-  config.value.downloadDir = selectedDirPath
+  store.config.downloadDir = selectedDirPath
 }
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <div v-if="store.config !== undefined" class="flex flex-col">
     <n-input-group class="box-border px-2 pt-2">
       <n-input-group-label size="small">下载目录</n-input-group-label>
-      <n-input v-model:value="config.downloadDir" size="small" readonly @click="selectDownloadDir" />
+      <n-input v-model:value="store.config.downloadDir" size="small" readonly @click="selectDownloadDir" />
       <n-button class="w-10" size="small" @click="showDownloadDirInFileManager">
         <template #icon>
           <n-icon size="20">
