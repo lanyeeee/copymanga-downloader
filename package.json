@@ -15,6 +15,7 @@
     "@tauri-apps/plugin-dialog": "^2.0.1",
     "@tauri-apps/plugin-shell": "^2",
     "@viselect/vue": "3.6.0",
+    "@vitejs/plugin-vue-jsx": "^5.0.1",
     "naive-ui": "^2.40.1",
     "pinia": "^3.0.3",
     "unocss": "^0.64.1",
