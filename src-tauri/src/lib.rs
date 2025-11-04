@@ -7,6 +7,7 @@ mod errors;
 mod events;
 mod export;
 mod extensions;
+mod logger;
 mod responses;
 mod types;
 mod utils;
@@ -22,6 +23,7 @@ use types::AsyncRwLock;
 
 use crate::commands::*;
 use crate::config::Config;
+use crate::events::LogEvent;
 
 fn generate_context() -> tauri::Context<Wry> {
     tauri::generate_context!()
@@ -55,6 +57,7 @@ pub fn run() {
             ExportCbzEvent,
             ExportPdfEvent,
             UpdateDownloadedComicsEvent,
+            LogEvent,
         ]);
 
     #[cfg(debug_assertions)]
@@ -95,6 +98,8 @@ pub fn run() {
 
             let account_pool = AsyncRwLock::new(AccountPool::new(app.handle())?);
             app.manage(account_pool);
+
+            logger::init(app.handle())?;
 
             Ok(())
         })

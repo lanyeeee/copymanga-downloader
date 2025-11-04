@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { commands, events } from '../bindings.ts'
-import { NProgress, useNotification } from 'naive-ui'
+import { useNotification } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
 import { useStore } from '../store.ts'
@@ -124,7 +124,7 @@ async function showDownloadDirInFileManager() {
 
   const result = await commands.showPathInFileManager(store.config.downloadDir)
   if (result.status === 'error') {
-    notification.error({ title: '打开下载目录失败', description: result.error })
+    console.error(result.error)
   }
 }
 

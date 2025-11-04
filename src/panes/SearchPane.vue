@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { commands, SearchRespData } from '../bindings.ts'
-import { useNotification } from 'naive-ui'
 import ComicCard from '../components/ComicCard.vue'
 import FloatLabelInput from '../components/FloatLabelInput.vue'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
-
-const notification = useNotification()
 
 // 搜索输入框的值
 const searchInput = ref<string>('')
@@ -33,7 +30,7 @@ async function search(keyword: string, page: number) {
 
   const result = await commands.search(keyword, page)
   if (result.status === 'error') {
-    notification.error({ title: '搜索失败', description: result.error })
+    console.error(result.error)
     searching.value = false
     return
   }

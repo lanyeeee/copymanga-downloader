@@ -49,7 +49,7 @@ function useDownloadedComics() {
 
       const result = await commands.getDownloadedComics()
       if (result.status === 'error') {
-        useNotification().error({ title: '获取本地库存失败', description: result.error })
+        console.error(result.error)
         return
       }
       downloadedComics.value = result.data
@@ -199,7 +199,7 @@ async function showExportDirInFileManager() {
   }
   const result = await commands.showPathInFileManager(store.config.exportDir)
   if (result.status === 'error') {
-    notification.error({ title: '打开导出目录失败', description: result.error })
+    console.error(result.error)
   }
 }
 
@@ -224,7 +224,7 @@ async function updateDownloadedComics() {
       updateMessage?.destroy()
       updateMessage = undefined
     }, 3000)
-    notification.error({ title: '更新库存漫画失败', description: result.error, duration: 0 })
+    console.error(result.error)
   }
 }
 </script>

@@ -17,6 +17,7 @@ pub struct Config {
     pub api_domain_mode: ApiDomainMode,
     pub custom_api_domain: String,
     pub download_format: DownloadFormat,
+    pub enable_file_logger: bool,
 }
 
 impl Config {
@@ -78,6 +79,7 @@ impl Config {
             api_domain_mode: ApiDomainMode::default(),
             custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
             download_format: DownloadFormat::Webp,
+            enable_file_logger: true,
         }
     }
 

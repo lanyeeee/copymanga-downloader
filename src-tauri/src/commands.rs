@@ -17,7 +17,7 @@ use crate::{
     download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
     events::UpdateDownloadedComicsEvent,
-    export,
+    export, logger,
     responses::{
         ChapterInGetChaptersRespData, GetChapterRespData, GetFavoriteRespData, LoginRespData,
         SearchRespData, UserProfileRespData,
@@ -47,9 +47,32 @@ pub fn save_config(
     config_state: State<RwLock<Config>>,
     config: Config,
 ) -> CommandResult<()> {
-    let mut config_state = config_state.write();
-    *config_state = config;
-    config_state.save(&app)?;
+    let enable_file_logger = config.enable_file_logger;
+    let enable_file_logger_changed = config_state
+        .read()
+        .enable_file_logger
+        .ne(&enable_file_logger);
+
+    {
+        // 包裹在大括号中，以便自动释放写锁
+        let mut config_state = config_state.write();
+        *config_state = config;
+        config_state
+            .save(&app)
+            .map_err(|err| CommandError::from("保存配置失败", err))?;
+        tracing::debug!("保存配置成功");
+    }
+
+    if enable_file_logger_changed {
+        if enable_file_logger {
+            logger::reload_file_logger()
+                .map_err(|err| CommandError::from("重新加载文件日志失败", err))?;
+        } else {
+            logger::disable_file_logger()
+                .map_err(|err| CommandError::from("禁用文件日志失败", err))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -60,7 +83,10 @@ pub async fn register(
     username: String,
     password: String,
 ) -> CommandResult<()> {
-    copy_client.register(&username, &password).await?;
+    copy_client
+        .register(&username, &password)
+        .await
+        .map_err(|err| CommandError::from("注册失败", err))?;
     Ok(())
 }
 
@@ -71,7 +97,10 @@ pub async fn login(
     username: String,
     password: String,
 ) -> CommandResult<LoginRespData> {
-    let login_resp_data = copy_client.login(&username, &password).await?;
+    let login_resp_data = copy_client
+        .login(&username, &password)
+        .await
+        .map_err(|err| CommandError::from("登录失败", err))?;
     Ok(login_resp_data)
 }
 
@@ -80,7 +109,10 @@ pub async fn login(
 pub async fn get_user_profile(
     copy_client: State<'_, CopyClient>,
 ) -> CommandResult<UserProfileRespData> {
-    let user_profile_resp_data = copy_client.get_user_profile().await?;
+    let user_profile_resp_data = copy_client
+        .get_user_profile()
+        .await
+        .map_err(|err| CommandError::from("获取用户信息失败", err))?;
     Ok(user_profile_resp_data)
 }
 
@@ -91,7 +123,10 @@ pub async fn search(
     keyword: String,
     page_num: i64,
 ) -> CommandResult<SearchRespData> {
-    let search_resp_data = copy_client.search(&keyword, page_num).await?;
+    let search_resp_data = copy_client
+        .search(&keyword, page_num)
+        .await
+        .map_err(|err| CommandError::from("搜索失败", err))?;
     Ok(search_resp_data)
 }
 
@@ -102,13 +137,17 @@ pub async fn get_comic(
     copy_client: State<'_, CopyClient>,
     comic_path_word: &str,
 ) -> CommandResult<Comic> {
-    let get_comic_resp_data = copy_client.get_comic(comic_path_word).await?;
+    let get_comic_resp_data = copy_client
+        .get_comic(comic_path_word)
+        .await
+        .map_err(|err| CommandError::from("获取漫画信息失败", err))?;
     // TODO: 这里可以并发获取groups_chapters
     let mut groups_chapters = HashMap::new();
     for group_path_word in get_comic_resp_data.groups.keys() {
         let chapters = copy_client
             .get_group_chapters(comic_path_word, group_path_word)
-            .await?;
+            .await
+            .map_err(|err| CommandError::from("获取漫画信息失败", err))?;
         groups_chapters.insert(group_path_word.clone(), chapters);
     }
     let comic = Comic::from_resp_data(&app, get_comic_resp_data, groups_chapters);
@@ -125,7 +164,8 @@ pub async fn get_group_chapters(
 ) -> CommandResult<Vec<ChapterInGetChaptersRespData>> {
     let chapters = copy_client
         .get_group_chapters(comic_path_word, group_path_word)
-        .await?;
+        .await
+        .map_err(|err| CommandError::from("获取分组章节失败", err))?;
     Ok(chapters)
 }
 
@@ -138,7 +178,8 @@ pub async fn get_chapter(
 ) -> CommandResult<GetChapterRespData> {
     let get_chapter_resp_data = copy_client
         .get_chapter(comic_path_word, chapter_uuid)
-        .await?;
+        .await
+        .map_err(|err| CommandError::from("获取章节信息失败", err))?;
     Ok(get_chapter_resp_data)
 }
 
@@ -148,7 +189,10 @@ pub async fn get_favorite(
     copy_client: State<'_, CopyClient>,
     page_num: i64,
 ) -> CommandResult<GetFavoriteRespData> {
-    let get_favorite_resp_data = copy_client.get_favorite(page_num).await?;
+    let get_favorite_resp_data = copy_client
+        .get_favorite(page_num)
+        .await
+        .map_err(|err| CommandError::from("获取收藏夹失败", err))?;
     Ok(get_favorite_resp_data)
 }
 
@@ -159,7 +203,10 @@ pub async fn download_chapters(
     chapters: Vec<ChapterInfo>,
 ) -> CommandResult<()> {
     for ep in chapters {
-        download_manager.submit_chapter(ep).await?;
+        download_manager
+            .submit_chapter(ep)
+            .await
+            .map_err(|err| CommandError::from("创建章节下载任务失败", err))?;
     }
     Ok(())
 }
@@ -176,21 +223,27 @@ pub fn save_metadata(config: State<RwLock<Config>>, mut comic: Comic) -> Command
     }
 
     let comic_title = comic.comic.name.clone();
-    let comic_json = serde_json::to_string_pretty(&comic).context(format!(
-        "{comic_title} 的元数据保存失败，将Comic序列化为json失败"
-    ))?;
+    let comic_json = serde_json::to_string_pretty(&comic)
+        .context(format!(
+            "{comic_title} 的元数据保存失败，将Comic序列化为json失败"
+        ))
+        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
 
     let download_dir = config.read().download_dir.clone();
     let metadata_dir = download_dir.join(&comic_title);
     let metadata_path = metadata_dir.join("元数据.json");
 
-    std::fs::create_dir_all(&metadata_dir).context(format!(
-        "{comic_title} 的元数据保存失败，创建目录 {metadata_dir:?} 失败"
-    ))?;
+    std::fs::create_dir_all(&metadata_dir)
+        .context(format!(
+            "{comic_title} 的元数据保存失败，创建目录 {metadata_dir:?} 失败"
+        ))
+        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
 
-    std::fs::write(&metadata_path, comic_json).context(format!(
-        "{comic_title} 的元数据保存失败，写入文件 {metadata_path:?} 失败"
-    ))?;
+    std::fs::write(&metadata_path, comic_json)
+        .context(format!(
+            "{comic_title} 的元数据保存失败，写入文件 {metadata_path:?} 失败"
+        ))
+        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
 
     Ok(())
 }
@@ -207,7 +260,8 @@ pub fn get_downloaded_comics(
     let mut metadata_path_with_modify_time = std::fs::read_dir(&download_dir)
         .context(format!(
             "获取已下载的漫画失败，读取下载目录 {download_dir:?} 失败"
-        ))?
+        ))
+        .map_err(|err| CommandError::from("获取已下载的漫画失败", err))?
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let metadata_path = entry.path().join("元数据.json");
@@ -235,7 +289,9 @@ pub fn get_downloaded_comics(
 #[allow(clippy::needless_pass_by_value)]
 pub fn export_cbz(app: AppHandle, comic: Comic) -> CommandResult<()> {
     let comic_title = comic.comic.name.clone();
-    export::cbz(&app, comic).context(format!("漫画 {comic_title} 导出cbz失败"))?;
+    export::cbz(&app, comic)
+        .context(format!("漫画 {comic_title} 导出cbz失败"))
+        .map_err(|err| CommandError::from("漫画导出cbz失败", err))?;
     Ok(())
 }
 
@@ -244,7 +300,9 @@ pub fn export_cbz(app: AppHandle, comic: Comic) -> CommandResult<()> {
 #[allow(clippy::needless_pass_by_value)]
 pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
     let comic_title = comic.comic.name.clone();
-    export::pdf(&app, comic).context(format!("漫画`{comic_title}`导出pdf失败"))?;
+    export::pdf(&app, comic)
+        .context(format!("漫画`{comic_title}`导出pdf失败"))
+        .map_err(|err| CommandError::from("漫画导出pdf失败", err))?;
     Ok(())
 }
 
@@ -274,7 +332,10 @@ pub async fn update_downloaded_comics(
         let app = app.clone();
         join_set.spawn(async move {
             // 获取最新的漫画信息
-            let permit = sem.acquire().await?;
+            let permit = sem
+                .acquire()
+                .await
+                .map_err(|err| CommandError::from("获取漫画信息失败", anyhow::Error::from(err)))?;
             let client = app.state::<CopyClient>();
             let path_word = &downloaded_comic.comic.path_word;
             let comic = match get_comic(app.clone(), client, path_word).await {
@@ -283,7 +344,7 @@ pub async fn update_downloaded_comics(
                     // 发送获取漫画失败事件
                     let _ = UpdateDownloadedComicsEvent::GetComicError {
                         comic_title: downloaded_comic.comic.name.clone(),
-                        err_msg: err.0,
+                        err_msg: err.err_message,
                     }
                     .emit(&app);
                     let current = current.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -357,7 +418,11 @@ pub async fn update_downloaded_comics(
 pub fn show_path_in_file_manager(path: &str) -> CommandResult<()> {
     let path = PathBuf::from_slash(path);
     if !path.exists() {
-        return Err(anyhow!("路径`{path:?}`不存在").into());
+        let err_title = format!("在文件管理器中打开`{path:?}`失败");
+        return Err(CommandError::from(
+            &err_title,
+            anyhow!("路径`{path:?}`不存在"),
+        ));
     }
     showfile::show_path_in_file_manager(path);
     Ok(())

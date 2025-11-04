@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { commands } from '../bindings.ts'
-import { useNotification } from 'naive-ui'
 import { ComicInfo } from '../types.ts'
 import { useStore } from '../store.ts'
 
@@ -10,13 +9,11 @@ const props = defineProps<{
   comicInfo: ComicInfo
 }>()
 
-const notification = useNotification()
-
 // 获取漫画信息，将漫画信息存入pickedComic，并切换到章节页
 async function pickComic() {
   const getComicResult = await commands.getComic(props.comicInfo.path_word)
   if (getComicResult.status === 'error') {
-    notification.error({ title: '获取漫画失败', description: getComicResult.error })
+    console.error(getComicResult.error)
     return
   }
 
@@ -27,7 +24,7 @@ async function pickComic() {
   if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
     const saveMetadataResult = await commands.saveMetadata(getComicResult.data)
     if (saveMetadataResult.status === 'error') {
-      notification.error({ title: '保存元数据失败', description: saveMetadataResult.error })
+      console.error(saveMetadataResult.error)
     }
   }
 }

@@ -2,12 +2,9 @@
 import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
 import { commands, GetFavoriteRespData } from '../bindings.ts'
-import { useNotification } from 'naive-ui'
 import { useStore } from '../store.ts'
 
 const store = useStore()
-
-const notification = useNotification()
 
 // 获取收藏返回的数据
 const getFavoriteRespData = ref<GetFavoriteRespData>()
@@ -38,7 +35,7 @@ async function getFavourite(page: number) {
   currentPage.value = page
   const result = await commands.getFavorite(page)
   if (result.status === 'error') {
-    notification.error({ title: '获取收藏失败', description: result.error })
+    console.error(result.error)
     return
   }
   getFavoriteRespData.value = result.data
