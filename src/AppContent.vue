@@ -1,6 +1,6 @@
-<script setup lang="ts">
+<script setup lang="tsx">
 import { onMounted, ref, watch } from 'vue'
-import { commands, events, LogEvent } from './bindings.ts'
+import { commands } from './bindings.ts'
 import { useMessage, useNotification } from 'naive-ui'
 import LoginDialog from './components/LoginDialog.vue'
 import SearchPane from './panes/SearchPane.vue'
@@ -9,9 +9,10 @@ import DownloadingPane from './panes/DownloadingPane.vue'
 import FavoritePane from './panes/FavoritePane.vue'
 import DownloadedPane from './panes/DownloadedPane.vue'
 import AboutDialog from './components/AboutDialog.vue'
-import { PhUser, PhGearSix, PhInfo } from '@phosphor-icons/vue'
+import { PhUser, PhGearSix, PhInfo, PhClockCounterClockwise } from '@phosphor-icons/vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { useStore } from './store.ts'
+import LogDialog from './components/LogDialog.vue'
 
 const store = useStore()
 
@@ -19,8 +20,9 @@ const message = useMessage()
 const notification = useNotification()
 
 const loginDialogShowing = ref<boolean>(false)
-const aboutDialogShowing = ref<boolean>(false)
+const logDialogShowing = ref<boolean>(false)
 const settingsDialogShowing = ref<boolean>(false)
+const aboutDialogShowing = ref<boolean>(false)
 
 watch(
   () => store.config,
@@ -58,34 +60,32 @@ onMounted(async () => {
   }
   // 获取配置
   store.config = await commands.getConfig()
-
-  type LogRecord = LogEvent & { id: number; formatedLog: string }
-  const logRecords = ref<LogRecord[]>([])
-  let nextLogRecordId = 0
-  await events.logEvent.listen(async ({ payload: logEvent }) => {
-    logRecords.value.push({
-      ...logEvent,
-      id: nextLogRecordId++,
-      formatedLog: formatLogEvent(logEvent),
+  // 检查日志目录大小
+  const result = await commands.getLogsDirSize()
+  if (result.status === 'error') {
+    console.error(result.error)
+    return
+  }
+  if (result.data > 50 * 1024 * 1024) {
+    notification.warning({
+      title: '日志目录大小超过50MB，请及时清理日志文件',
+      description: () => (
+        <>
+          <div>
+            点击右上角的 <span class="bg-gray-2 px-1">日志</span> 按钮
+          </div>
+          <div>
+            里边有 <span class="bg-gray-2 px-1">打开日志目录</span> 按钮
+          </div>
+          <div>
+            你也可以在里边取消勾选 <span class="bg-gray-2 px-1">输出文件日志</span>
+          </div>
+          <div>这样将不再产生文件日志</div>
+        </>
+      ),
     })
-    const { level, fields } = logEvent
-    if (level === 'ERROR') {
-      notification.error({
-        title: fields['err_title'] as string,
-        description: fields['message'] as string,
-        duration: 0,
-      })
-    }
-  })
+  }
 })
-
-function formatLogEvent(logEvent: LogEvent): string {
-  const { timestamp, level, fields, target, filename, line_number } = logEvent
-  const fields_str = Object.entries(fields)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(' ')
-  return `${timestamp} ${level} ${target}: ${filename}:${line_number} ${fields_str}`
-}
 </script>
 
 <template>
@@ -129,6 +129,14 @@ function formatLogEvent(logEvent: LogEvent): string {
           class="h-8.5 flex gap-col-1 mx-2 items-center border-solid border-0 border-b box-border border-[rgb(239,239,245)]">
           <div class="text-xl font-bold box-border">下载列表</div>
           <div class="flex-1" />
+          <n-button size="small" @click="logDialogShowing = true">
+            <template #icon>
+              <n-icon>
+                <PhClockCounterClockwise />
+              </n-icon>
+            </template>
+            日志
+          </n-button>
           <n-button size="small" @click="settingsDialogShowing = true">
             <template #icon>
               <n-icon>
@@ -150,6 +158,7 @@ function formatLogEvent(logEvent: LogEvent): string {
       </div>
     </div>
     <login-dialog v-model:showing="loginDialogShowing" />
+    <log-dialog v-model:showing="logDialogShowing" />
     <settings-dialog v-model:showing="settingsDialogShowing" />
     <about-dialog v-model:showing="aboutDialogShowing" />
   </div>

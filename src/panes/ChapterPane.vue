@@ -2,12 +2,11 @@
 import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { ChapterInfo, commands } from '../bindings.ts'
-import { useMessage, useNotification, DropdownOption } from 'naive-ui'
+import { useMessage, DropdownOption } from 'naive-ui'
 import { useStore } from '../store.ts'
 
 const store = useStore()
 
-const notification = useNotification()
 const message = useMessage()
 
 const { currentGroupPath, currentGroup, sortedGroups, downloadChapters } = useChapters()
@@ -39,7 +38,7 @@ function useChapters() {
     // 创建下载任务前，先创建元数据
     const result = await commands.saveMetadata(store.pickedComic)
     if (result.status === 'error') {
-      notification.error({ title: '保存元数据失败', description: result.error })
+      console.error(result.error)
       return
     }
     // 下载勾选的章节
@@ -194,7 +193,7 @@ async function reloadPickedComic() {
 
   const getComicResult = await commands.getComic(store.pickedComic.comic.path_word)
   if (getComicResult.status === 'error') {
-    notification.error({ title: '刷新失败', description: getComicResult.error })
+    console.error(getComicResult.error)
     return
   }
 
@@ -204,7 +203,7 @@ async function reloadPickedComic() {
   if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
     const saveMetadataResult = await commands.saveMetadata(getComicResult.data)
     if (saveMetadataResult.status === 'error') {
-      notification.error({ title: '保存元数据失败', description: saveMetadataResult.error })
+      console.error(saveMetadataResult.error)
     }
   }
 }

@@ -11,6 +11,7 @@ declare module 'vue' {
     ComicCard: typeof import('./src/components/ComicCard.vue')['default']
     DownloadedComicCard: typeof import('./src/components/DownloadedComicCard.vue')['default']
     FloatLabelInput: typeof import('./src/components/FloatLabelInput.vue')['default']
+    LogDialog: typeof import('./src/components/LogDialog.vue')['default']
     LoginDialog: typeof import('./src/components/LoginDialog.vue')['default']
     NA: typeof import('naive-ui')['NA']
     NAvatar: typeof import('naive-ui')['NAvatar']
@@ -35,9 +36,11 @@ declare module 'vue' {
     NProgress: typeof import('naive-ui')['NProgress']
     NRadio: typeof import('naive-ui')['NRadio']
     NRadioGroup: typeof import('naive-ui')['NRadioGroup']
+    NSelect: typeof import('naive-ui')['NSelect']
     NTabPane: typeof import('naive-ui')['NTabPane']
     NTabs: typeof import('naive-ui')['NTabs']
     NTooltip: typeof import('naive-ui')['NTooltip']
+    NVirtualList: typeof import('naive-ui')['NVirtualList']
     SettingsDialog: typeof import('./src/components/SettingsDialog.vue')['default']
   }
 }

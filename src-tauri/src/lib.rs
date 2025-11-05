@@ -50,6 +50,7 @@ pub fn run() {
             export_cbz,
             export_pdf,
             update_downloaded_comics,
+            get_logs_dir_size,
             show_path_in_file_manager,
         ])
         .events(tauri_specta::collect_events![
