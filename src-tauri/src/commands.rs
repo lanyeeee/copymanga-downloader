@@ -1,13 +1,12 @@
 use std::{
     collections::HashMap,
-    path::PathBuf,
     sync::{atomic::AtomicI64, Arc},
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use parking_lot::{Mutex, RwLock};
-use path_slash::PathBufExt;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
 use tokio::{sync::Semaphore, task::JoinSet};
 
@@ -431,17 +430,13 @@ pub fn get_logs_dir_size(app: AppHandle) -> CommandResult<u64> {
     Ok(logs_dir_size)
 }
 
+#[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn show_path_in_file_manager(path: &str) -> CommandResult<()> {
-    let path = PathBuf::from_slash(path);
-    if !path.exists() {
-        let err_title = format!("在文件管理器中打开`{path:?}`失败");
-        return Err(CommandError::from(
-            &err_title,
-            anyhow!("路径`{path:?}`不存在"),
-        ));
-    }
-    showfile::show_path_in_file_manager(path);
+pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()> {
+    app.opener()
+        .reveal_item_in_dir(path)
+        .context(format!("在文件管理器中打开`{path}`失败"))
+        .map_err(|err| CommandError::from("在文件管理器中打开失败", err))?;
     Ok(())
 }
