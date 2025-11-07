@@ -1,3 +1,4 @@
+use image::ImageFormat;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -12,6 +13,13 @@ impl DownloadFormat {
         match self {
             DownloadFormat::Webp => "webp",
             DownloadFormat::Jpeg => "jpg",
+        }
+    }
+
+    pub fn to_image_format(self) -> ImageFormat {
+        match self {
+            DownloadFormat::Webp => ImageFormat::WebP,
+            DownloadFormat::Jpeg => ImageFormat::Jpeg,
         }
     }
 }
