@@ -120,6 +120,8 @@ impl DownloadManager {
             .emit(&self.app);
             return;
         }
+        // 清理临时下载目录中与`config.download_format`对不上的文件
+        self.clean_temp_download_dir(&temp_download_dir, &chapter_info);
 
         let chapter_resp_data = match self.get_chapter_resp_data(&chapter_info).await {
             Ok(data) => data,
@@ -357,6 +359,52 @@ impl DownloadManager {
             current,
         }
         .emit(&self.app);
+    }
+
+    /// 删除临时下载目录中与`config.download_format`对不上的文件
+    fn clean_temp_download_dir(&self, temp_download_dir: &Path, chapter_info: &ChapterInfo) {
+        let comic_title = &chapter_info.comic_title;
+        let chapter_title = &chapter_info.chapter_title;
+
+        let entries = match std::fs::read_dir(temp_download_dir).map_err(anyhow::Error::from) {
+            Ok(entries) => entries,
+            Err(err) => {
+                let err_title = format!(
+                    "`{comic_title}`读取临时下载目录`{}`失败",
+                    temp_download_dir.display()
+                );
+                let string_chain = err.to_string_chain();
+                tracing::error!(err_title, message = string_chain);
+                return;
+            }
+        };
+
+        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let extension = download_format.extension();
+        for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
+            // path有扩展名，且能转换为utf8，并与`config.download_format`一致或是gif，则保留
+            let should_keep = path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext == extension);
+            if should_keep {
+                continue;
+            }
+            // 否则删除文件
+            if let Err(err) = std::fs::remove_file(&path).map_err(anyhow::Error::from) {
+                let err_title =
+                    format!("`{comic_title}`删除临时下载目录的`{}`失败", path.display());
+                let string_chain = err.to_string_chain();
+                tracing::error!(err_title, message = string_chain);
+            }
+        }
+
+        tracing::trace!(
+            comic_title,
+            chapter_title,
+            "清理临时下载目录`{}`成功",
+            temp_download_dir.display()
+        );
     }
 
     fn save_archive(
