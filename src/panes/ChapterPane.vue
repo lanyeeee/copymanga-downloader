@@ -42,17 +42,15 @@ function useChapters() {
       return
     }
     // 下载勾选的章节
-    // FIXME: 应该下载所有勾选的章节，而不是只下载当前分组勾选的章节，把currentGroup改为chapterInfos
-    const chapterToDownload = currentGroup.value?.filter(
-      (c) => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid),
-    )
-    if (chapterToDownload === undefined) {
+    const chapterUuidsToDownload = currentGroup.value
+      ?.filter((c) => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid))
+      .map((c) => c.chapterUuid)
+    if (chapterUuidsToDownload === undefined) {
       return
     }
-    await commands.downloadChapters(chapterToDownload)
-    // 更新勾选状态
-    for (const downloadedChapter of chapterToDownload) {
-      const chapter = currentGroup.value?.find((c) => c.chapterUuid === downloadedChapter.chapterUuid)
+    for (const downloadedChapterUuid of chapterUuidsToDownload) {
+      await commands.createDownloadTask(store.pickedComic, downloadedChapterUuid)
+      const chapter = currentGroup.value?.find((c) => c.chapterUuid === downloadedChapterUuid)
       if (chapter !== undefined) {
         chapter.isDownloaded = true
       }

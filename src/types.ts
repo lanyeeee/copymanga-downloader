@@ -1,4 +1,4 @@
-import { AuthorRespData } from './bindings.ts'
+import { AuthorRespData, DownloadTaskEvent } from './bindings.ts'
 
 export interface ComicInfo {
   name: string
@@ -8,3 +8,9 @@ export interface ComicInfo {
 }
 
 export type CurrentTabName = 'search' | 'favorite' | 'downloaded' | 'chapter'
+
+export type ProgressData = Extract<DownloadTaskEvent, { event: 'Create' }>['data'] & {
+  percentage: number
+  indicator: string
+  retryAfter: number
+}

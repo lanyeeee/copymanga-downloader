@@ -16,14 +16,14 @@ use account_pool::AccountPool;
 use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
-use events::{DownloadEvent, ExportCbzEvent, ExportPdfEvent, UpdateDownloadedComicsEvent};
+use events::{ExportCbzEvent, ExportPdfEvent, UpdateDownloadedComicsEvent};
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use types::AsyncRwLock;
 
 use crate::commands::*;
 use crate::config::Config;
-use crate::events::LogEvent;
+use crate::events::{DownloadControlRiskEvent, DownloadSpeedEvent, DownloadTaskEvent, LogEvent};
 
 fn generate_context() -> tauri::Context<Wry> {
     tauri::generate_context!()
@@ -44,7 +44,10 @@ pub fn run() {
             get_group_chapters,
             get_chapter,
             get_favorite,
-            download_chapters,
+            create_download_task,
+            pause_download_task,
+            resume_download_task,
+            cancel_download_task,
             save_metadata,
             get_downloaded_comics,
             export_cbz,
@@ -54,7 +57,9 @@ pub fn run() {
             show_path_in_file_manager,
         ])
         .events(tauri_specta::collect_events![
-            DownloadEvent,
+            DownloadTaskEvent,
+            DownloadControlRiskEvent,
+            DownloadSpeedEvent,
             ExportCbzEvent,
             ExportPdfEvent,
             UpdateDownloadedComicsEvent,
