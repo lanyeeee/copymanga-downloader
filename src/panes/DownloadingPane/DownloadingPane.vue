@@ -1,25 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { commands, events } from '../bindings.ts'
+import { onMounted, ref } from 'vue'
+import { commands, events } from '../../bindings.ts'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
-import { useStore } from '../store.ts'
-import { ProgressData } from '../types.ts'
+import { useStore } from '../../store.ts'
+import UncompletedProgresses from './components/UncompletedProgresses.vue'
+import CompletedProgresses from './components/CompletedProgresses.vue'
 
 const store = useStore()
 
+const tabName = ref<'uncompleted' | 'completed'>('uncompleted')
 const downloadSpeed = ref<string>('')
-
-// 章节下载进度
-const progresses = ref<Map<string, ProgressData>>(new Map())
-// 按总图片数排序的下载进度
-const sortedProgresses = computed(() => {
-  const progressesArray = Array.from(progresses.value.entries())
-  progressesArray.sort((a, b) => {
-    return b[1].totalImgCount - a[1].totalImgCount
-  })
-  return progressesArray
-})
 
 onMounted(async () => {
   // 监听下载速度事件
@@ -28,7 +19,7 @@ onMounted(async () => {
   })
   // 监听下载控制风控事件
   await events.downloadControlRiskEvent.listen(async ({ payload: { chapterUuid, retryAfter } }) => {
-    const progressData = progresses.value.get(chapterUuid)
+    const progressData = store.progresses.get(chapterUuid)
     if (progressData === undefined) {
       return
     }
@@ -41,7 +32,7 @@ onMounted(async () => {
     if (event == 'Create') {
       const { chapterInfo, downloadedImgCount, totalImgCount } = data
 
-      progresses.value.set(chapterInfo.chapterUuid, {
+      store.progresses.set(chapterInfo.chapterUuid, {
         ...data,
         percentage: 0,
         indicator: `排队中 ${downloadedImgCount}/${totalImgCount}`,
@@ -50,7 +41,7 @@ onMounted(async () => {
     } else if (event == 'Update') {
       const { chapterUuid, state, downloadedImgCount, totalImgCount } = data
 
-      const progressData = progresses.value.get(chapterUuid)
+      const progressData = store.progresses.get(chapterUuid)
       if (progressData === undefined) {
         return
       }
@@ -114,7 +105,7 @@ async function selectDownloadDir() {
 </script>
 
 <template>
-  <div v-if="store.config !== undefined" class="flex flex-col">
+  <div v-if="store.config !== undefined" class="flex flex-col flex-1 overflow-auto">
     <n-input-group class="box-border px-2 pt-2">
       <n-input-group-label size="small">下载目录</n-input-group-label>
       <n-input v-model:value="store.config.downloadDir" size="small" readonly @click="selectDownloadDir" />
@@ -126,24 +117,17 @@ async function selectDownloadDir() {
         </template>
       </n-button>
     </n-input-group>
-    <div
-      class="grid grid-cols-[1fr_1fr_2fr] px-2"
-      v-for="[
-        chapterUuid,
-        { comic, chapterInfo, percentage, totalImgCount, retryAfter, indicator },
-      ] in sortedProgresses"
-      :key="chapterUuid">
-      <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ comic.comic.name }}</span>
-      <span class="mb-1! text-ellipsis whitespace-nowrap overflow-hidden">{{ chapterInfo.chapterTitle }}</span>
-      <div v-if="retryAfter !== 0">{{ indicator }}</div>
-      <span v-else-if="totalImgCount === 0">{{ indicator }}</span>
-      <n-progress v-else :percentage="percentage">{{ indicator }}</n-progress>
-    </div>
+    <n-tabs class="h-full overflow-auto" v-model:value="tabName" type="line" size="small">
+      <n-tab-pane class="h-full p-0! overflow-auto" name="uncompleted" tab="未完成">
+        <uncompleted-progresses />
+      </n-tab-pane>
+      <n-tab-pane class="h-full p-0! overflow-auto" name="completed" tab="已完成">
+        <completed-progresses />
+      </n-tab-pane>
+
+      <template #suffix>
+        <span class="whitespace-nowrap text-ellipsis overflow-hidden">{{ downloadSpeed }}</span>
+      </template>
+    </n-tabs>
   </div>
 </template>
-
-<style scoped>
-:deep(.n-progress-content) {
-  @apply h-full;
-}
-</style>
