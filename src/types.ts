@@ -1,11 +1,4 @@
-import { AuthorRespData, DownloadTaskEvent } from './bindings.ts'
-
-export interface ComicInfo {
-  name: string
-  path_word: string
-  cover: string
-  author: AuthorRespData[]
-}
+import { DownloadTaskEvent } from './bindings.ts'
 
 export type CurrentTabName = 'search' | 'favorite' | 'downloaded' | 'chapter'
 

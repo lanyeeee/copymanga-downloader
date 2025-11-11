@@ -1,11 +1,16 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context;
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
+    config::Config,
     responses::{
         AuthorRespData, ChapterInGetChaptersRespData, GetComicRespData, GroupRespData,
         LabeledValueRespData, LastChapterRespData, ThemeRespData,
@@ -32,6 +37,8 @@ pub struct Comic {
     pub comic: ComicDetail,
     pub popular: i64,
     pub groups: HashMap<String, Group>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_downloaded: Option<bool>,
 }
 impl Comic {
     pub fn from_resp_data(
@@ -46,9 +53,9 @@ impl Comic {
         let is_vip = comic_resp_data.is_vip;
         let popular = comic_resp_data.popular;
         let groups = Group::from(comic_resp_data.groups.clone());
-        let comic = ComicDetail::from(app, comic_resp_data, groups_chapters);
+        let comic = ComicDetail::from_resp_data(comic_resp_data, groups_chapters);
 
-        Comic {
+        let mut comic = Comic {
             is_banned,
             is_lock,
             is_login,
@@ -57,7 +64,12 @@ impl Comic {
             comic,
             popular,
             groups,
-        }
+            is_downloaded: None,
+        };
+
+        comic.update_fields(app);
+
+        comic
     }
 
     pub fn from_metadata(app: &AppHandle, metadata_path: &Path) -> anyhow::Result<Comic> {
@@ -68,9 +80,20 @@ impl Comic {
             "从元数据转为Comic失败，将 {metadata_path:?} 反序列化为Comic失败"
         ))?;
         // 这个comic中的is_downloaded字段是None，需要重新计算
-        for chapter_infos in comic.comic.groups.values_mut() {
+        comic.is_downloaded = Some(true);
+        comic.update_chapter_infos_fields(app);
+        Ok(comic)
+    }
+
+    pub fn update_fields(&mut self, app: &AppHandle) {
+        self.is_downloaded = Some(Comic::get_is_downloaded(app, &self.comic.name));
+        self.update_chapter_infos_fields(app);
+    }
+
+    fn update_chapter_infos_fields(&mut self, app: &AppHandle) {
+        for chapter_infos in self.comic.groups.values_mut() {
             for chapter_info in chapter_infos.iter_mut() {
-                let comic_title = &comic.comic.name;
+                let comic_title = &self.comic.name;
                 let group_name = &chapter_info.group_name;
                 let prefixed_chapter_title = &chapter_info.prefixed_chapter_title;
                 let is_downloaded = ChapterInfo::get_is_downloaded(
@@ -82,7 +105,18 @@ impl Comic {
                 chapter_info.is_downloaded = Some(is_downloaded);
             }
         }
-        Ok(comic)
+    }
+
+    pub fn get_is_downloaded(app: &AppHandle, comic_title: &str) -> bool {
+        Self::get_comic_download_dir(app, comic_title).exists()
+    }
+
+    pub fn get_comic_download_dir(app: &AppHandle, comic_title: &str) -> PathBuf {
+        let comic_dir_name = utils::filename_filter(comic_title);
+        app.state::<RwLock<Config>>()
+            .read()
+            .download_dir
+            .join(comic_dir_name)
     }
 }
 
@@ -129,8 +163,7 @@ pub struct ComicDetail {
 }
 impl ComicDetail {
     #[allow(clippy::cast_precision_loss)]
-    fn from(
-        app: &AppHandle,
+    fn from_resp_data(
         comic_resp_data: GetComicRespData,
         mut groups_chapters: HashMap<String, Vec<ChapterInGetChaptersRespData>>,
     ) -> ComicDetail {
@@ -184,16 +217,25 @@ impl ComicDetail {
             let chapter_infos: Vec<_> = chapters
                 .into_iter()
                 .map(|chapter| {
-                    ChapterInfo::from(
-                        app,
-                        chapter,
-                        comic_title.clone(),
-                        group_name.clone(),
-                        comic_uuid.clone(),
-                        comic_path_word.clone(),
-                        group_path_word.clone(),
-                        comic_status.clone(),
-                    )
+                    let order = chapter.ordered as f64 / 10.0;
+                    let chapter_title = utils::filename_filter(&chapter.name);
+                    let prefixed_chapter_title = format!("{order} {chapter_title}");
+
+                    ChapterInfo {
+                        chapter_uuid: chapter.uuid,
+                        chapter_title,
+                        chapter_size: chapter.size,
+                        prefixed_chapter_title,
+                        comic_uuid: comic_uuid.clone(),
+                        comic_title: comic_title.clone(),
+                        comic_path_word: comic_path_word.clone(),
+                        group_path_word: group_path_word.clone(),
+                        group_name: group_name.clone(),
+                        group_size: chapter.count,
+                        order: chapter.ordered as f64 / 10.0,
+                        comic_status,
+                        is_downloaded: None,
+                    }
                 })
                 .collect();
 

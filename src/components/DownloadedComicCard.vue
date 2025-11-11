@@ -54,6 +54,13 @@ async function exportPdf() {
     return
   }
 }
+
+async function showComicDownloadDirInFileManager() {
+  const result = await commands.showComicDownloadDirInFileManager(props.comic.comic.name)
+  if (result.status === 'error') {
+    console.error(result.error)
+  }
+}
 </script>
 
 <template>
@@ -74,8 +81,9 @@ async function exportPdf() {
         <span v-for="groupInfo in groupInfos" :key="groupInfo.name">
           {{ groupInfo.name }}({{ groupInfo.downloaded }}/{{ groupInfo.total }})
         </span>
-        <div class="flex ml-auto mt-auto gap-col-2">
-          <n-button size="tiny" @click="exportCbz">导出cbz</n-button>
+        <div class="flex mt-auto gap-col-2">
+          <n-button size="tiny" @click="showComicDownloadDirInFileManager">打开下载目录</n-button>
+          <n-button class="ml-auto" size="tiny" @click="exportCbz">导出cbz</n-button>
           <n-button size="tiny" @click="exportPdf">导出pdf</n-button>
         </div>
       </div>

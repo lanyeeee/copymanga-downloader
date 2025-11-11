@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
-use crate::{config::Config, responses::ChapterInGetChaptersRespData, utils};
+use crate::config::Config;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -30,41 +30,6 @@ pub struct ChapterInfo {
 }
 
 impl ChapterInfo {
-    #[allow(clippy::too_many_arguments)] // TODO: 参数太多了，得想办法减少
-    #[allow(clippy::cast_precision_loss)]
-    pub fn from(
-        app: &AppHandle,
-        chapter: ChapterInGetChaptersRespData,
-        comic_title: String,
-        group_name: String,
-        comic_uuid: String,
-        comic_path_word: String,
-        group_path_word: String,
-        comic_status: ComicStatus,
-    ) -> ChapterInfo {
-        let order = chapter.ordered as f64 / 10.0;
-        let chapter_title = utils::filename_filter(&chapter.name);
-        let prefixed_chapter_title = format!("{order} {chapter_title}");
-        let is_downloaded =
-            ChapterInfo::get_is_downloaded(app, &comic_title, &group_name, &prefixed_chapter_title);
-
-        ChapterInfo {
-            chapter_uuid: chapter.uuid,
-            chapter_title,
-            chapter_size: chapter.size,
-            prefixed_chapter_title,
-            comic_uuid,
-            comic_title,
-            comic_path_word,
-            group_path_word,
-            group_name,
-            group_size: chapter.count,
-            order: chapter.ordered as f64 / 10.0,
-            comic_status,
-            is_downloaded: Some(is_downloaded),
-        }
-    }
-
     pub fn get_is_downloaded(
         app: &AppHandle,
         comic_title: &str,
@@ -81,7 +46,7 @@ impl ChapterInfo {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::module_name_repetitions)]
 pub enum ComicStatus {

@@ -6,6 +6,7 @@ import { PhFolderOpen } from '@phosphor-icons/vue'
 import { useStore } from '../../store.ts'
 import UncompletedProgresses from './components/UncompletedProgresses.vue'
 import CompletedProgresses from './components/CompletedProgresses.vue'
+import { ProgressData } from '../../types.ts'
 
 const store = useStore()
 
@@ -28,7 +29,7 @@ onMounted(async () => {
     progressData.indicator = `风控中，将在${retryAfter}秒后自动重试`
   })
   // 监听下载事件
-  await events.downloadTaskEvent.listen(({ payload: { event, data } }) => {
+  await events.downloadTaskEvent.listen(async ({ payload: { event, data } }) => {
     if (event == 'Create') {
       const { chapterInfo, downloadedImgCount, totalImgCount } = data
 
@@ -53,6 +54,9 @@ onMounted(async () => {
 
       if (state === 'Completed') {
         progressData.chapterInfo.isDownloaded = true
+        await syncPickedComic()
+        await syncComicInSearch(progressData)
+        await syncComicInFavorite(progressData)
       }
 
       let indicator = ''
@@ -77,6 +81,40 @@ onMounted(async () => {
     }
   })
 })
+
+async function syncPickedComic() {
+  if (store.pickedComic === undefined) {
+    return
+  }
+  const syncedComic = await commands.getSyncedComic(store.pickedComic)
+  Object.assign(store.pickedComic, { ...syncedComic })
+}
+
+async function syncComicInSearch(progressData: ProgressData) {
+  if (store.searchResult === undefined) {
+    return
+  }
+  const comic = store.searchResult.list.find((comic) => comic.pathWord === progressData.comic.comic.path_word)
+  if (comic === undefined) {
+    return
+  }
+  const syncedComic = await commands.getSyncedComicInSearch(comic)
+  Object.assign(comic, { ...syncedComic })
+}
+
+async function syncComicInFavorite(progressData: ProgressData) {
+  if (store.getFavoriteResult === undefined) {
+    return
+  }
+  const comic = store.getFavoriteResult.list
+    .map((favoriteItem) => favoriteItem.comic)
+    .find((comic) => comic.uuid === progressData.comic.comic.uuid)
+  if (comic === undefined) {
+    return
+  }
+  const syncedComic = await commands.getSyncedComicInFavorite(comic)
+  Object.assign(comic, { ...syncedComic })
+}
 
 // 用文件管理器打开下载目录
 async function showDownloadDirInFileManager() {

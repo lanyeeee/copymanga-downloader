@@ -18,10 +18,9 @@ use crate::{
     events::UpdateDownloadedComicsEvent,
     export, logger,
     responses::{
-        ChapterInGetChaptersRespData, GetChapterRespData, GetFavoriteRespData, LoginRespData,
-        SearchRespData, UserProfileRespData,
+        ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, UserProfileRespData,
     },
-    types::Comic,
+    types::{Comic, ComicInFavorite, ComicInSearch, GetFavoriteResult, SearchResult},
 };
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -118,15 +117,19 @@ pub async fn get_user_profile(
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn search(
+    app: AppHandle,
     copy_client: State<'_, CopyClient>,
     keyword: String,
     page_num: i64,
-) -> CommandResult<SearchRespData> {
+) -> CommandResult<SearchResult> {
     let search_resp_data = copy_client
         .search(&keyword, page_num)
         .await
         .map_err(|err| CommandError::from("搜索失败", err))?;
-    Ok(search_resp_data)
+
+    let search_result = SearchResult::from_resp_data(&app, search_resp_data);
+
+    Ok(search_result)
 }
 
 #[tauri::command(async)]
@@ -185,14 +188,18 @@ pub async fn get_chapter(
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_favorite(
+    app: AppHandle,
     copy_client: State<'_, CopyClient>,
     page_num: i64,
-) -> CommandResult<GetFavoriteRespData> {
+) -> CommandResult<GetFavoriteResult> {
     let get_favorite_resp_data = copy_client
         .get_favorite(page_num)
         .await
         .map_err(|err| CommandError::from("获取收藏夹失败", err))?;
-    Ok(get_favorite_resp_data)
+
+    let get_favorite_result = GetFavoriteResult::from_resp_data(&app, get_favorite_resp_data);
+
+    Ok(get_favorite_result)
 }
 
 #[tauri::command(async)]
@@ -200,6 +207,7 @@ pub async fn get_favorite(
 #[allow(clippy::needless_pass_by_value)]
 pub fn save_metadata(config: State<RwLock<Config>>, mut comic: Comic) -> CommandResult<()> {
     // 将所有章节的is_downloaded字段设置为None，这样能使is_downloaded字段在序列化时被忽略
+    comic.is_downloaded = None;
     for chapter_infos in comic.comic.groups.values_mut() {
         for chapter_info in chapter_infos.iter_mut() {
             chapter_info.is_downloaded = None;
@@ -495,4 +503,46 @@ pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()
         .context(format!("在文件管理器中打开`{path}`失败"))
         .map_err(|err| CommandError::from("在文件管理器中打开失败", err))?;
     Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn show_comic_download_dir_in_file_manager(
+    app: AppHandle,
+    comic_title: String,
+) -> CommandResult<()> {
+    let comic_download_dir = Comic::get_comic_download_dir(&app, &comic_title);
+    app.opener()
+        .reveal_item_in_dir(&comic_download_dir)
+        .context(format!("在文件管理器中打开`{comic_download_dir:?}`失败"))
+        .map_err(|err| CommandError::from("在文件管理器中打开失败", err))?;
+    Ok(())
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn get_synced_comic(app: AppHandle, mut comic: Comic) -> Comic {
+    comic.update_fields(&app);
+
+    comic
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn get_synced_comic_in_favorite(app: AppHandle, mut comic: ComicInFavorite) -> ComicInFavorite {
+    comic.update_fields(&app);
+
+    comic
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+pub fn get_synced_comic_in_search(app: AppHandle, mut comic: ComicInSearch) -> ComicInSearch {
+    comic.update_fields(&app);
+
+    comic
 }

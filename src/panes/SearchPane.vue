@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { commands, SearchRespData } from '../bindings.ts'
+import { commands } from '../bindings.ts'
 import ComicCard from '../components/ComicCard.vue'
 import FloatLabelInput from '../components/FloatLabelInput.vue'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
+import { useStore } from '../store.ts'
+
+const store = useStore()
 
 // 搜索输入框的值
 const searchInput = ref<string>('')
@@ -11,15 +14,13 @@ const searchInput = ref<string>('')
 const searching = ref<boolean>(false)
 // 当前页码
 const currentPage = ref<number>(1)
-// 搜索返回的数据
-const searchRespData = ref<SearchRespData>()
 // 总页数
 const pageCount = computed(() => {
   const LIMIT = 20
-  if (searchRespData.value === undefined) {
+  if (store.searchResult === undefined) {
     return 0
   }
-  const total = searchRespData.value.total
+  const total = store.searchResult.total
   return Math.floor(total / LIMIT) + 1
 })
 
@@ -34,7 +35,7 @@ async function search(keyword: string, page: number) {
     searching.value = false
     return
   }
-  searchRespData.value = result.data
+  store.searchResult = result.data
 
   searching.value = false
 }
@@ -57,12 +58,16 @@ async function search(keyword: string, page: number) {
         </template>
       </n-button>
     </n-input-group>
-    <div v-if="searchRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
+    <div v-if="store.searchResult !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
-          v-for="comicInSearch in searchRespData.list"
-          :key="comicInSearch.path_word"
-          :comic-info="comicInSearch" />
+          v-for="comicInSearch in store.searchResult.list"
+          :key="comicInSearch.pathWord"
+          :comic-title="comicInSearch.name"
+          :comic-path-word="comicInSearch.pathWord"
+          :comic-cover="comicInSearch.cover"
+          :comic-author="comicInSearch.author"
+          :comic-downloaded="comicInSearch.isDownloaded" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="search(searchInput.trim(), $event)" />
     </div>

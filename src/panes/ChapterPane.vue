@@ -194,15 +194,26 @@ async function reloadPickedComic() {
     console.error(getComicResult.error)
     return
   }
+  const comic = getComicResult.data
 
   store.pickedComic = getComicResult.data
-  // 如果获取到的漫画中有已下载的章节，则保存元数据
-  let chapterInfos = Object.values(getComicResult.data.comic.groups).flat()
-  if (chapterInfos.some((chapterInfo) => chapterInfo.isDownloaded)) {
-    const saveMetadataResult = await commands.saveMetadata(getComicResult.data)
+  // 如果获取到的漫画已下载的章节，则保存元数据(用于更新元数据)
+  if (comic.isDownloaded) {
+    const saveMetadataResult = await commands.saveMetadata(comic)
     if (saveMetadataResult.status === 'error') {
       console.error(saveMetadataResult.error)
     }
+  }
+}
+
+async function showComicDownloadDirInFileManager() {
+  if (store.pickedComic === undefined) {
+    return
+  }
+
+  const result = await commands.showComicDownloadDirInFileManager(store.pickedComic.comic.name)
+  if (result.status === 'error') {
+    console.error(result.error)
   }
 }
 </script>
@@ -249,7 +260,14 @@ async function reloadPickedComic() {
         <span class="font-bold text-xl line-clamp-3">
           {{ store.pickedComic.comic.name }}
         </span>
-        <span v-html="`作者：${store.pickedComic.comic.author.map((a) => a.name)}`" class="text-red"></span>
+        <span v-html="`作者：${store.pickedComic.comic.author.map((a) => a.name)}`" class="text-red" />
+        <n-button
+          v-if="store.pickedComic.isDownloaded"
+          class="flex mt-auto mr-auto gap-col-2"
+          size="tiny"
+          @click="showComicDownloadDirInFileManager">
+          打开下载目录
+        </n-button>
       </div>
     </div>
 

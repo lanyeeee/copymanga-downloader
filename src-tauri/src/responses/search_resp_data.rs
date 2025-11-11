@@ -6,7 +6,7 @@ use specta::Type;
 use super::{AuthorRespData, Pagination};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub struct SearchRespData(Pagination<ComicInSearchRespData>);
+pub struct SearchRespData(pub Pagination<ComicInSearchRespData>);
 
 impl Deref for SearchRespData {
     type Target = Pagination<ComicInSearchRespData>;

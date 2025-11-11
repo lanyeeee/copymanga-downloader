@@ -55,6 +55,10 @@ pub fn run() {
             update_downloaded_comics,
             get_logs_dir_size,
             show_path_in_file_manager,
+            show_comic_download_dir_in_file_manager,
+            get_synced_comic,
+            get_synced_comic_in_favorite,
+            get_synced_comic_in_search,
         ])
         .events(tauri_specta::collect_events![
             DownloadTaskEvent,
