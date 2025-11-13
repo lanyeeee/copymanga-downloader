@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
-import { computed, nextTick, ref, watch } from 'vue'
-import { ChapterInfo, commands } from '../bindings.ts'
+import { computed, nextTick, ref, watch, watchEffect } from 'vue'
+import { ChapterInfo, commands, DownloadTaskState } from '../bindings.ts'
 import { useMessage, DropdownOption } from 'naive-ui'
 import { useStore } from '../store.ts'
+
+type State = DownloadTaskState | 'Idle'
+type ChapterInfoWithState = ChapterInfo & { state: State }
 
 const store = useStore()
 
@@ -17,16 +20,27 @@ function useChapters() {
   // 当前tab的分组路径
   const currentGroupPath = ref<string>('default')
   // 当前tab的分组
-  const currentGroup = computed<ChapterInfo[] | undefined>(
-    () => store.pickedComic?.comic.groups[currentGroupPath.value],
+  const currentGroup = computed<ChapterInfoWithState[] | undefined>(() =>
+    store.pickedComic?.comic.groups[currentGroupPath.value].map((chapter) => {
+      const progressData = store.progresses.get(chapter.chapterUuid)
+      return { ...chapter, state: progressData?.state ?? 'Idle' }
+    }),
   )
   // 按章节数排序的分组
-  const sortedGroups = computed<[string, ChapterInfo[]][] | undefined>(() => {
+  const sortedGroups = computed<[string, ChapterInfoWithState[]][] | undefined>(() => {
     if (store.pickedComic === undefined) {
       return undefined
     }
 
-    return Object.entries(store.pickedComic.comic.groups).sort((a, b) => b[1].length - a[1].length)
+    return Object.entries(store.pickedComic.comic.groups)
+      .map(([groupPath, chapters]): [string, ChapterInfoWithState[]] => [
+        groupPath,
+        chapters.map((chapter) => {
+          const progressData = store.progresses.get(chapter.chapterUuid)
+          return { ...chapter, state: progressData?.state ?? 'Idle' }
+        }),
+      ])
+      .sort((a, b) => b[1].length - a[1].length)
   })
 
   // 下载勾选的章节
@@ -50,10 +64,6 @@ function useChapters() {
     }
     for (const downloadedChapterUuid of chapterUuidsToDownload) {
       await commands.createDownloadTask(store.pickedComic, downloadedChapterUuid)
-      const chapter = currentGroup.value?.find((c) => c.chapterUuid === downloadedChapterUuid)
-      if (chapter !== undefined) {
-        chapter.isDownloaded = true
-      }
     }
   }
 
@@ -151,6 +161,18 @@ function useSelectionArea() {
     },
   )
 
+  watchEffect(() => {
+    if (store.pickedComic === undefined || sortedGroups.value === undefined) {
+      return
+    }
+    // 只保留未下载的章节
+    const notDownloadedChapterUuids = sortedGroups.value
+      .flatMap(([, chapters]) => chapters)
+      .filter((c) => c.isDownloaded !== true && !isDownloading(c.state))
+      .map((c) => c.chapterUuid)
+    checkedIds.value = checkedIds.value.filter((uuid) => notDownloadedChapterUuids.includes(uuid))
+  })
+
   // 提取章节id
   function extractIds(elements: Element[]): string[] {
     return elements
@@ -216,40 +238,48 @@ async function showComicDownloadDirInFileManager() {
     console.error(result.error)
   }
 }
+
+function isDownloading(state: State) {
+  return state === 'Pending' || state === 'Downloading' || state === 'Paused'
+}
 </script>
 
 <template>
-  <div class="h-full flex flex-col">
+  <div class="h-full flex flex-col box-border">
     <div v-if="store.pickedComic !== undefined" class="flex items-center select-none pt-2 gap-1 px-2">
       左键拖动进行框选，右键打开菜单
       <n-button class="ml-auto" size="small" @click="reloadPickedComic">刷新</n-button>
       <n-button size="small" type="primary" @click="downloadChapters">下载勾选章节</n-button>
     </div>
     <n-empty v-if="store.pickedComic === undefined" description="请先选择漫画(漫画搜索、漫画收藏、本地库存)" />
-    <n-tabs v-else class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small">
+    <n-tabs v-else class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small" animated>
       <n-tab-pane
-        v-for="[groupPath] in sortedGroups"
+        v-for="[groupPath, chapters] in sortedGroups"
         :key="groupPath"
         :name="groupPath"
         :tab="store.pickedComic.groups[groupPath].name"
         class="overflow-auto p-0! h-full">
         <SelectionArea
           ref="selectionAreaRef"
-          class="selection-container flex flex-col flex-1 px-2 overflow-auto h-full"
+          class="selection-container flex flex-col flex-1 box-border pt-2 px-2 overflow-auto h-full"
           :options="{ selectables: '.selectable', features: { deselectOnBlur: true } } as SelectionOptions"
           @contextmenu="showDropdown"
           @move="updateSelectedIds"
           @start="unselectAll">
           <n-checkbox-group v-model:value="checkedIds" class="grid grid-cols-3 gap-1.5 w-full mb-3">
             <n-checkbox
-              v-for="{ chapterUuid, chapterTitle, isDownloaded } in store.pickedComic.comic.groups[groupPath]"
+              v-for="{ chapterUuid, chapterTitle, isDownloaded, state } in chapters"
               :key="chapterUuid"
               :data-key="chapterUuid"
               class="selectable hover:bg-gray-200!"
               :value="chapterUuid"
               :label="chapterTitle"
-              :disabled="isDownloaded"
-              :class="{ selected: selectedIds.has(chapterUuid), downloaded: isDownloaded }" />
+              :disabled="isDownloaded === true || isDownloading(state)"
+              :class="{
+                selected: selectedIds.has(chapterUuid),
+                downloaded: isDownloaded,
+                downloading: !isDownloaded && isDownloading(state),
+              }" />
           </n-checkbox-group>
         </SelectionArea>
       </n-tab-pane>
@@ -293,6 +323,10 @@ async function showComicDownloadDirInFileManager() {
 
 .selection-container .downloaded {
   @apply bg-[rgba(24,160,88,0.16)];
+}
+
+.selection-container .downloading {
+  @apply bg-[rgba(114,46,209,0.16)];
 }
 
 :deep(.n-checkbox__label) {
