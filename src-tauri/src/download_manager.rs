@@ -206,11 +206,22 @@ impl DownloadTask {
     async fn download_chapter(&self) {
         let comic_title = &self.comic.comic.name;
         let chapter_title = &self.chapter_info.chapter_title;
+        if let Err(err) = self.comic.save_metadata(&self.app) {
+            let err_title = format!("`{comic_title}`保存元数据失败");
+            let string_chain = err.to_string_chain();
+            tracing::error!(err_title, message = string_chain);
+
+            self.set_state(DownloadTaskState::Failed);
+            self.emit_download_task_update_event();
+
+            return;
+        }
         // 获取章节图片URL列表
         let Some(url_and_index_pairs) = self.get_url_and_index_pairs().await else {
             return;
         };
         // 记录总共需要下载的图片数量
+        #[allow(clippy::cast_possible_truncation)]
         self.total_img_count
             .fetch_add(url_and_index_pairs.len() as u32, Ordering::Relaxed);
         // 创建临时下载目录
@@ -255,7 +266,7 @@ impl DownloadTask {
             self.emit_download_task_update_event();
 
             return;
-        };
+        }
 
         tracing::info!(comic_title, chapter_title, "章节下载成功");
 
@@ -337,10 +348,7 @@ impl DownloadTask {
         let copy_client = self.copy_client();
         let mut retry_count = 0;
         loop {
-            match copy_client
-                .get_chapter(&comic_path_word, &chapter_uuid)
-                .await
-            {
+            match copy_client.get_chapter(comic_path_word, chapter_uuid).await {
                 Ok(data) => return Ok(data),
                 Err(CopyMangaError::Anyhow(err)) => return Err(err),
                 Err(CopyMangaError::RiskControl(RiskControlError::Register(_))) => {
@@ -643,7 +651,7 @@ impl DownloadImgTask {
 
         tracing::trace!(url, comic_title, chapter_title, "开始下载图片");
 
-        let (img_data, img_format) = match self.copy_client().get_img_data_and_format(&url).await {
+        let (img_data, img_format) = match self.copy_client().get_img_data_and_format(url).await {
             Ok(data_and_format) => data_and_format,
             Err(err) => {
                 let err_title = format!("下载图片`{url}`失败");

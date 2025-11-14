@@ -205,37 +205,11 @@ pub async fn get_favorite(
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn save_metadata(config: State<RwLock<Config>>, mut comic: Comic) -> CommandResult<()> {
-    // 将所有章节的is_downloaded字段设置为None，这样能使is_downloaded字段在序列化时被忽略
-    comic.is_downloaded = None;
-    for chapter_infos in comic.comic.groups.values_mut() {
-        for chapter_info in chapter_infos.iter_mut() {
-            chapter_info.is_downloaded = None;
-        }
-    }
-
-    let comic_title = comic.comic.name.clone();
-    let comic_json = serde_json::to_string_pretty(&comic)
-        .context(format!(
-            "{comic_title} 的元数据保存失败，将Comic序列化为json失败"
-        ))
-        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
-
-    let download_dir = config.read().download_dir.clone();
-    let metadata_dir = download_dir.join(&comic_title);
-    let metadata_path = metadata_dir.join("元数据.json");
-
-    std::fs::create_dir_all(&metadata_dir)
-        .context(format!(
-            "{comic_title} 的元数据保存失败，创建目录 {metadata_dir:?} 失败"
-        ))
-        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
-
-    std::fs::write(&metadata_path, comic_json)
-        .context(format!(
-            "{comic_title} 的元数据保存失败，写入文件 {metadata_path:?} 失败"
-        ))
-        .map_err(|err| CommandError::from("保存漫画元数据失败", err))?;
+pub fn save_metadata(app: AppHandle, comic: Comic) -> CommandResult<()> {
+    let comic_title = &comic.comic.name;
+    comic
+        .save_metadata(&app)
+        .map_err(|err| CommandError::from(&format!("`{comic_title}`保存元数据失败"), err))?;
 
     Ok(())
 }
@@ -414,7 +388,10 @@ pub async fn update_downloaded_comics(
             };
             drop(permit);
             // 将最新的漫画信息保存到元数据文件
-            save_metadata(app.state::<RwLock<Config>>(), comic.clone())?;
+            let comic_title = &comic.comic.name;
+            comic.save_metadata(&app).map_err(|err| {
+                CommandError::from(&format!("`{comic_title}`保存元数据失败"), err)
+            })?;
 
             latest_comics.lock().push(comic);
             let current = current.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
