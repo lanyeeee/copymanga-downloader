@@ -12,57 +12,34 @@ const store = useStore()
 
 const message = useMessage()
 
-const { currentGroupPath, currentGroup, sortedGroups, downloadChapters } = useChapters()
-const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
-const { selectionAreaRef, checkedIds, selectedIds, unselectAll, updateSelectedIds } = useSelectionArea()
-
-function useChapters() {
-  // 当前tab的分组路径
-  const currentGroupPath = ref<string>('default')
-  // 当前tab的分组
-  const currentGroup = computed<ChapterInfoWithState[] | undefined>(() =>
-    store.pickedComic?.comic.groups[currentGroupPath.value].map((chapter) => {
-      const progressData = store.progresses.get(chapter.chapterUuid)
-      return { ...chapter, state: progressData?.state ?? 'Idle' }
-    }),
-  )
-  // 按章节数排序的分组
-  const sortedGroups = computed<[string, ChapterInfoWithState[]][] | undefined>(() => {
-    if (store.pickedComic === undefined) {
-      return undefined
-    }
-
-    return Object.entries(store.pickedComic.comic.groups)
-      .map(([groupPath, chapters]): [string, ChapterInfoWithState[]] => [
-        groupPath,
-        chapters.map((chapter) => {
-          const progressData = store.progresses.get(chapter.chapterUuid)
-          return { ...chapter, state: progressData?.state ?? 'Idle' }
-        }),
-      ])
-      .sort((a, b) => b[1].length - a[1].length)
-  })
-
-  // 下载勾选的章节
-  async function downloadChapters() {
-    if (store.pickedComic === undefined) {
-      message.error('请先选择漫画')
-      return
-    }
-    // 下载勾选的章节
-    const chapterUuidsToDownload = currentGroup.value
-      ?.filter((c) => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid))
-      .map((c) => c.chapterUuid)
-    if (chapterUuidsToDownload === undefined) {
-      return
-    }
-    for (const downloadedChapterUuid of chapterUuidsToDownload) {
-      await commands.createDownloadTask(store.pickedComic, downloadedChapterUuid)
-    }
+// 当前tab的分组路径
+const currentGroupPath = ref<string>('default')
+// 当前tab的分组
+const currentGroup = computed<ChapterInfoWithState[] | undefined>(() =>
+  store.pickedComic?.comic.groups[currentGroupPath.value].map((chapter) => {
+    const progressData = store.progresses.get(chapter.chapterUuid)
+    return { ...chapter, state: progressData?.state ?? 'Idle' }
+  }),
+)
+// 按章节数排序的分组
+const sortedGroups = computed<[string, ChapterInfoWithState[]][] | undefined>(() => {
+  if (store.pickedComic === undefined) {
+    return undefined
   }
 
-  return { currentGroupPath, currentGroup, sortedGroups, downloadChapters }
-}
+  return Object.entries(store.pickedComic.comic.groups)
+    .map(([groupPath, chapters]): [string, ChapterInfoWithState[]] => [
+      groupPath,
+      chapters.map((chapter) => {
+        const progressData = store.progresses.get(chapter.chapterUuid)
+        return { ...chapter, state: progressData?.state ?? 'Idle' }
+      }),
+    ])
+    .sort((a, b) => b[1].length - a[1].length)
+})
+
+const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
+const { selectionAreaRef, checkedIds, selectedIds, unselectAll, updateSelectedIds } = useSelectionArea()
 
 function useDropdown() {
   // dropdown的x坐标
@@ -197,6 +174,24 @@ function useSelectionArea() {
   }
 
   return { selectionAreaRef, checkedIds, selectedIds, unselectAll, updateSelectedIds }
+}
+
+// 下载勾选的章节
+async function downloadChapters() {
+  if (store.pickedComic === undefined) {
+    message.error('请先选择漫画')
+    return
+  }
+  // 下载勾选的章节
+  const chapterUuidsToDownload = currentGroup.value
+    ?.filter((c) => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid))
+    .map((c) => c.chapterUuid)
+  if (chapterUuidsToDownload === undefined) {
+    return
+  }
+  for (const downloadedChapterUuid of chapterUuidsToDownload) {
+    await commands.createDownloadTask(store.pickedComic, downloadedChapterUuid)
+  }
 }
 
 // 重新加载选中的漫画
