@@ -1,3 +1,6 @@
+use std::path::Path;
+
+use anyhow::Context;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -30,6 +33,25 @@ pub struct ChapterInfo {
 }
 
 impl ChapterInfo {
+    pub fn save_metadata(&self, chapter_download_dir: &Path) -> anyhow::Result<()> {
+        let mut chapter_info = self.clone();
+        // 将is_downloaded字段设置为None，这样能使它在序列化时被跳过
+        chapter_info.is_downloaded = None;
+
+        let metadata_path = chapter_download_dir.join("章节元数据.json");
+
+        std::fs::create_dir_all(chapter_download_dir)
+            .context(format!("创建目录`{}`失败", chapter_download_dir.display()))?;
+
+        let chapter_json =
+            serde_json::to_string_pretty(&chapter_info).context("将ChapterInfo序列化为json失败")?;
+
+        std::fs::write(&metadata_path, chapter_json)
+            .context(format!("写入文件`{}`失败", metadata_path.display()))?;
+
+        Ok(())
+    }
+
     pub fn get_is_downloaded(
         app: &AppHandle,
         comic_title: &str,

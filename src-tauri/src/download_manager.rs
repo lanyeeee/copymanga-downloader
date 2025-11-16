@@ -257,8 +257,22 @@ impl DownloadTask {
             return;
         }
 
-        if let Err(err) = self.rename_temp_download_dir(&temp_download_dir) {
-            let err_title = format!("`{comic_title} - {chapter_title}`保存下载目录失败");
+        let chapter_download_dir = match self.rename_temp_download_dir(&temp_download_dir) {
+            Ok(dir) => dir,
+            Err(err) => {
+                let err_title = format!("`{comic_title} - {chapter_title}`保存下载目录失败");
+                let string_chain = err.to_string_chain();
+                tracing::error!(err_title, message = string_chain);
+
+                self.set_state(DownloadTaskState::Failed);
+                self.emit_download_task_update_event();
+
+                return;
+            }
+        };
+
+        if let Err(err) = self.chapter_info.save_metadata(&chapter_download_dir) {
+            let err_title = format!("`{comic_title} - {chapter_title}`保存章节元数据失败");
             let string_chain = err.to_string_chain();
             tracing::error!(err_title, message = string_chain);
 
@@ -422,23 +436,25 @@ impl DownloadTask {
         );
     }
 
-    fn rename_temp_download_dir(&self, temp_download_dir: &PathBuf) -> anyhow::Result<()> {
+    fn rename_temp_download_dir(&self, temp_download_dir: &PathBuf) -> anyhow::Result<PathBuf> {
         let Some(parent) = temp_download_dir.parent() else {
             return Err(anyhow!("无法获取 {temp_download_dir:?} 的父目录"));
         };
 
-        let download_dir = parent.join(&self.chapter_info.prefixed_chapter_title);
+        let chapter_download_dir = parent.join(&self.chapter_info.prefixed_chapter_title);
 
-        if download_dir.exists() {
-            std::fs::remove_dir_all(&download_dir)
-                .context(format!("删除 {download_dir:?} 失败"))?;
+        if chapter_download_dir.exists() {
+            std::fs::remove_dir_all(&chapter_download_dir)
+                .context(format!("删除`{}`失败", chapter_download_dir.display()))?;
         }
 
-        std::fs::rename(temp_download_dir, &download_dir).context(format!(
-            "将 {temp_download_dir:?} 重命名为 {download_dir:?} 失败"
+        std::fs::rename(temp_download_dir, &chapter_download_dir).context(format!(
+            "将`{}`重命名为`{}`失败",
+            temp_download_dir.display(),
+            chapter_download_dir.display()
         ))?;
 
-        Ok(())
+        Ok(chapter_download_dir)
     }
 
     fn get_temp_download_dir(&self) -> PathBuf {
