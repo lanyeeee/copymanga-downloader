@@ -67,7 +67,8 @@ async function search(keyword: string, page: number) {
           :comic-path-word="comicInSearch.pathWord"
           :comic-cover="comicInSearch.cover"
           :comic-author="comicInSearch.author"
-          :comic-downloaded="comicInSearch.isDownloaded" />
+          :comic-downloaded="comicInSearch.isDownloaded"
+          :comic-download-dir="comicInSearch.comicDownloadDir" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="search(searchInput.trim(), $event)" />
     </div>

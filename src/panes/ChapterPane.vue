@@ -182,14 +182,17 @@ async function downloadChapters() {
     message.error('请先选择漫画')
     return
   }
+  console.log(currentGroup.value)
   // 下载勾选的章节
   const chapterUuidsToDownload = currentGroup.value
-    ?.filter((c) => c.isDownloaded === false && checkedIds.value.includes(c.chapterUuid))
+    ?.filter((c) => c.isDownloaded !== true && checkedIds.value.includes(c.chapterUuid))
     .map((c) => c.chapterUuid)
+  console.log(`勾选的章节: ${chapterUuidsToDownload}`)
   if (chapterUuidsToDownload === undefined) {
     return
   }
   for (const downloadedChapterUuid of chapterUuidsToDownload) {
+    console.log(`开始下载章节: ${downloadedChapterUuid}`)
     await commands.createDownloadTask(store.pickedComic, downloadedChapterUuid)
   }
 }
@@ -222,7 +225,13 @@ async function showComicDownloadDirInFileManager() {
     return
   }
 
-  const result = await commands.showComicDownloadDirInFileManager(store.pickedComic.comic.name)
+  const comicDownloadDir = store.pickedComic.comicDownloadDir
+  if (comicDownloadDir === undefined || comicDownloadDir === null) {
+    console.error('comicDownloadDir的值为undefined或null')
+    return
+  }
+
+  const result = await commands.showPathInFileManager(comicDownloadDir)
   if (result.status === 'error') {
     console.error(result.error)
   }

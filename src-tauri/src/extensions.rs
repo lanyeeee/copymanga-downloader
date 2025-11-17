@@ -41,3 +41,45 @@ impl SendWithTimeoutMsg for RequestBuilder {
         })
     }
 }
+
+pub trait WalkDirEntryExt {
+    fn is_comic_metadata(&self) -> bool;
+    fn is_chapter_metadata(&self) -> bool;
+}
+impl WalkDirEntryExt for walkdir::DirEntry {
+    fn is_comic_metadata(&self) -> bool {
+        if !self.file_type().is_file() {
+            return false;
+        }
+        if self.file_name() != "元数据.json" {
+            return false;
+        }
+
+        true
+    }
+
+    fn is_chapter_metadata(&self) -> bool {
+        if !self.file_type().is_file() {
+            return false;
+        }
+        if self.file_name() != "章节元数据.json" {
+            return false;
+        }
+
+        true
+    }
+}
+
+pub trait PathIsImg {
+    /// 判断路径是否为图片文件
+    fn is_img(&self) -> bool;
+}
+
+impl PathIsImg for std::path::Path {
+    fn is_img(&self) -> bool {
+        self.extension()
+            .and_then(|ext| ext.to_str())
+            .map(str::to_lowercase)
+            .is_some_and(|ext| matches!(ext.as_str(), "jpg" | "webp"))
+    }
+}

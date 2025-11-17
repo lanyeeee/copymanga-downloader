@@ -123,13 +123,8 @@ async saveMetadata(comic: Comic) : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getDownloadedComics() : Promise<Result<Comic[], CommandError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_downloaded_comics") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
+async getDownloadedComics() : Promise<Comic[]> {
+    return await TAURI_INVOKE("get_downloaded_comics");
 },
 async exportCbz(comic: Comic) : Promise<Result<null, CommandError>> {
     try {
@@ -171,22 +166,29 @@ async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> 
     else return { status: "error", error: e  as any };
 }
 },
-async showComicDownloadDirInFileManager(comicTitle: string) : Promise<Result<null, CommandError>> {
+async getSyncedComic(comic: Comic) : Promise<Result<Comic, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("show_comic_download_dir_in_file_manager", { comicTitle }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic", { comic }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async getSyncedComic(comic: Comic) : Promise<Comic> {
-    return await TAURI_INVOKE("get_synced_comic", { comic });
+async getSyncedComicInFavorite(comic: ComicInFavorite) : Promise<Result<ComicInFavorite, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic_in_favorite", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
-async getSyncedComicInFavorite(comic: ComicInFavorite) : Promise<ComicInFavorite> {
-    return await TAURI_INVOKE("get_synced_comic_in_favorite", { comic });
-},
-async getSyncedComicInSearch(comic: ComicInSearch) : Promise<ComicInSearch> {
-    return await TAURI_INVOKE("get_synced_comic_in_search", { comic });
+async getSyncedComicInSearch(comic: ComicInSearch) : Promise<Result<ComicInSearch, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic_in_search", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -224,10 +226,6 @@ export type ChapterInGetChapterRespData = { index: number; uuid: string; count: 
 export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
 export type ChapterInfo = { chapterUuid: string; chapterTitle: string; 
 /**
- * 以order为前缀的章节标题
- */
-prefixedChapterTitle: string; 
-/**
  * 此章节有多少页
  */
 chapterSize: number; comicUuid: string; comicTitle: string; comicPathWord: string; groupPathWord: string; groupName: string; 
@@ -242,19 +240,19 @@ order: number;
 /**
  * 漫画的连载状态
  */
-comicStatus: ComicStatus; isDownloaded?: boolean | null }
-export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group }; isDownloaded?: boolean | null }
+comicStatus: ComicStatus; isDownloaded?: boolean | null; chapterDownloadDir?: string | null }
+export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group }; isDownloaded?: boolean | null; comicDownloadDir?: string | null }
 export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; seo_baidu: string | null; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; 
 /**
  * `group_path_word` -> `chapter_infos`
  */
 groups: { [key in string]: ChapterInfo[] } }
-export type ComicInFavorite = { uuid: string; bDisplay: boolean; name: string; pathWord: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetimeUpdated: string; lastChapterId: string; lastChapterName: string; isDownloaded: boolean }
+export type ComicInFavorite = { uuid: string; bDisplay: boolean; name: string; pathWord: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetimeUpdated: string; lastChapterId: string; lastChapterName: string; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
-export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean }
+export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean }
+export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; comicDirFmt: string; chapterDirFmt: string }
 export type ContentRespData = { url: string }
 export type DownloadControlRiskEvent = { chapterUuid: string; retryAfter: number }
 export type DownloadFormat = "Webp" | "Jpeg"

@@ -1,24 +1,25 @@
-use anyhow::{anyhow, Context};
-use lopdf::{
-    content::{Content, Operation},
-    dictionary, Bookmark, Document, Object, Stream,
-};
-use parking_lot::RwLock;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::HashMap;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::{atomic::AtomicU32, Arc},
 };
-use tauri::{AppHandle, Manager};
+
+use anyhow::{anyhow, Context};
+use float_ord::FloatOrd;
+use lopdf::{
+    content::{Content, Operation},
+    dictionary, Bookmark, Document, Object, Stream,
+};
+use parking_lot::Mutex;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use tauri::AppHandle;
 use tauri_specta::Event;
 use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
-    config::Config,
     events::{ExportCbzEvent, ExportPdfEvent},
+    extensions::PathIsImg,
     types::{ChapterInfo, Comic, ComicInfo},
     utils,
 };
@@ -27,8 +28,9 @@ enum Archive {
     Cbz,
     Pdf,
 }
+
 impl Archive {
-    pub fn extension(&self) -> &str {
+    fn extension(&self) -> &str {
         match self {
             Archive::Cbz => "cbz",
             Archive::Pdf => "pdf",
@@ -55,11 +57,12 @@ impl Drop for CbzErrorEventGuard {
 
 #[allow(clippy::cast_possible_wrap)]
 #[allow(clippy::cast_possible_truncation)]
-pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
-    let comic_title = &comic.comic.name.clone();
-    let downloaded_chapters = get_downloaded_chapters(comic.comic.groups);
-    // 生成格式化的xml
-    let cfg = yaserde::ser::Config {
+#[allow(clippy::too_many_lines)]
+pub fn cbz(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
+    let comic_title = &comic.comic.name;
+    let downloaded_chapters = get_downloaded_chapters(comic.comic.groups.clone());
+    // 用于生成格式化的xml
+    let xml_cfg = yaserde::ser::Config {
         perform_indent: true,
         ..Default::default()
     };
@@ -79,76 +82,96 @@ pub fn cbz(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     };
     // 用来记录导出进度
     let current = Arc::new(AtomicU32::new(0));
+
+    let extension = Archive::Cbz.extension();
+    let comic_export_dir = comic
+        .get_comic_export_dir(app)
+        .context(format!("`{comic_title}` 获取导出目录失败"))?;
+    let cbz_export_dir = comic_export_dir.join(extension);
+
     // 并发处理
     let downloaded_chapters = downloaded_chapters.into_par_iter();
     downloaded_chapters.try_for_each(|chapter_info| -> anyhow::Result<()> {
-        let chapter_title = chapter_info.chapter_title.clone();
-        let prefixed_chapter_title = chapter_info.prefixed_chapter_title.clone();
-        let group_name = chapter_info.group_name.clone();
-        let err_prefix = format!("{group_name} - {chapter_title}");
-        let chapter_download_dir = get_chapter_download_dir(app, &chapter_info);
-        let chapter_export_dir = get_chapter_export_dir(app, &chapter_info, &Archive::Cbz);
-        let comic_info_path = chapter_export_dir.join("ComicInfo.xml");
+        let chapter_title = &chapter_info.chapter_title;
+        let group_name = &chapter_info.group_name;
+        let err_prefix = format!("`{comic_title} - {group_name} - {chapter_title}`");
         // 生成ComicInfo
-        let comic_info = ComicInfo::from(
-            chapter_info,
-            &comic.comic.author,
-            &comic.comic.theme,
-            comic.comic.brief.clone(),
-        );
+        let comic_info = ComicInfo::from(comic, &chapter_info);
         // 序列化ComicInfo为xml
-        let comic_info_xml = yaserde::ser::to_string_with_config(&comic_info, &cfg)
-            .map_err(|err_msg| anyhow!("{err_prefix}序列化`{comic_info_path:?}`失败: {err_msg}"))?;
-        // 保证导出目录存在
-        std::fs::create_dir_all(&chapter_export_dir)
-            .context(format!("{err_prefix}创建目录`{chapter_export_dir:?}`失败"))?;
+        let comic_info_xml = yaserde::ser::to_string_with_config(&comic_info, &xml_cfg)
+            .map_err(|err_msg| anyhow!("{err_prefix} 序列化`ComicInfo.xml`失败: {err_msg}"))?;
         // 创建cbz文件
-        let extension = Archive::Cbz.extension();
-        let zip_path = chapter_export_dir.join(format!("{prefixed_chapter_title}.{extension}"));
+        let chapter_download_dir = chapter_info
+            .chapter_download_dir
+            .as_ref()
+            .context(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
+        let chapter_download_dir_name = chapter_download_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .context(format!(
+                "{err_prefix} 获取`{}`的目录名失败",
+                chapter_download_dir.display()
+            ))?;
+        let chapter_relative_dir = chapter_info
+            .get_chapter_relative_dir(comic)
+            .context(format!("{err_prefix} 获取章节相对目录失败"))?;
+        let chapter_relative_dir_parent = chapter_relative_dir.parent().context(format!(
+            "{err_prefix} `{}`没有父目录",
+            chapter_relative_dir.display()
+        ))?;
+        let chapter_export_dir = cbz_export_dir.join(chapter_relative_dir_parent);
+        // 保证导出目录存在
+        std::fs::create_dir_all(&chapter_export_dir).context(format!(
+            "{err_prefix} 创建目录`{}`失败",
+            chapter_export_dir.display()
+        ))?;
+        let zip_path = chapter_export_dir.join(format!("{chapter_download_dir_name}.{extension}"));
         let zip_file = std::fs::File::create(&zip_path)
-            .context(format!("{err_prefix}创建文件`{zip_path:?}`失败"))?;
+            .context(format!("{err_prefix} 创建文件`{}`失败", zip_path.display()))?;
         let mut zip_writer = ZipWriter::new(zip_file);
         // 把ComicInfo.xml写入cbz
         zip_writer
             .start_file("ComicInfo.xml", SimpleFileOptions::default())
             .context(format!(
-                "{err_prefix}在`{zip_path:?}`创建`ComicInfo.xml`失败"
+                "{err_prefix} 在`{}`创建`ComicInfo.xml`失败",
+                zip_path.display()
             ))?;
         zip_writer
             .write_all(comic_info_xml.as_bytes())
-            .context(format!("{err_prefix}写入`ComicInfo.xml`失败"))?;
-        // 遍历下载目录，将文件写入cbz
-        let image_entries = std::fs::read_dir(&chapter_download_dir)
-            .context(format!(
-                "{err_prefix}读取目录`{chapter_download_dir:?}`失败"
-            ))?
-            .filter_map(Result::ok);
-        for image_entry in image_entries {
-            let image_path = image_entry.path();
-            if !image_path.is_file() {
-                continue;
-            }
+            .context(format!("{err_prefix} 写入`ComicInfo.xml`失败"))?;
 
-            let filename = match image_path.file_name() {
-                Some(name) => name.to_string_lossy(),
-                None => continue,
-            };
+        let image_paths = get_image_paths(chapter_download_dir).context(format!(
+            "{err_prefix} 获取`{}`中的图片失败",
+            chapter_download_dir.display()
+        ))?;
+
+        for image_path in image_paths {
+            let filename = image_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .context(format!(
+                    "{err_prefix} 获取`{}`的目录名失败",
+                    chapter_download_dir.display()
+                ))?;
             // 将文件写入cbz
             zip_writer
-                .start_file(&filename, SimpleFileOptions::default())
+                .start_file(filename, SimpleFileOptions::default())
                 .context(format!(
-                    "{err_prefix}在`{zip_path:?}`创建`{filename:?}`失败"
+                    "{err_prefix} 在`{}`创建`{filename:?}`失败",
+                    zip_path.display()
                 ))?;
-            let mut file =
-                std::fs::File::open(&image_path).context(format!("打开`{image_path:?}`失败"))?;
+            let mut file = std::fs::File::open(&image_path)
+                .context(format!("{err_prefix} 打开`{}`失败", image_path.display()))?;
             std::io::copy(&mut file, &mut zip_writer).context(format!(
-                "{err_prefix}将`{image_path:?}`写入`{zip_path:?}`失败"
+                "{err_prefix} 将`{}`写入`{}`失败",
+                image_path.display(),
+                zip_path.display()
             ))?;
         }
 
         zip_writer
             .finish()
-            .context(format!("{err_prefix}关闭`{zip_path:?}`失败"))?;
+            .context(format!("{err_prefix} 关闭`{}`失败", zip_path.display()))?;
         // 更新导出cbz的进度
         let current = current.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
         // 发送导出cbz进度事件
@@ -203,47 +226,83 @@ impl Drop for PdfMergeErrorEventGuard {
 }
 
 #[allow(clippy::cast_possible_truncation)]
-pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
-    let comic_title = comic.comic.name.clone();
-    let downloaded_chapters = get_downloaded_chapters(comic.comic.groups);
-    let event_uuid = uuid::Uuid::new_v4().to_string();
+#[allow(clippy::too_many_lines)]
+pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
+    let comic_title = &comic.comic.name;
+    let downloaded_chapters = get_downloaded_chapters(comic.comic.groups.clone());
+    let create_event_uuid = uuid::Uuid::new_v4().to_string();
     // 发送开始创建pdf事件
     let _ = ExportPdfEvent::CreateStart {
-        uuid: event_uuid.clone(),
+        uuid: create_event_uuid.clone(),
         comic_title: comic_title.clone(),
         total: downloaded_chapters.len() as u32,
     }
     .emit(app);
     // 如果success为false，drop时发送CreateError事件
     let mut create_error_event_guard = PdfCreateErrorEventGuard {
-        uuid: event_uuid.clone(),
+        uuid: create_event_uuid.clone(),
         app: app.clone(),
         success: false,
     };
     // 用来记录创建pdf的进度
-    let current = Arc::new(AtomicU32::new(0));
+    let created_count = Arc::new(AtomicU32::new(0));
+
+    let extension = Archive::Pdf.extension();
+    let comic_export_dir = comic
+        .get_comic_export_dir(app)
+        .context(format!("`{comic_title}` 获取导出目录失败"))?;
+    let pdf_export_dir = comic_export_dir.join(extension);
+    // 章节和他们对应的pdf路径
+    let chapter_and_pdf_path_pairs = Mutex::new(Vec::new());
     // 并发处理
     let downloaded_chapters = downloaded_chapters.into_par_iter();
     downloaded_chapters.try_for_each(|chapter_info| -> anyhow::Result<()> {
-        let chapter_download_dir = get_chapter_download_dir(app, &chapter_info);
-        let chapter_export_dir = get_chapter_export_dir(app, &chapter_info, &Archive::Pdf);
-        let group_name = chapter_info.group_name;
-        let chapter_title = chapter_info.chapter_title;
-        let prefixed_chapter_title = chapter_info.prefixed_chapter_title;
+        let chapter_title = &chapter_info.chapter_title;
+        let group_name = &chapter_info.group_name;
+        let err_prefix = format!("`{comic_title} - {group_name} - {chapter_title}`");
+        // 创建pdf文件
+        let chapter_download_dir = chapter_info
+            .chapter_download_dir
+            .as_ref()
+            .context(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
+        let chapter_download_dir_name = chapter_download_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .context(format!(
+                "{err_prefix} 获取`{}`的目录名失败",
+                chapter_download_dir.display()
+            ))?;
+        let chapter_relative_dir = chapter_info
+            .get_chapter_relative_dir(comic)
+            .context(format!("{err_prefix} 获取章节相对目录失败"))?;
+        let chapter_relative_dir_parent = chapter_relative_dir.parent().context(format!(
+            "{err_prefix} `{}`没有父目录",
+            chapter_relative_dir.display()
+        ))?;
+        let chapter_export_dir = pdf_export_dir.join(chapter_relative_dir_parent);
         // 保证导出目录存在
         std::fs::create_dir_all(&chapter_export_dir).context(format!(
-            "`{group_name} - {chapter_title}`创建目录`{chapter_export_dir:?}`失败"
+            "{err_prefix} 创建目录`{}`失败",
+            chapter_export_dir.display()
         ))?;
-        // 创建pdf
-        let extension = Archive::Pdf.extension();
-        let pdf_path = chapter_export_dir.join(format!("{prefixed_chapter_title}.{extension}"));
-        create_pdf(&chapter_download_dir, &pdf_path)
-            .context(format!("`{group_name} - {chapter_title}`创建pdf失败"))?;
+
+        let pdf_path = chapter_export_dir.join(format!("{chapter_download_dir_name}.{extension}"));
+
+        let image_paths = get_image_paths(chapter_download_dir).context(format!(
+            "{err_prefix} 获取`{}`中的图片失败",
+            chapter_download_dir.display()
+        ))?;
+
+        create_pdf(image_paths, &pdf_path).context(format!("{err_prefix} 创建pdf失败"))?;
+
+        chapter_and_pdf_path_pairs
+            .lock()
+            .push((chapter_info, pdf_path));
         // 更新创建pdf的进度
-        let current = current.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let current = created_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
         // 发送创建pdf进度事件
         let _ = ExportPdfEvent::CreateProgress {
-            uuid: event_uuid.clone(),
+            uuid: create_event_uuid.clone(),
             current,
         }
         .emit(app);
@@ -252,47 +311,67 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     // 标记为成功，后面drop时就不会发送CreateError事件
     create_error_event_guard.success = true;
     // 发送创建pdf完成事件
-    let _ = ExportPdfEvent::CreateEnd { uuid: event_uuid }.emit(app);
+    let _ = ExportPdfEvent::CreateEnd {
+        uuid: create_event_uuid,
+    }
+    .emit(app);
 
-    let group_export_dir = get_group_export_dir(app, &comic_title, &Archive::Pdf);
-    let chapter_export_dirs = std::fs::read_dir(&group_export_dir)
-        .context(format!("读取目录`{group_export_dir:?}`失败"))?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-    let event_uuid = uuid::Uuid::new_v4().to_string();
+    let mut chapter_and_pdf_path_pairs = std::mem::take(&mut *chapter_and_pdf_path_pairs.lock());
+    chapter_and_pdf_path_pairs.sort_by_key(|(chapter_info, _)| FloatOrd(chapter_info.order));
+    let chapter_pdf_paths: Vec<PathBuf> = chapter_and_pdf_path_pairs
+        .into_iter()
+        .map(|(_, pdf_path)| pdf_path)
+        .collect();
+
+    let mut chapter_export_dir_to_pdf_paths = HashMap::new();
+    for chapter_pdf_path in chapter_pdf_paths {
+        let Some(chapter_export_dir) = chapter_pdf_path.parent() else {
+            continue;
+        };
+        if chapter_export_dir == pdf_export_dir {
+            continue;
+        }
+        chapter_export_dir_to_pdf_paths
+            .entry(chapter_export_dir.to_path_buf())
+            .or_insert_with(Vec::new)
+            .push(chapter_pdf_path);
+    }
+
+    let merge_event_uuid = uuid::Uuid::new_v4().to_string();
     // 发送开始合并pdf事件
     let _ = ExportPdfEvent::MergeStart {
-        uuid: event_uuid.clone(),
+        uuid: merge_event_uuid.clone(),
         comic_title: comic_title.clone(),
-        total: chapter_export_dirs.len() as u32,
+        total: chapter_export_dir_to_pdf_paths.len() as u32,
     }
     .emit(app);
     // 如果success为false，drop时发送MergeError事件
     let mut merge_error_event_guard = PdfMergeErrorEventGuard {
-        uuid: event_uuid.clone(),
+        uuid: merge_event_uuid.clone(),
         app: app.clone(),
         success: false,
     };
     // 合并PDF很吃内存，为了减少爆内存的发生，不使用并发处理，而是逐个合并
-    for (i, chapter_export_dir) in chapter_export_dirs.iter().enumerate() {
-        let group_name = chapter_export_dir
+    for (i, entry) in chapter_export_dir_to_pdf_paths.into_iter().enumerate() {
+        let (chapter_export_dir, chapter_pdf_paths) = entry;
+        let pdf_dir_name = chapter_export_dir
             .file_name()
+            .and_then(|name| name.to_str())
             .context(format!(
-                "获取`{chapter_export_dir:?}`的目录名失败，请确保路径不是以`..`结尾"
-            ))?
-            .to_str()
-            .context(format!(
-                "获取`{chapter_export_dir:?}`的目录名失败，包含非法字符"
+                "`{comic_title}` 获取`{}`的目录名失败",
+                chapter_export_dir.display()
             ))?;
-        let extension = Archive::Pdf.extension();
-        let pdf_path = group_export_dir.join(format!("{group_name}.{extension}"));
+        let parent = chapter_export_dir.parent().context(format!(
+            "`{comic_title}` `{}`没有父目录",
+            chapter_export_dir.display()
+        ))?;
+        let pdf_path = parent.join(format!("{pdf_dir_name}.{extension}"));
         // 合并pdf
-        merge_pdf(chapter_export_dir, &pdf_path).context(format!("`{group_name}`合并pdf失败"))?;
+        merge_pdf_file(chapter_pdf_paths, &pdf_path)
+            .context(format!("`{comic_title}` `{pdf_dir_name}`合并pdf失败"))?;
         // 发送合并pdf进度事件
         let _ = ExportPdfEvent::MergeProgress {
-            uuid: event_uuid.clone(),
+            uuid: merge_event_uuid.clone(),
             current: (i + 1) as u32,
         }
         .emit(app);
@@ -300,21 +379,17 @@ pub fn pdf(app: &AppHandle, comic: Comic) -> anyhow::Result<()> {
     // 标记为成功，后面drop时就不会发送MergeError事件
     merge_error_event_guard.success = true;
     // 发送合并pdf完成事件
-    let _ = ExportPdfEvent::MergeEnd { uuid: event_uuid }.emit(app);
+    let _ = ExportPdfEvent::MergeEnd {
+        uuid: merge_event_uuid,
+    }
+    .emit(app);
     Ok(())
 }
 
-/// 用`chapter_download_dir`中的图片创建PDF，保存到`pdf_path`中
+/// 用`image_paths`中的图片创建PDF文件，保存到`pdf_path`
 #[allow(clippy::similar_names)]
 #[allow(clippy::cast_possible_truncation)]
-fn create_pdf(chapter_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
-    let mut image_paths = std::fs::read_dir(chapter_download_dir)
-        .context(format!("读取目录`{chapter_download_dir:?}`失败"))?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    image_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-
+fn create_pdf(image_paths: Vec<PathBuf>, pdf_path: &Path) -> anyhow::Result<()> {
     let mut doc = Document::with_version("1.5");
     let pages_id = doc.new_object_id();
     let mut page_ids = vec![];
@@ -325,11 +400,11 @@ fn create_pdf(chapter_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()
         }
 
         let buffer = read_image_to_buffer(&image_path)
-            .context(format!("将`{image_path:?}`读取到buffer失败"))?;
-        let (width, height) =
-            utils::get_dimensions(&buffer).context(format!("获取`{image_path:?}`的尺寸失败"))?;
+            .context(format!("将`{}`读取到buffer失败", image_path.display()))?;
+        let (width, height) = utils::get_dimensions(&buffer)
+            .context(format!("获取`{}`的尺寸失败", image_path.display()))?;
         let image_stream = lopdf::xobject::image_from(buffer)
-            .context(format!("创建`{image_path:?}`的图片流失败"))?;
+            .context(format!("创建`{}`的图片流失败", image_path.display()))?;
         // 将图片流添加到doc中
         let img_id = doc.add_object(image_stream);
         // 图片的名称，用于 Do 操作在页面上显示图片
@@ -383,64 +458,32 @@ fn create_pdf(chapter_download_dir: &Path, pdf_path: &Path) -> anyhow::Result<()
     doc.compress();
 
     doc.save(pdf_path)
-        .context(format!("保存`{pdf_path:?}`失败"))?;
+        .context(format!("保存`{}`失败", pdf_path.display()))?;
     Ok(())
 }
 
 /// 读取`image_path`中的图片数据到buffer中
 fn read_image_to_buffer(image_path: &Path) -> anyhow::Result<Vec<u8>> {
-    let file = std::fs::File::open(image_path).context(format!("打开`{image_path:?}`失败"))?;
+    let file =
+        std::fs::File::open(image_path).context(format!("打开`{}`失败", image_path.display()))?;
     let mut reader = std::io::BufReader::new(file);
     let mut buffer = vec![];
     reader
         .read_to_end(&mut buffer)
-        .context(format!("读取`{image_path:?}`失败"))?;
+        .context(format!("读取`{}`失败", image_path.display()))?;
     Ok(buffer)
 }
 
-/// 合并`chapter_export_dir`中的PDF，保存到`pdf_path`中
+/// 将`pdf_dir`中的PDF合并到`pdf_path`中
 #[allow(clippy::cast_possible_truncation)]
-fn merge_pdf(chapter_export_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
-    let mut chapter_pdf_paths = std::fs::read_dir(chapter_export_dir)
-        .context(format!("读取目录`{chapter_export_dir:?}`失败"))?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    // 按照目录名中的浮点数索引进行排序
-    chapter_pdf_paths.sort_by(|a, b| {
-        let get_index = |path: &PathBuf| -> f64 {
-            // 获取文件名
-            let Some(file_name) = path.file_name() else {
-                return f64::MAX;
-            };
-            // 转换为字符串
-            let Some(name_str) = file_name.to_str() else {
-                return f64::MAX;
-            };
-            // 获取第一个空格前的内容作为索引字符串
-            let Some(index_str) = name_str.split_whitespace().next() else {
-                return f64::MAX;
-            };
-            // 将字符串解析为浮点数
-            index_str.parse::<f64>().unwrap_or(f64::MAX)
-        };
-
-        // 将 f64 转换为可以比较的数据类型
-        let index_a = get_index(a);
-        let index_b = get_index(b);
-
-        index_a
-            .partial_cmp(&index_b)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
+fn merge_pdf_file(chapter_pdf_paths: Vec<PathBuf>, pdf_path: &Path) -> anyhow::Result<()> {
     let mut doc = Document::with_version("1.5");
     let mut doc_page_ids = vec![];
     let mut doc_objects = BTreeMap::new();
 
     for chapter_pdf_path in chapter_pdf_paths {
-        let mut chapter_doc =
-            Document::load(&chapter_pdf_path).context(format!("加载`{chapter_pdf_path:?}`失败"))?;
+        let mut chapter_doc = Document::load(&chapter_pdf_path)
+            .context(format!("加载`{}`失败", chapter_pdf_path.display()))?;
         // 重新编号这个章节PDF的对象，避免与doc的对象编号冲突
         chapter_doc.renumber_objects_with(doc.max_id);
         doc.max_id = chapter_doc.max_id + 1;
@@ -451,13 +494,8 @@ fn merge_pdf(chapter_export_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
             if page_num == 1 {
                 let chapter_title = chapter_pdf_path
                     .file_stem()
-                    .context(format!(
-                        "获取`{chapter_pdf_path:?}`的文件名失败，没有文件名"
-                    ))?
-                    .to_str()
-                    .context(format!(
-                        "获取`{chapter_pdf_path:?}`的文件名失败，包含非法字符"
-                    ))?
+                    .and_then(|file_stem| file_stem.to_str())
+                    .context(format!("获取`{}`的文件名失败", chapter_pdf_path.display()))?
                     .to_string();
                 let bookmark = Bookmark::new(chapter_title, [0.0, 0.0, 1.0], 0, object_id);
                 doc.add_bookmark(bookmark, None);
@@ -512,38 +550,8 @@ fn merge_pdf(chapter_export_dir: &Path, pdf_path: &Path) -> anyhow::Result<()> {
     doc.compress();
 
     doc.save(pdf_path)
-        .context(format!("保存`{pdf_path:?}`失败"))?;
+        .context(format!("保存`{}`失败", pdf_path.display()))?;
     Ok(())
-}
-
-fn get_chapter_export_dir(
-    app: &AppHandle,
-    chapter_info: &ChapterInfo,
-    archive: &Archive,
-) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .export_dir
-        .join(&chapter_info.comic_title)
-        .join(archive.extension())
-        .join(&chapter_info.group_name)
-}
-
-fn get_group_export_dir(app: &AppHandle, comic_title: &str, archive: &Archive) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .export_dir
-        .join(comic_title)
-        .join(archive.extension())
-}
-
-fn get_chapter_download_dir(app: &AppHandle, chapter_info: &ChapterInfo) -> PathBuf {
-    app.state::<RwLock<Config>>()
-        .read()
-        .download_dir
-        .join(&chapter_info.comic_title)
-        .join(&chapter_info.group_name)
-        .join(&chapter_info.prefixed_chapter_title)
 }
 
 /// 获取已下载的章节
@@ -552,5 +560,16 @@ fn get_downloaded_chapters(groups: HashMap<String, Vec<ChapterInfo>>) -> Vec<Cha
         .into_iter()
         .flat_map(|(_, chapters)| chapters)
         .filter(|chapter| chapter.is_downloaded.unwrap_or(false))
-        .collect::<Vec<_>>()
+        .collect()
+}
+
+fn get_image_paths(images_dir: &Path) -> Result<Vec<PathBuf>, anyhow::Error> {
+    let mut image_paths: Vec<PathBuf> = std::fs::read_dir(images_dir)
+        .context(format!("读取目录`{}`失败", images_dir.display()))?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_img())
+        .collect();
+    image_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    Ok(image_paths)
 }

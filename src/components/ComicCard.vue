@@ -10,6 +10,7 @@ const props = defineProps<{
   comicCover: string
   comicAuthor: AuthorRespData[]
   comicDownloaded: boolean
+  comicDownloadDir: string
 }>()
 
 // 获取漫画信息，将漫画信息存入pickedComic，并切换到章节页
@@ -33,7 +34,7 @@ async function pickComic() {
 }
 
 async function showComicDownloadDirInFileManager() {
-  const result = await commands.showComicDownloadDirInFileManager(props.comicTitle)
+  const result = await commands.showPathInFileManager(props.comicDownloadDir)
   if (result.status === 'error') {
     console.error(result.error)
   }

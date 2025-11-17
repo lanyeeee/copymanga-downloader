@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use yaserde::{YaDeserialize, YaSerialize};
 
-use super::{Author, ChapterInfo, ComicStatus, Theme};
+use crate::types::Comic;
 
-/// https://wiki.kavitareader.com/guides/metadata/comics/
+use super::{ChapterInfo, ComicStatus};
+
+/// <https://wiki.kavitareader.com/guides/metadata/comics>/
 #[derive(
     Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type, YaSerialize, YaDeserialize,
 )]
@@ -50,12 +52,7 @@ pub struct ComicInfo {
 }
 impl ComicInfo {
     #[allow(clippy::cast_possible_wrap)]
-    pub fn from(
-        chapter_info: ChapterInfo,
-        author: &Vec<Author>,
-        theme: &Vec<Theme>,
-        brief: String,
-    ) -> ComicInfo {
+    pub fn from(comic: &Comic, chapter_info: &ChapterInfo) -> ComicInfo {
         let order = Some(chapter_info.order.to_string());
         let (number, volume, format) = match chapter_info.group_path_word.as_str() {
             "default" => (order, None, None),
@@ -70,20 +67,24 @@ impl ComicInfo {
 
         ComicInfo {
             manga: "Yes".to_string(),
-            series: chapter_info.comic_title,
+            series: chapter_info.comic_title.clone(),
             publisher: "拷贝漫画".to_string(),
-            writer: author
+            writer: comic
+                .comic
+                .author
                 .iter()
                 .map(|a| a.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", "),
-            genre: theme
+            genre: comic
+                .comic
+                .theme
                 .iter()
                 .map(|t| t.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", "),
-            summary: brief,
-            title: chapter_info.chapter_title,
+            summary: comic.comic.brief.clone(),
+            title: chapter_info.chapter_title.clone(),
             number,
             volume,
             format,

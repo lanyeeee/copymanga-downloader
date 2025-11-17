@@ -1,12 +1,17 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+};
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::AppHandle;
 
 use crate::{
     responses::{AuthorRespData, ComicInGetFavoriteRespData, GetFavoriteRespData, Pagination},
-    types::Comic,
+    utils,
 };
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
@@ -27,14 +32,20 @@ impl DerefMut for GetFavoriteResult {
 }
 
 impl GetFavoriteResult {
-    pub fn from_resp_data(app: &AppHandle, resp_data: GetFavoriteRespData) -> Self {
+    pub fn from_resp_data(
+        app: &AppHandle,
+        resp_data: GetFavoriteRespData,
+    ) -> anyhow::Result<GetFavoriteResult> {
         let total = resp_data.total;
         let limit = resp_data.limit;
         let offset = resp_data.offset;
 
+        let path_word_to_dir_map =
+            utils::create_path_word_to_dir_map(app).context("创建漫画路径词到下载目录映射失败")?;
         let mut list = Vec::with_capacity(resp_data.list.len());
+
         for item in resp_data.0.list {
-            let comic = ComicInFavorite::from_resp_data(app, &item.comic);
+            let comic = ComicInFavorite::from_resp_data(&item.comic, &path_word_to_dir_map);
             list.push(FavoriteItem {
                 uuid: item.uuid,
                 b_folder: item.b_folder,
@@ -42,12 +53,14 @@ impl GetFavoriteResult {
             });
         }
 
-        GetFavoriteResult(Pagination {
+        let get_favorite_result = GetFavoriteResult(Pagination {
             list,
             total,
             limit,
             offset,
-        })
+        });
+
+        Ok(get_favorite_result)
     }
 }
 
@@ -74,10 +87,14 @@ pub struct ComicInFavorite {
     pub last_chapter_id: String,
     pub last_chapter_name: String,
     pub is_downloaded: bool,
+    pub comic_download_dir: PathBuf,
 }
 
 impl ComicInFavorite {
-    pub fn from_resp_data(app: &AppHandle, resp_data: &ComicInGetFavoriteRespData) -> Self {
+    pub fn from_resp_data(
+        resp_data: &ComicInGetFavoriteRespData,
+        path_word_to_dir_map: &HashMap<String, PathBuf>,
+    ) -> ComicInFavorite {
         let mut comic = ComicInFavorite {
             uuid: resp_data.uuid.clone(),
             b_display: resp_data.b_display,
@@ -91,14 +108,18 @@ impl ComicInFavorite {
             last_chapter_id: resp_data.last_chapter_id.clone(),
             last_chapter_name: resp_data.last_chapter_name.clone(),
             is_downloaded: false,
+            comic_download_dir: PathBuf::new(),
         };
 
-        comic.update_fields(app);
+        comic.update_fields(path_word_to_dir_map);
 
         comic
     }
 
-    pub fn update_fields(&mut self, app: &AppHandle) {
-        self.is_downloaded = Comic::get_is_downloaded(app, &self.name);
+    pub fn update_fields(&mut self, path_word_to_dir_map: &HashMap<String, PathBuf>) {
+        if let Some(comic_download_dir) = path_word_to_dir_map.get(&self.path_word) {
+            self.comic_download_dir = comic_download_dir.clone();
+            self.is_downloaded = true;
+        }
     }
 }
