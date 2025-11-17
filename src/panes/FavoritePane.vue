@@ -51,7 +51,8 @@ async function getFavourite(page: number) {
           :comic-path-word="favoriteItem.comic.pathWord"
           :comic-cover="favoriteItem.comic.cover"
           :comic-author="favoriteItem.comic.author"
-          :comic-downloaded="favoriteItem.comic.isDownloaded" />
+          :comic-downloaded="favoriteItem.comic.isDownloaded"
+          :comic-download-dir="favoriteItem.comic.comicDownloadDir" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavourite($event)" />
     </div>

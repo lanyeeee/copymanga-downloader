@@ -86,8 +86,12 @@ async function syncPickedComic() {
   if (store.pickedComic === undefined) {
     return
   }
-  const syncedComic = await commands.getSyncedComic(store.pickedComic)
-  Object.assign(store.pickedComic, { ...syncedComic })
+  const result = await commands.getSyncedComic(store.pickedComic)
+  if (result.status === 'error') {
+    console.error(result.error)
+    return
+  }
+  Object.assign(store.pickedComic, { ...result.data })
 }
 
 async function syncComicInSearch(progressData: ProgressData) {
@@ -98,8 +102,12 @@ async function syncComicInSearch(progressData: ProgressData) {
   if (comic === undefined) {
     return
   }
-  const syncedComic = await commands.getSyncedComicInSearch(comic)
-  Object.assign(comic, { ...syncedComic })
+  const result = await commands.getSyncedComicInSearch(comic)
+  if (result.status === 'error') {
+    console.error(result.error)
+    return
+  }
+  Object.assign(comic, { ...result.data })
 }
 
 async function syncComicInFavorite(progressData: ProgressData) {
@@ -112,8 +120,12 @@ async function syncComicInFavorite(progressData: ProgressData) {
   if (comic === undefined) {
     return
   }
-  const syncedComic = await commands.getSyncedComicInFavorite(comic)
-  Object.assign(comic, { ...syncedComic })
+  const result = await commands.getSyncedComicInFavorite(comic)
+  if (result.status === 'error') {
+    console.error(result.error)
+    return
+  }
+  Object.assign(comic, { ...result.data })
 }
 
 // 用文件管理器打开下载目录

@@ -56,7 +56,13 @@ async function exportPdf() {
 }
 
 async function showComicDownloadDirInFileManager() {
-  const result = await commands.showComicDownloadDirInFileManager(props.comic.comic.name)
+  const comicDownloadDir = props.comic.comicDownloadDir
+  if (comicDownloadDir === undefined || comicDownloadDir === null) {
+    console.error('comicDownloadDir的值为undefined或null')
+    return
+  }
+
+  const result = await commands.showPathInFileManager(comicDownloadDir)
   if (result.status === 'error') {
     console.error(result.error)
   }

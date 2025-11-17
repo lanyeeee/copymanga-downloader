@@ -18,6 +18,8 @@ pub struct Config {
     pub custom_api_domain: String,
     pub download_format: DownloadFormat,
     pub enable_file_logger: bool,
+    pub comic_dir_fmt: String,
+    pub chapter_dir_fmt: String,
 }
 
 impl Config {
@@ -80,6 +82,8 @@ impl Config {
             custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
             download_format: DownloadFormat::Webp,
             enable_file_logger: true,
+            comic_dir_fmt: "{comic_title}".to_string(),
+            chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
         }
     }
 
