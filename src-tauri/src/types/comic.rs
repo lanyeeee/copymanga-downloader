@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -75,6 +75,13 @@ impl Comic {
         let path_word_to_dir_map =
             utils::create_path_word_to_dir_map(app).context("创建漫画路径词到下载目录映射失败")?;
 
+        // TODO: 这是为了兼容v0.10.2及之前的版本，后续需要移除，计划在v0.12.0之后移除
+        if let Some(comic_download_dir) = path_word_to_dir_map.get(&comic.comic.path_word) {
+            comic
+                .create_chapter_metadata_for_old_version(comic_download_dir)
+                .context("为旧版本创建章节元数据失败")?;
+        }
+
         comic
             .update_fields(&path_word_to_dir_map)
             .context(format!("`{}`更新Comic的字段失败", comic.comic.name))?;
@@ -94,12 +101,21 @@ impl Comic {
         let parent = metadata_path
             .parent()
             .context(format!("`{}`没有父目录", metadata_path.display()))?;
-        comic.comic_download_dir = Some(parent.to_path_buf());
+        let comic_download_dir = parent.to_path_buf();
+
+        // TODO: 这是为了兼容v0.10.2及之前的版本，后续需要移除，计划在v0.12.0之后移除
+        comic
+            .create_chapter_metadata_for_old_version(&comic_download_dir)
+            .context("为旧版本创建章节元数据失败")?;
+
+        comic.comic_download_dir = Some(comic_download_dir);
         comic.is_downloaded = Some(true);
+
         // 来自元数据的章节信息没有`chapter_download_dir`和`is_downloaded`字段，需要更新
         comic
             .update_chapter_infos_fields()
             .context("更新章节信息字段失败")?;
+
         Ok(comic)
     }
 
@@ -230,6 +246,55 @@ impl Comic {
 
         let comic_export_dir = export_dir.join(relative_dir);
         Ok(comic_export_dir)
+    }
+
+    fn create_chapter_metadata_for_old_version(
+        &self,
+        comic_download_dir: &Path,
+    ) -> anyhow::Result<()> {
+        let mut chapter_dirs = HashSet::new();
+        for group_entry in std::fs::read_dir(comic_download_dir)?.filter_map(Result::ok) {
+            let Ok(file_type) = group_entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_dir() {
+                continue;
+            }
+
+            for chapter_entry in std::fs::read_dir(group_entry.path())?.filter_map(Result::ok) {
+                let Ok(file_type) = chapter_entry.file_type() else {
+                    continue;
+                };
+                if !file_type.is_dir() {
+                    continue;
+                }
+                chapter_dirs.insert(chapter_entry.path());
+            }
+        }
+
+        for chapter_info in self.comic.groups.values().flatten() {
+            let group_title = utils::filename_filter(&chapter_info.group_name);
+            let chapter_title = utils::filename_filter(&chapter_info.chapter_title);
+            let order = chapter_info.order;
+            let prefixed_chapter_title = format!("{order} {chapter_title}");
+
+            let old_chapter_dir = comic_download_dir
+                .join(&group_title)
+                .join(&prefixed_chapter_title);
+
+            let old_chapter_dir_exists = chapter_dirs.contains(&old_chapter_dir);
+            let old_chapter_metadata_exists = old_chapter_dir.join("章节元数据.json").exists();
+
+            if old_chapter_dir_exists && !old_chapter_metadata_exists {
+                // 如果旧版本的章节目录存在，但没有元数据文件，就创建一个
+                let mut info = chapter_info.clone();
+                info.chapter_download_dir = Some(old_chapter_dir);
+                info.is_downloaded = Some(true);
+                info.save_metadata()?;
+            }
+        }
+
+        Ok(())
     }
 }
 
