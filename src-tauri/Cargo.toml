@@ -54,6 +54,7 @@ notify = { version = "8.0.0" }
 walkdir = { version = "2.5.0" }
 strfmt = { version = "0.2.5" }
 float-ord = { version = "0.3.2" }
+indexmap = { version = "2.11.0" }
 
 [profile.release]
 strip = true

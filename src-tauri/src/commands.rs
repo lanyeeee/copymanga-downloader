@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
+    path::PathBuf,
     sync::{atomic::AtomicI64, Arc},
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use indexmap::IndexMap;
 use parking_lot::{Mutex, RwLock};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
@@ -286,7 +288,57 @@ pub fn get_downloaded_comics(config: State<RwLock<Config>>) -> Vec<Comic> {
         }
     }
 
-    downloaded_comics
+    // 按照漫画ID分组，以方便去重
+    let mut comics_by_path_word: IndexMap<String, Vec<Comic>> = IndexMap::new();
+    for comic in downloaded_comics {
+        comics_by_path_word
+            .entry(comic.comic.path_word.clone())
+            .or_default()
+            .push(comic);
+    }
+
+    let mut unique_comics = Vec::new();
+    for (_comic_path_word, mut comics) in comics_by_path_word {
+        // 该漫画ID对应的所有漫画下载目录，可能有多个版本，所以需要去重
+        let comic_download_dirs: Vec<&PathBuf> = comics
+            .iter()
+            .filter_map(|comic| comic.comic_download_dir.as_ref())
+            .collect();
+
+        if comic_download_dirs.is_empty() {
+            // 其实这种情况不应该发生，因为漫画元数据文件应该总是有下载目录的
+            continue;
+        }
+
+        // 选第一个作为保留的漫画
+        let chosen_download_dir = comic_download_dirs[0];
+
+        if comics.len() > 1 {
+            let dir_paths_string = comic_download_dirs
+                .iter()
+                .map(|path| format!("`{}`", path.display()))
+                .collect::<Vec<String>>()
+                .join(", ");
+            // 如果有重复的漫画，打印错误信息
+            let comic_title = &comics[0].comic.name;
+            let err_title = "获取已下载漫画的过程中遇到错误";
+            let string_chain = anyhow!("所有版本路径: [{dir_paths_string}]")
+                .context(format!(
+                    "此次获取已下载漫画的结果中只保留版本`{}`",
+                    chosen_download_dir.display()
+                ))
+                .context(format!(
+                    "漫画`{comic_title}`在下载目录里有多个版本，请手动处理，只保留一个版本"
+                ))
+                .to_string_chain();
+            tracing::error!(err_title, message = string_chain);
+        }
+        // 取第一个作为保留的漫画
+        let chosen_comic = comics.remove(0);
+        unique_comics.push(chosen_comic);
+    }
+
+    unique_comics
 }
 
 #[tauri::command(async)]
