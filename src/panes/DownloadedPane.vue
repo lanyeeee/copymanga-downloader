@@ -1,191 +1,46 @@
 <script setup lang="ts">
 import { Comic, commands, events } from '../bindings.ts'
 import { computed, onMounted, ref, watch } from 'vue'
-import { MessageReactive, useMessage, useNotification } from 'naive-ui'
+import { MessageReactive } from 'naive-ui'
 import DownloadedComicCard from '../components/DownloadedComicCard.vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
 import { useStore } from '../store.ts'
-
-interface ProgressData {
-  comicTitle: string
-  current: number
-  total: number
-  progressMessage: MessageReactive
-}
+import { useMessage, useNotification } from 'naive-ui'
 
 const store = useStore()
 
-const notification = useNotification()
 const message = useMessage()
+const notification = useNotification()
 
-const { currentPage, pageCount, currentPageComics } = useDownloadedComics()
-useProgressTracking()
+const PAGE_SIZE = 20
+// 已下载的漫画
+const downloadedComics = ref<Comic[]>([])
+// 当前页码
+const currentPage = ref<number>(1)
+// 总页数
+const pageCount = computed(() => {
+  return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
+})
+// 当前页的漫画
+const currentPageComics = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  const end = start + PAGE_SIZE
+  return downloadedComics.value.slice(start, end)
+})
 
-function useDownloadedComics() {
-  const PAGE_SIZE = 20
-  // 已下载的漫画
-  const downloadedComics = ref<Comic[]>([])
-  // 当前页码
-  const currentPage = ref<number>(1)
-  // 总页数
-  const pageCount = computed(() => {
-    return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
-  })
-  // 当前页的漫画
-  const currentPageComics = computed(() => {
-    const start = (currentPage.value - 1) * PAGE_SIZE
-    const end = start + PAGE_SIZE
-    return downloadedComics.value.slice(start, end)
-  })
-
-  // 监听标签页变化，更新下载的漫画列表
-  watch(
-    () => store.currentTabName,
-    async () => {
-      if (store.currentTabName !== 'downloaded') {
-        return
-      }
-
-      downloadedComics.value = await commands.getDownloadedComics()
-    },
-    { immediate: true },
-  )
-
-  return { currentPage, pageCount, currentPageComics }
-}
-
-let updateMessage: MessageReactive | undefined
-
-function useProgressTracking() {
-  const progresses = ref<Map<string, ProgressData>>(new Map())
-
-  // 处理导出CBZ事件
-  async function handleExportCbzEvents() {
-    await events.exportCbzEvent.listen(async ({ payload: exportEvent }) => {
-      if (exportEvent.event === 'Start') {
-        const { uuid, comicTitle, total } = exportEvent.data
-        createProgress(uuid, comicTitle, total, '正在导出cbz')
-      } else if (exportEvent.event === 'Progress') {
-        updateProgress(exportEvent.data)
-      } else if (exportEvent.event === 'Error') {
-        failProgress(exportEvent.data.uuid, '导出cbz失败')
-      } else if (exportEvent.event === 'End') {
-        completeProgress(exportEvent.data.uuid, '导出cbz完成')
-      }
-    })
-  }
-
-  // 处理导出PDF事件
-  async function handleExportPdfEvents() {
-    await events.exportPdfEvent.listen(async ({ payload: exportEvent }) => {
-      if (exportEvent.event === 'CreateStart') {
-        const { uuid, comicTitle, total } = exportEvent.data
-        createProgress(uuid, comicTitle, total, '正在创建pdf')
-      } else if (exportEvent.event === 'CreateProgress') {
-        updateProgress(exportEvent.data)
-      } else if (exportEvent.event === 'CreateError') {
-        failProgress(exportEvent.data.uuid, '创建pdf失败')
-      } else if (exportEvent.event === 'CreateEnd') {
-        completeProgress(exportEvent.data.uuid, '创建pdf完成')
-      } else if (exportEvent.event === 'MergeStart') {
-        const { uuid, comicTitle, total } = exportEvent.data
-        createProgress(uuid, comicTitle, total, '正在合并pdf')
-      } else if (exportEvent.event === 'MergeProgress') {
-        updateProgress(exportEvent.data)
-      } else if (exportEvent.event === 'MergeError') {
-        failProgress(exportEvent.data.uuid, '合并pdf失败')
-      } else if (exportEvent.event === 'MergeEnd') {
-        completeProgress(exportEvent.data.uuid, '合并pdf完成')
-      }
-    })
-  }
-
-  // 处理更新已下载漫画事件
-  async function handleUpdateEvents() {
-    await events.updateDownloadedComicsEvent.listen(async ({ payload: updateEvent }) => {
-      if (updateEvent.event === 'GettingComics') {
-        const { total } = updateEvent.data
-        updateMessage = message.loading(`正在获取已下载漫画的最新数据(0/${total})`, { duration: 0 })
-      } else if (updateEvent.event === 'GetComicError' && updateMessage !== undefined) {
-        const { comicTitle, errMsg } = updateEvent.data
-        notification.warning({
-          title: `获取漫画 ${comicTitle} 的数据失败`,
-          description: errMsg,
-          duration: 0,
-        })
-      } else if (updateEvent.event === 'ComicGot' && updateMessage !== undefined) {
-        const { current, total } = updateEvent.data
-        updateMessage.content = `正在获取已下载漫画的最新数据(${current}/${total})`
-      } else if (updateEvent.event === 'DownloadTaskCreated' && updateMessage !== undefined) {
-        updateMessage.type = 'success'
-        updateMessage.content = '已为需要更新的章节创建下载任务'
-        setTimeout(() => {
-          updateMessage?.destroy()
-          updateMessage = undefined
-        }, 3000)
-      }
-    })
-  }
-
-  // 创建进度message
-  function createProgress(uuid: string, comicTitle: string, total: number, actionMessage: string) {
-    progresses.value.set(uuid, {
-      comicTitle,
-      current: 0,
-      total,
-      progressMessage: message.loading(
-        () => {
-          const progressData = progresses.value.get(uuid)
-          if (progressData === undefined) return ''
-          return `${progressData.comicTitle} ${actionMessage}(${progressData.current}/${progressData.total})`
-        },
-        { duration: 0 },
-      ),
-    })
-  }
-
-  // 更新进度message
-  function updateProgress({ uuid, current }: { uuid: string; current: number }) {
-    const progressData = progresses.value.get(uuid)
-    if (progressData) {
-      progressData.current = current
+// 监听标签页变化，更新下载的漫画列表
+watch(
+  () => store.currentTabName,
+  async () => {
+    if (store.currentTabName !== 'downloaded') {
+      return
     }
-  }
 
-  // 将进度message标记为完成
-  function completeProgress(uuid: string, actionMessage: string) {
-    const progressData = progresses.value.get(uuid)
-    if (progressData) {
-      progressData.progressMessage.type = 'success'
-      progressData.progressMessage.content = `${progressData.comicTitle} ${actionMessage}(${progressData.current}/${progressData.total})`
-      setTimeout(() => {
-        progressData.progressMessage.destroy()
-        progresses.value.delete(uuid)
-      }, 3000)
-    }
-  }
-
-  // 将进度message标记为失败
-  function failProgress(uuid: string, errorMessage: string) {
-    const progressData = progresses.value.get(uuid)
-    if (progressData) {
-      progressData.progressMessage.type = 'error'
-      progressData.progressMessage.content = `${progressData.comicTitle} 导出失败(${progressData.current}/${progressData.total}): ${errorMessage}`
-      setTimeout(() => {
-        progressData.progressMessage.destroy()
-        progresses.value.delete(uuid)
-      }, 3000)
-    }
-  }
-
-  // 监听导出事件
-  onMounted(async () => {
-    await handleExportCbzEvents()
-    await handleExportPdfEvents()
-    await handleUpdateEvents()
-  })
-}
+    downloadedComics.value = await commands.getDownloadedComics()
+  },
+  { immediate: true },
+)
 
 // 用文件管理器打开导出目录
 async function showExportDirInFileManager() {
@@ -210,6 +65,34 @@ async function selectExportDir() {
   }
   store.config.exportDir = selectedDirPath
 }
+
+let updateMessage: MessageReactive | undefined
+
+onMounted(async () => {
+  await events.updateDownloadedComicsEvent.listen(async ({ payload: updateEvent }) => {
+    if (updateEvent.event === 'GettingComics') {
+      const { total } = updateEvent.data
+      updateMessage = message.loading(`正在获取已下载漫画的最新数据(0/${total})`, { duration: 0 })
+    } else if (updateEvent.event === 'GetComicError' && updateMessage !== undefined) {
+      const { comicTitle, errMsg } = updateEvent.data
+      notification.warning({
+        title: `获取漫画 ${comicTitle} 的数据失败`,
+        description: errMsg,
+        duration: 0,
+      })
+    } else if (updateEvent.event === 'ComicGot' && updateMessage !== undefined) {
+      const { current, total } = updateEvent.data
+      updateMessage.content = `正在获取已下载漫画的最新数据(${current}/${total})`
+    } else if (updateEvent.event === 'DownloadTaskCreated' && updateMessage !== undefined) {
+      updateMessage.type = 'success'
+      updateMessage.content = '已为需要更新的章节创建下载任务'
+      setTimeout(() => {
+        updateMessage?.destroy()
+        updateMessage = undefined
+      }, 3000)
+    }
+  })
+})
 
 // 更新已下载漫画
 async function updateDownloadedComics() {

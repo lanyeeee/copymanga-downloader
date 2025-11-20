@@ -40,6 +40,7 @@ async function pickComic() {
 
 // 导出cbz
 async function exportCbz() {
+  store.progressesPaneTabName = 'export'
   const result = await commands.exportCbz(props.comic)
   if (result.status === 'error') {
     console.error(result.error)
@@ -48,6 +49,7 @@ async function exportCbz() {
 }
 
 async function exportPdf() {
+  store.progressesPaneTabName = 'export'
   const result = await commands.exportPdf(props.comic)
   if (result.status === 'error') {
     console.error(result.error)

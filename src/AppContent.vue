@@ -5,7 +5,7 @@ import { useMessage, useNotification } from 'naive-ui'
 import LoginDialog from './components/LoginDialog.vue'
 import SearchPane from './panes/SearchPane.vue'
 import ChapterPane from './panes/ChapterPane.vue'
-import DownloadingPane from './panes/DownloadingPane/DownloadingPane.vue'
+import ProgressesPane from './panes/ProgressesPane/ProgressesPane.vue'
 import FavoritePane from './panes/FavoritePane.vue'
 import DownloadedPane from './panes/DownloadedPane.vue'
 import AboutDialog from './components/AboutDialog.vue'
@@ -154,7 +154,7 @@ onMounted(async () => {
             关于
           </n-button>
         </div>
-        <downloading-pane />
+        <progresses-pane />
       </div>
     </div>
     <login-dialog v-model:showing="loginDialogShowing" />
