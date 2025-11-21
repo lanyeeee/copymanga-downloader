@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Comic, ComicDetail, commands } from '../bindings.ts'
+import { Comic, ComicDetail, commands } from '../../../bindings.ts'
 import { computed } from 'vue'
-import { useStore } from '../store.ts'
+import { useStore } from '../../../store.ts'
 
 interface GroupInfo {
   name: string
@@ -13,6 +13,9 @@ const store = useStore()
 
 const props = defineProps<{
   comic: Comic
+  checkboxChecked: (comic: Comic) => boolean
+  handleCheckboxClick: (comic: Comic) => void
+  handleContextMenu: (comic: Comic) => void
 }>()
 
 const comicDetail = computed<ComicDetail>(() => props.comic.comic)
@@ -72,29 +75,28 @@ async function showComicDownloadDirInFileManager() {
 </script>
 
 <template>
-  <n-card content-style="padding: 0.25rem;" hoverable>
-    <div class="flex h-full">
-      <img
-        class="w-24 object-cover mr-4 cursor-pointer transition-transform duration-200 hover:scale-106"
-        :src="comicDetail.cover"
-        alt=""
-        @click="pickComic" />
-      <div class="flex flex-col h-full w-full">
-        <span
-          class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
-          @click="pickComic">
-          {{ comicDetail.name }}
-        </span>
-        <span v-html="`作者：${comicDetail.author.map((a) => a.name)}`" class="text-red"></span>
-        <span v-for="groupInfo in groupInfos" :key="groupInfo.name">
-          {{ groupInfo.name }}({{ groupInfo.downloaded }}/{{ groupInfo.total }})
-        </span>
-        <div class="flex mt-auto gap-col-2">
-          <n-button size="tiny" @click="showComicDownloadDirInFileManager">打开下载目录</n-button>
-          <n-button class="ml-auto" size="tiny" @click="exportCbz">导出cbz</n-button>
-          <n-button size="tiny" @click="exportPdf">导出pdf</n-button>
-        </div>
+  <div class="flex relative border border-solid rounded-md border-gray-2 p-1" @contextmenu="handleContextMenu(comic)">
+    <n-checkbox
+      size="large"
+      class="absolute top-3 left-3 z-1"
+      :checked="checkboxChecked(comic)"
+      @click="handleCheckboxClick(comic)" />
+    <img class="w-24 object-cover mr-4" :src="comicDetail.cover" alt="" :draggable="false" />
+    <div class="flex flex-col h-full w-full">
+      <span
+        class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+        @click="pickComic">
+        {{ comicDetail.name }}
+      </span>
+      <span v-html="`作者：${comicDetail.author.map((a) => a.name)}`" class="text-red"></span>
+      <span v-for="groupInfo in groupInfos" :key="groupInfo.name">
+        {{ groupInfo.name }}({{ groupInfo.downloaded }}/{{ groupInfo.total }})
+      </span>
+      <div class="flex mt-auto gap-col-2">
+        <n-button size="tiny" @click="showComicDownloadDirInFileManager">打开下载目录</n-button>
+        <n-button class="ml-auto" size="tiny" @click="exportCbz">导出cbz</n-button>
+        <n-button size="tiny" @click="exportPdf">导出pdf</n-button>
       </div>
     </div>
-  </n-card>
+  </div>
 </template>
