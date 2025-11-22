@@ -30,20 +30,20 @@ async function showConfigInFileManager() {
         <span class="font-bold">图片下载格式</span>
         <n-radio-group v-model:value="store.config.downloadFormat">
           <n-tooltip placement="top" trigger="hover">
+            <div>推荐使用，这是拷贝服务器上的原图格式</div>
+            <div class="text-blue">不过导出pdf较慢</div>
             <template #trigger>
               <n-radio value="Webp">webp</n-radio>
             </template>
-            推荐使用，这是拷贝服务器上的原图格式
           </n-tooltip>
           <n-tooltip placement="top" trigger="hover">
+            <div>拷贝服务器上的原图格式为webp</div>
+            <div>这个选项会将下载到的webp转为jpg</div>
+            <div>格式转换过程会导致图片质量损失</div>
+            <div class="text-blue">好处是导出pdf很快</div>
             <template #trigger>
               <n-radio value="Jpeg">jpg</n-radio>
             </template>
-            拷贝服务器上的原图格式为webp
-            <br />
-            这个选项会将下载到的webp转为jpg
-            <br />
-            格式转换过程会导致图片质量损失
           </n-tooltip>
         </n-radio-group>
 
