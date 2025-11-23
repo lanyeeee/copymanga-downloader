@@ -2,11 +2,10 @@ use std::{collections::HashMap, io::Cursor, path::PathBuf};
 
 use anyhow::Context;
 use image::ImageReader;
-use parking_lot::RwLock;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use walkdir::WalkDir;
 
-use crate::{config::Config, extensions::WalkDirEntryExt};
+use crate::extensions::{AppHandleExt, WalkDirEntryExt};
 
 pub fn filename_filter(s: &str) -> String {
     s.chars()
@@ -34,7 +33,7 @@ pub fn get_dimensions(img_data: &[u8]) -> anyhow::Result<(u32, u32)> {
 
 pub fn create_path_word_to_dir_map(app: &AppHandle) -> anyhow::Result<HashMap<String, PathBuf>> {
     let mut path_word_to_dir_map: HashMap<String, PathBuf> = HashMap::new();
-    let download_dir = app.state::<RwLock<Config>>().read().download_dir.clone();
+    let download_dir = app.get_config().read().download_dir.clone();
     if !download_dir.exists() {
         return Ok(path_word_to_dir_map);
     }

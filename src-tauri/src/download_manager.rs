@@ -16,7 +16,7 @@ use image::ImageFormat;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_specta::Event;
 use tokio::{
     sync::{watch, Semaphore, SemaphorePermit},
@@ -24,11 +24,9 @@ use tokio::{
 };
 
 use crate::{
-    config::Config,
-    copy_client::CopyClient,
     errors::{CopyMangaError, RiskControlError},
     events::{DownloadControlRiskEvent, DownloadSpeedEvent, DownloadTaskEvent},
-    extensions::AnyhowErrorToStringChain,
+    extensions::{AnyhowErrorToStringChain, AppHandleExt},
     responses::GetChapterRespData,
     types::{ChapterInfo, Comic},
     utils,
@@ -165,7 +163,7 @@ impl DownloadTask {
             .cloned()
             .context(format!("未找到章节ID为`{chapter_uuid}`的章节信息"))?;
 
-        let download_manager = app.state::<DownloadManager>().inner().clone();
+        let download_manager = app.get_download_manager().inner().clone();
         let (state_sender, _) = watch::channel(DownloadTaskState::Pending);
 
         let task = Self {
@@ -371,7 +369,7 @@ impl DownloadTask {
         let comic_path_word = &self.chapter_info.comic_path_word;
         let chapter_uuid = &self.chapter_info.chapter_uuid;
 
-        let copy_client = self.copy_client();
+        let copy_client = self.app.get_copy_client();
         let mut retry_count = 0;
         loop {
             match copy_client.get_chapter(comic_path_word, chapter_uuid).await {
@@ -420,7 +418,7 @@ impl DownloadTask {
             }
         };
 
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let download_format = self.app.get_config().read().download_format;
         let extension = download_format.extension();
         for path in entries.filter_map(Result::ok).map(|entry| entry.path()) {
             // path有扩展名，且能转换为utf8，并与`config.download_format`一致或是gif，则保留
@@ -580,10 +578,6 @@ impl DownloadTask {
         }
         .emit(&self.app);
     }
-
-    fn copy_client(&self) -> CopyClient {
-        self.app.state::<CopyClient>().inner().clone()
-    }
 }
 
 #[derive(Clone)]
@@ -646,7 +640,7 @@ impl DownloadImgTask {
         let comic_title = &self.download_task.comic.comic.name;
         let chapter_title = &self.download_task.chapter_info.chapter_title;
 
-        let download_format = self.app.state::<RwLock<Config>>().read().download_format;
+        let download_format = self.app.get_config().read().download_format;
         let extension = download_format.extension();
         let save_path = self
             .temp_download_dir
@@ -665,7 +659,8 @@ impl DownloadImgTask {
 
         tracing::trace!(url, comic_title, chapter_title, "开始下载图片");
 
-        let (img_data, img_format) = match self.copy_client().get_img_data_and_format(url).await {
+        let copy_client = self.app.get_copy_client();
+        let (img_data, img_format) = match copy_client.get_img_data_and_format(url).await {
             Ok(data_and_format) => data_and_format,
             Err(err) => {
                 let err_title = format!("下载图片`{url}`失败");
@@ -765,10 +760,6 @@ impl DownloadImgTask {
             }
             _ => ControlFlow::Continue(()),
         }
-    }
-
-    fn copy_client(&self) -> CopyClient {
-        self.app.state::<CopyClient>().inner().clone()
     }
 }
 
@@ -890,7 +881,7 @@ impl Comic {
             .collect();
 
         let (download_dir, comic_dir_fmt) = {
-            let config = app.state::<RwLock<Config>>();
+            let config = app.get_config();
             let config = config.read();
             (config.download_dir.clone(), config.comic_dir_fmt.clone())
         };
@@ -961,7 +952,7 @@ impl ChapterInfo {
             }
         }
 
-        let chapter_dir_fmt = app.state::<RwLock<Config>>().read().chapter_dir_fmt.clone();
+        let chapter_dir_fmt = app.get_config().read().chapter_dir_fmt.clone();
 
         let dir_fmt_parts: Vec<&str> = chapter_dir_fmt.split('/').collect();
 

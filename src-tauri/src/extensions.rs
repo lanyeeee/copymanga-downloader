@@ -1,5 +1,12 @@
+use parking_lot::RwLock;
 use reqwest::Response;
 use reqwest_middleware::RequestBuilder;
+use tauri::{AppHandle, Manager, State};
+
+use crate::{
+    account_pool::AccountPool, config::Config, copy_client::CopyClient,
+    download_manager::DownloadManager, types::AsyncRwLock,
+};
 
 pub trait AnyhowErrorToStringChain {
     /// 将 `anyhow::Error` 转换为chain格式
@@ -81,5 +88,27 @@ impl PathIsImg for std::path::Path {
             .and_then(|ext| ext.to_str())
             .map(str::to_lowercase)
             .is_some_and(|ext| matches!(ext.as_str(), "jpg" | "webp"))
+    }
+}
+
+pub trait AppHandleExt {
+    fn get_config(&self) -> State<RwLock<Config>>;
+    fn get_copy_client(&self) -> State<CopyClient>;
+    fn get_download_manager(&self) -> State<DownloadManager>;
+    fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>>;
+}
+
+impl AppHandleExt for AppHandle {
+    fn get_config(&self) -> State<RwLock<Config>> {
+        self.state::<RwLock<Config>>()
+    }
+    fn get_copy_client(&self) -> State<CopyClient> {
+        self.state::<CopyClient>()
+    }
+    fn get_download_manager(&self) -> State<DownloadManager> {
+        self.state::<DownloadManager>()
+    }
+    fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>> {
+        self.state::<AsyncRwLock<AccountPool>>()
     }
 }

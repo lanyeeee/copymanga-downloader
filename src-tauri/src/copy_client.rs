@@ -9,19 +9,17 @@ use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde_json::json;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::task::JoinSet;
 
 use crate::{
-    account_pool::{Account, AccountPool},
-    config::Config,
+    account_pool::Account,
     errors::{CopyMangaError, CopyMangaResult, RiskControlError},
-    extensions::SendWithTimeoutMsg,
+    extensions::{AppHandleExt, SendWithTimeoutMsg},
     responses::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
         GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
-    types::AsyncRwLock,
 };
 
 #[derive(Clone)]
@@ -335,7 +333,7 @@ impl CopyClient {
             account
         } else {
             // 如果账号池里没有合适的账号
-            let account_pool = self.app.state::<AsyncRwLock<AccountPool>>();
+            let account_pool = self.app.get_account_pool();
             let mut account_pool = account_pool.write().await;
             // 拿到写锁后再次检查账号池里是否有合适的账号
             // 如果有，就用账号池里的账号，否则才注册一个新账号
@@ -369,11 +367,7 @@ impl CopyClient {
         if status == 210 {
             // 如果当前账号被风控，就更新账号的limited_at字段
             account.write().limited_at = chrono::Local::now().timestamp();
-            self.app
-                .state::<AsyncRwLock<AccountPool>>()
-                .write()
-                .await
-                .save()?;
+            self.app.get_account_pool().write().await.save()?;
             return Err(RiskControlError::GetChapter(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
@@ -468,19 +462,16 @@ impl CopyClient {
     }
 
     fn get_authorization(&self) -> String {
-        self.app
-            .state::<RwLock<Config>>()
-            .read()
-            .get_authorization()
+        self.app.get_config().read().get_authorization()
     }
 
     fn get_api_domain(&self) -> String {
-        self.app.state::<RwLock<Config>>().read().get_api_domain()
+        self.app.get_config().read().get_api_domain()
     }
 
     async fn get_account_from_pool(&self) -> Option<Arc<RwLock<Account>>> {
         self.app
-            .state::<AsyncRwLock<AccountPool>>()
+            .get_account_pool()
             .read()
             .await
             .get_available_account()

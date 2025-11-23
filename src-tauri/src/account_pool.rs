@@ -5,7 +5,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::{copy_client::CopyClient, errors::CopyMangaResult};
+use crate::{errors::CopyMangaResult, extensions::AppHandleExt};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
@@ -68,7 +68,7 @@ impl AccountPool {
         use fake::faker::name::en::{FirstName, LastName};
         use fake::Fake;
 
-        let copy_client = self.copy_client();
+        let copy_client = self.app.get_copy_client();
 
         let first_name = FirstName().fake::<String>();
         let last_name = LastName().fake::<String>();
@@ -120,9 +120,5 @@ impl AccountPool {
             .context(format!("保存AccountPool失败，写入 {account_path:?} 失败"))?;
 
         Ok(())
-    }
-
-    fn copy_client(&self) -> CopyClient {
-        self.app.state::<CopyClient>().inner().clone()
     }
 }

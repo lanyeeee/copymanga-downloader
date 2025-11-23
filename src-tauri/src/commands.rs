@@ -6,8 +6,8 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use indexmap::IndexMap;
-use parking_lot::{Mutex, RwLock};
-use tauri::{AppHandle, Manager, State};
+use parking_lot::Mutex;
+use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
 use tokio::{sync::Semaphore, task::JoinSet};
@@ -15,12 +15,11 @@ use walkdir::WalkDir;
 
 use crate::{
     config::Config,
-    copy_client::CopyClient,
     download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
     events::UpdateDownloadedComicsEvent,
     export,
-    extensions::{AnyhowErrorToStringChain, WalkDirEntryExt},
+    extensions::{AnyhowErrorToStringChain, AppHandleExt, WalkDirEntryExt},
     logger,
     responses::{
         ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, UserProfileRespData,
@@ -39,18 +38,16 @@ pub fn greet(name: &str) -> String {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn get_config(config: State<RwLock<Config>>) -> Config {
-    config.read().clone()
+pub fn get_config(app: AppHandle) -> Config {
+    app.get_config().read().clone()
 }
 
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn save_config(
-    app: AppHandle,
-    config_state: State<RwLock<Config>>,
-    config: Config,
-) -> CommandResult<()> {
+pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
+    let config_state = app.get_config();
+
     let enable_file_logger = config.enable_file_logger;
     let enable_file_logger_changed = config_state
         .read()
@@ -82,52 +79,52 @@ pub fn save_config(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn register(
-    copy_client: State<'_, CopyClient>,
-    username: String,
-    password: String,
-) -> CommandResult<()> {
+pub async fn register(app: AppHandle, username: String, password: String) -> CommandResult<()> {
+    let copy_client = app.get_copy_client();
+
     copy_client
         .register(&username, &password)
         .await
         .map_err(|err| CommandError::from("注册失败", err))?;
+
     Ok(())
 }
 
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn login(
-    copy_client: State<'_, CopyClient>,
+    app: AppHandle,
     username: String,
     password: String,
 ) -> CommandResult<LoginRespData> {
+    let copy_client = app.get_copy_client();
+
     let login_resp_data = copy_client
         .login(&username, &password)
         .await
         .map_err(|err| CommandError::from("登录失败", err))?;
+
     Ok(login_resp_data)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_user_profile(
-    copy_client: State<'_, CopyClient>,
-) -> CommandResult<UserProfileRespData> {
+pub async fn get_user_profile(app: AppHandle) -> CommandResult<UserProfileRespData> {
+    let copy_client = app.get_copy_client();
+
     let user_profile_resp_data = copy_client
         .get_user_profile()
         .await
         .map_err(|err| CommandError::from("获取用户信息失败", err))?;
+
     Ok(user_profile_resp_data)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn search(
-    app: AppHandle,
-    copy_client: State<'_, CopyClient>,
-    keyword: String,
-    page_num: i64,
-) -> CommandResult<SearchResult> {
+pub async fn search(app: AppHandle, keyword: String, page_num: i64) -> CommandResult<SearchResult> {
+    let copy_client = app.get_copy_client();
+
     let search_resp_data = copy_client
         .search(&keyword, page_num)
         .await
@@ -141,11 +138,9 @@ pub async fn search(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_comic(
-    app: AppHandle,
-    copy_client: State<'_, CopyClient>,
-    comic_path_word: &str,
-) -> CommandResult<Comic> {
+pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> CommandResult<Comic> {
+    let copy_client = app.get_copy_client();
+
     let get_comic_resp_data = copy_client
         .get_comic(comic_path_word)
         .await
@@ -168,38 +163,42 @@ pub async fn get_comic(
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_group_chapters(
-    copy_client: State<'_, CopyClient>,
+    app: AppHandle,
     comic_path_word: &str,
     group_path_word: &str,
 ) -> CommandResult<Vec<ChapterInGetChaptersRespData>> {
+    let copy_client = app.get_copy_client();
+
     let chapters = copy_client
         .get_group_chapters(comic_path_word, group_path_word)
         .await
         .map_err(|err| CommandError::from("获取分组章节失败", err))?;
+
     Ok(chapters)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_chapter(
-    copy_client: State<'_, CopyClient>,
+    app: AppHandle,
     comic_path_word: &str,
     chapter_uuid: &str,
 ) -> CommandResult<GetChapterRespData> {
+    let copy_client = app.get_copy_client();
+
     let get_chapter_resp_data = copy_client
         .get_chapter(comic_path_word, chapter_uuid)
         .await
         .map_err(|err| CommandError::from("获取章节信息失败", err))?;
+
     Ok(get_chapter_resp_data)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_favorite(
-    app: AppHandle,
-    copy_client: State<'_, CopyClient>,
-    page_num: i64,
-) -> CommandResult<GetFavoriteResult> {
+pub async fn get_favorite(app: AppHandle, page_num: i64) -> CommandResult<GetFavoriteResult> {
+    let copy_client = app.get_copy_client();
+
     let get_favorite_resp_data = copy_client
         .get_favorite(page_num)
         .await
@@ -226,7 +225,9 @@ pub fn save_metadata(comic: Comic) -> CommandResult<()> {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
-pub fn get_downloaded_comics(config: State<RwLock<Config>>) -> Vec<Comic> {
+pub fn get_downloaded_comics(app: AppHandle) -> Vec<Comic> {
+    let config = app.get_config();
+
     let download_dir = config.read().download_dir.clone();
     // 遍历下载目录，获取所有元数据文件的路径和修改时间
     let mut metadata_path_and_modify_time_pairs = Vec::new();
@@ -367,11 +368,13 @@ pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
 #[tauri::command(async)]
 #[specta::specta]
 pub fn create_download_task(
-    download_manager: State<DownloadManager>,
+    app: AppHandle,
     comic: Comic,
     chapter_uuid: String,
 ) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
     let comic_title = comic.comic.name.clone();
+
     download_manager
         .create_download_task(comic, &chapter_uuid)
         .map_err(|err| {
@@ -385,10 +388,9 @@ pub fn create_download_task(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn pause_download_task(
-    download_manager: State<DownloadManager>,
-    chapter_uuid: String,
-) -> CommandResult<()> {
+pub fn pause_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .pause_download_task(&chapter_uuid)
         .map_err(|err| {
@@ -401,10 +403,9 @@ pub fn pause_download_task(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn resume_download_task(
-    download_manager: State<DownloadManager>,
-    chapter_uuid: String,
-) -> CommandResult<()> {
+pub fn resume_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .resume_download_task(&chapter_uuid)
         .map_err(|err| {
@@ -417,10 +418,9 @@ pub fn resume_download_task(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn cancel_download_task(
-    download_manager: State<DownloadManager>,
-    chapter_uuid: String,
-) -> CommandResult<()> {
+pub fn cancel_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     download_manager
         .cancel_download_task(&chapter_uuid)
         .map_err(|err| {
@@ -433,12 +433,11 @@ pub fn cancel_download_task(
 #[allow(clippy::cast_possible_wrap)]
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn update_downloaded_comics(
-    app: AppHandle,
-    download_manager: State<'_, DownloadManager>,
-) -> CommandResult<()> {
+pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
+    let download_manager = app.get_download_manager();
+
     // 从下载目录中获取已下载的漫画
-    let downloaded_comics = get_downloaded_comics(app.state::<RwLock<Config>>());
+    let downloaded_comics = get_downloaded_comics(app.clone());
     // 用于存储最新的漫画信息
     let latest_comics = Arc::new(Mutex::new(Vec::new()));
     // 限制并发数为10
@@ -460,9 +459,8 @@ pub async fn update_downloaded_comics(
                 .acquire()
                 .await
                 .map_err(|err| CommandError::from("获取漫画信息失败", anyhow::Error::from(err)))?;
-            let client = app.state::<CopyClient>();
             let path_word = &downloaded_comic.comic.path_word;
-            let comic = match get_comic(app.clone(), client, path_word).await {
+            let comic = match get_comic(app.clone(), path_word).await {
                 Ok(comic) => comic,
                 Err(err) => {
                     // 发送获取漫画失败事件
