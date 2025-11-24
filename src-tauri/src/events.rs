@@ -16,6 +16,13 @@ pub struct DownloadSpeedEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(rename_all = "camelCase")]
+pub struct DownloadSleepingEvent {
+    pub chapter_uuid: String,
+    pub remaining_sec: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadControlRiskEvent {
     pub chapter_uuid: String,
     pub retry_after: u32,

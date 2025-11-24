@@ -4,8 +4,11 @@ import { ref } from 'vue'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
 import { useStore } from '../store.ts'
+import { useMessage } from 'naive-ui'
 
 const store = useStore()
+
+const message = useMessage()
 
 const showing = defineModel<boolean>('showing', { required: true })
 
@@ -25,7 +28,7 @@ async function showConfigInFileManager() {
 
 <template>
   <n-modal v-if="store.config !== undefined" v-model:show="showing">
-    <n-dialog :showIcon="false" title="设置" content-style="" @close="showing = false">
+    <n-dialog class="w-140!" :showIcon="false" title="设置" content-style="" @close="showing = false">
       <div class="flex flex-col">
         <span class="font-bold">图片下载格式</span>
         <n-radio-group v-model:value="store.config.downloadFormat">
@@ -62,135 +65,177 @@ async function showConfigInFileManager() {
             @keydown.enter="store.config.customApiDomain = customApiDomain" />
         </n-input-group>
 
-        <n-config-provider
-          class="flex flex-col"
-          :theme-overrides="{
-            Scrollbar: { color: 'rgba(255, 255, 255, 0.25)', colorHover: 'rgba(255, 255, 255, 0.3)' },
-          }">
-          <span class="font-bold mt-2">漫画目录格式</span>
-          <n-tooltip placement="top" trigger="hover">
-            <div>
-              可以用斜杠
-              <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-              来分隔目录层级
-            </div>
-            <div class="font-semibold mt-2">
-              <span>可用字段：</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
-              <span class="ml-2">漫画ID</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
-              <span class="ml-2">漫画字母路径</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
-              <span class="ml-2">漫画标题</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">author</span>
-              <span class="ml-2">作者</span>
-            </div>
-            <div class="font-semibold mt-2">例如格式</div>
-            <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{author}/{comic_title}</div>
-            <div class="font-semibold">
-              <span>下载</span>
-              <span class="text-blue mx-1">電鋸人</span>
-              <span>的任何一个章节会创建</span>
-            </div>
-            <div class="flex gap-1">
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black">藤本タツキ</span>
-              <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black">電鋸人</span>
-            </div>
-            <div class="font-semibold">
-              两层文件夹，漫画元数据保存在最内层的文件夹
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">電鋸人</span>
-              里
-            </div>
-            <template #trigger>
-              <n-input
-                v-model:value="comicDirFmt"
+        <span class="mr-2 font-bold mt-2">下载速度</span>
+        <div class="flex flex-col gap-1">
+          <div class="flex gap-1">
+            <n-input-group class="w-35%">
+              <n-input-group-label size="small">章节并发数</n-input-group-label>
+              <n-input-number
+                class="w-full"
+                v-model:value="store.config.chapterConcurrency"
                 size="small"
-                @blur="store.config.comicDirFmt = comicDirFmt"
-                @keydown.enter="store.config.comicDirFmt = comicDirFmt" />
-            </template>
-          </n-tooltip>
+                @update:value="message.warning('对章节并发数的修改需要重启才能生效')"
+                :min="1"
+                :parse="(x: string) => Number(x)" />
+            </n-input-group>
+            <n-input-group class="w-65%">
+              <n-input-group-label size="small">每个章节下载完成后休息</n-input-group-label>
+              <n-input-number
+                class="w-full"
+                v-model:value="store.config.chapterDownloadIntervalSec"
+                size="small"
+                :min="0"
+                :parse="(x: string) => Number(x)" />
+              <n-input-group-label size="small">秒</n-input-group-label>
+            </n-input-group>
+          </div>
+          <div class="flex gap-1">
+            <n-input-group class="w-35%">
+              <n-input-group-label size="small">图片并发数</n-input-group-label>
+              <n-input-number
+                class="w-full"
+                v-model:value="store.config.imgConcurrency"
+                size="small"
+                @update-value="message.warning('对图片并发数的修改需要重启才能生效')"
+                :min="1"
+                :parse="(x: string) => Number(x)" />
+            </n-input-group>
+            <n-input-group class="w-65%">
+              <n-input-group-label size="small">每张图片下载完成后休息</n-input-group-label>
+              <n-input-number
+                class="w-full"
+                v-model:value="store.config.imgDownloadIntervalSec"
+                size="small"
+                :min="0"
+                :parse="(x: string) => Number(x)" />
+              <n-input-group-label size="small">秒</n-input-group-label>
+            </n-input-group>
+          </div>
+        </div>
 
-          <span class="font-bold mt-2">章节目录格式</span>
-          <n-tooltip placement="top" trigger="hover" class="max-h-55vh" :scrollable="true">
-            <div>
-              可以用斜杠
-              <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-              来分隔目录层级
-            </div>
-            <div class="font-semibold mt-2">
-              <span>可用字段：</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
-              <span class="ml-2">漫画ID</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
-              <span class="ml-2">漫画字母路径</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
-              <span class="ml-2">漫画标题</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">author</span>
-              <span class="ml-2">作者</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">group_path_word</span>
-              <span class="ml-2">分组字母路径</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">group_title</span>
-              <span class="ml-2">分组标题（默認、单行本...）</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">chapter_uuid</span>
-              <span class="ml-2">章节ID</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">chapter_title</span>
-              <span class="ml-2">章节标题</span>
-            </div>
-            <div>
-              <span class="rounded bg-gray-500 px-1 select-all">order</span>
-              <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点</span>
-            </div>
-            <div class="font-semibold mt-2">例如格式</div>
-            <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order} {chapter_title}</div>
-            <div class="font-semibold">
-              <span>下载</span>
-              <span class="text-blue mx-1">電鋸人 - 默認 - 第13话</span>
-              <span>会在漫画目录下再创建</span>
-            </div>
-            <div class="flex gap-1">
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black">默認</span>
-              <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black">13 第13话</span>
-            </div>
-            <div class="font-semibold">
-              两层文件夹，章节元数据保存在最内层的文件夹
-              <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">13 第13话</span>
-              里
-            </div>
-            <template #trigger>
-              <n-input
-                v-model:value="chapterDirFmt"
-                size="small"
-                @blur="store.config.chapterDirFmt = chapterDirFmt"
-                @keydown.enter="store.config.chapterDirFmt = chapterDirFmt" />
-            </template>
-          </n-tooltip>
-        </n-config-provider>
+        <span class="font-bold mt-2">漫画目录格式</span>
+        <n-tooltip placement="top" trigger="hover">
+          <div>
+            可以用斜杠
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            来分隔目录层级
+          </div>
+          <div class="font-semibold mt-2">
+            <span>可用字段：</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
+            <span class="ml-2">漫画ID</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
+            <span class="ml-2">漫画字母路径</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
+            <span class="ml-2">漫画标题</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">author</span>
+            <span class="ml-2">作者</span>
+          </div>
+          <div class="font-semibold mt-2">例如格式</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{author}/{comic_title}</div>
+          <div class="font-semibold">
+            <span>下载</span>
+            <span class="text-blue mx-1">電鋸人</span>
+            <span>的任何一个章节会创建</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">藤本タツキ</span>
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">電鋸人</span>
+          </div>
+          <div class="font-semibold">
+            两层文件夹，漫画元数据保存在最内层的文件夹
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">電鋸人</span>
+            里
+          </div>
+          <template #trigger>
+            <n-input
+              v-model:value="comicDirFmt"
+              size="small"
+              @blur="store.config.comicDirFmt = comicDirFmt"
+              @keydown.enter="store.config.comicDirFmt = comicDirFmt" />
+          </template>
+        </n-tooltip>
+
+        <span class="font-bold mt-2">章节目录格式</span>
+        <n-tooltip placement="top" trigger="hover">
+          <div>
+            可以用斜杠
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            来分隔目录层级
+          </div>
+          <div class="font-semibold mt-2">
+            <span>可用字段：</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
+            <span class="ml-2">漫画ID</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
+            <span class="ml-2">漫画字母路径</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
+            <span class="ml-2">漫画标题</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">author</span>
+            <span class="ml-2">作者</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">group_path_word</span>
+            <span class="ml-2">分组字母路径</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">group_title</span>
+            <span class="ml-2">分组标题（默認、单行本...）</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">chapter_uuid</span>
+            <span class="ml-2">章节ID</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">chapter_title</span>
+            <span class="ml-2">章节标题</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">order</span>
+            <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点</span>
+          </div>
+          <div class="font-semibold mt-2">例如格式</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order} {chapter_title}</div>
+          <div class="font-semibold">
+            <span>下载</span>
+            <span class="text-blue mx-1">電鋸人 - 默認 - 第13话</span>
+            <span>会在漫画目录下再创建</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">默認</span>
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">13 第13话</span>
+          </div>
+          <div class="font-semibold">
+            两层文件夹，章节元数据保存在最内层的文件夹
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">13 第13话</span>
+            里
+          </div>
+          <template #trigger>
+            <n-input
+              v-model:value="chapterDirFmt"
+              size="small"
+              @blur="store.config.chapterDirFmt = chapterDirFmt"
+              @keydown.enter="store.config.chapterDirFmt = chapterDirFmt" />
+          </template>
+        </n-tooltip>
 
         <n-button class="ml-auto mt-2" size="small" @click="showConfigInFileManager">打开配置目录</n-button>
       </div>

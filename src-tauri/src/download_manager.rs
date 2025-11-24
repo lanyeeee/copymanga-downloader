@@ -21,11 +21,14 @@ use tauri_specta::Event;
 use tokio::{
     sync::{watch, Semaphore, SemaphorePermit},
     task::JoinSet,
+    time::sleep,
 };
 
 use crate::{
     errors::{CopyMangaError, RiskControlError},
-    events::{DownloadControlRiskEvent, DownloadSpeedEvent, DownloadTaskEvent},
+    events::{
+        DownloadControlRiskEvent, DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent,
+    },
     extensions::{AnyhowErrorToStringChain, AppHandleExt},
     responses::GetChapterRespData,
     types::{ChapterInfo, Comic},
@@ -61,10 +64,16 @@ pub enum DownloadTaskState {
 
 impl DownloadManager {
     pub fn new(app: &AppHandle) -> Self {
+        let (chapter_concurrency, img_concurrency) = {
+            let config = app.get_config();
+            let config = config.read();
+            (config.chapter_concurrency, config.img_concurrency)
+        };
+
         let manager = DownloadManager {
             app: app.clone(),
-            chapter_sem: Arc::new(Semaphore::new(3)),
-            img_sem: Arc::new(Semaphore::new(30)),
+            chapter_sem: Arc::new(Semaphore::new(chapter_concurrency)),
+            img_sem: Arc::new(Semaphore::new(img_concurrency)),
             byte_per_sec: Arc::new(AtomicU64::new(0)),
             download_tasks: Arc::new(RwLock::new(HashMap::new())),
         };
@@ -280,6 +289,7 @@ impl DownloadTask {
             tracing::error!(err_title, message = string_chain);
         }
 
+        self.sleep_between_chapter().await;
         tracing::info!(comic_title, chapter_title, "章节下载成功");
 
         self.set_state(DownloadTaskState::Completed);
@@ -383,13 +393,13 @@ impl DownloadTask {
                             retry_after: RETRY_WAIT_TIME - i,
                         }
                         .emit(&self.app);
-                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        sleep(Duration::from_secs(1)).await;
                     }
                 }
                 Err(err) => {
                     // 随机等待1000-5000ms
                     let wait_time = 1000 + rand::random::<u64>() % 4000;
-                    tokio::time::sleep(Duration::from_millis(wait_time)).await;
+                    sleep(Duration::from_millis(wait_time)).await;
                     if retry_count < 5 {
                         retry_count += 1;
                         continue;
@@ -547,6 +557,20 @@ impl DownloadTask {
         }
     }
 
+    async fn sleep_between_chapter(&self) {
+        let mut remaining_sec = self.app.get_config().read().chapter_download_interval_sec;
+        while remaining_sec > 0 {
+            // 发送章节休眠事件
+            let _ = DownloadSleepingEvent {
+                chapter_uuid: self.chapter_info.chapter_uuid.clone(),
+                remaining_sec,
+            }
+            .emit(&self.app);
+            sleep(Duration::from_secs(1)).await;
+            remaining_sec -= 1;
+        }
+    }
+
     fn set_state(&self, state: DownloadTaskState) {
         let comic_title = &self.comic.comic.name;
         let chapter_title = &self.chapter_info.chapter_title;
@@ -700,6 +724,9 @@ impl DownloadImgTask {
             .fetch_add(1, Ordering::Relaxed);
 
         self.download_task.emit_download_task_update_event();
+
+        let img_download_interval_sec = self.app.get_config().read().img_download_interval_sec;
+        sleep(Duration::from_secs(img_download_interval_sec)).await;
     }
 
     async fn acquire_img_permit<'a>(
