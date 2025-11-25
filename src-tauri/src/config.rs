@@ -22,6 +22,7 @@ pub struct Config {
     pub chapter_download_interval_sec: u64,
     pub img_concurrency: usize,
     pub img_download_interval_sec: u64,
+    pub update_downloaded_comics_interval_sec: u64,
     pub comic_dir_fmt: String,
     pub chapter_dir_fmt: String,
 }
@@ -90,6 +91,7 @@ impl Config {
             chapter_download_interval_sec: 0,
             img_concurrency: 30,
             img_download_interval_sec: 0,
+            update_downloaded_comics_interval_sec: 0,
             comic_dir_fmt: "{comic_title}".to_string(),
             chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
         }

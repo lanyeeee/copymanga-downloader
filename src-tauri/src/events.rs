@@ -112,19 +112,30 @@ pub enum ExportPdfEvent {
 #[serde(tag = "event", content = "data")]
 pub enum UpdateDownloadedComicsEvent {
     #[serde(rename_all = "camelCase")]
-    GettingComics { total: i64 },
+    GetComicStart { total: i64 },
 
     #[serde(rename_all = "camelCase")]
-    GetComicError {
+    GetComicProgress { current: i64, total: i64 },
+
+    #[serde(rename_all = "camelCase")]
+    CreateDownloadTasksStart {
+        comic_path_word: String,
         comic_title: String,
-        err_msg: String,
+        current: i64,
+        total: i64,
     },
 
     #[serde(rename_all = "camelCase")]
-    ComicGot { current: i64, total: i64 },
+    CreateDownloadTaskProgress {
+        comic_path_word: String,
+        current: i64,
+    },
 
     #[serde(rename_all = "camelCase")]
-    DownloadTaskCreated,
+    CreateDownloadTasksEnd { comic_path_word: String },
+
+    #[serde(rename_all = "camelCase")]
+    GetComicEnd,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]

@@ -5,7 +5,10 @@ use image::ImageReader;
 use tauri::AppHandle;
 use walkdir::WalkDir;
 
-use crate::extensions::{AppHandleExt, WalkDirEntryExt};
+use crate::{
+    extensions::{AppHandleExt, WalkDirEntryExt},
+    types::Comic,
+};
 
 pub fn filename_filter(s: &str) -> String {
     s.chars()
@@ -68,4 +71,21 @@ pub fn create_path_word_to_dir_map(app: &AppHandle) -> anyhow::Result<HashMap<St
     }
 
     Ok(path_word_to_dir_map)
+}
+
+pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> anyhow::Result<Comic> {
+    let copy_client = app.get_copy_client();
+
+    let get_comic_resp_data = copy_client.get_comic(comic_path_word).await?;
+    // TODO: 这里可以并发获取groups_chapters
+    let mut groups_chapters = HashMap::new();
+    for group_path_word in get_comic_resp_data.groups.keys() {
+        let chapters = copy_client
+            .get_group_chapters(comic_path_word, group_path_word)
+            .await?;
+        groups_chapters.insert(group_path_word.clone(), chapters);
+    }
+    let comic = Comic::from_resp_data(&app, get_comic_resp_data, groups_chapters)?;
+
+    Ok(comic)
 }

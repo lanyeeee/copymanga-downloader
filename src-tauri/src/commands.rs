@@ -1,21 +1,15 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{atomic::AtomicI64, Arc},
-};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use anyhow::{anyhow, Context};
 use indexmap::IndexMap;
-use parking_lot::Mutex;
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
-use tokio::{sync::Semaphore, task::JoinSet};
+use tokio::time::sleep;
 use walkdir::WalkDir;
 
 use crate::{
     config::Config,
-    download_manager::DownloadManager,
     errors::{CommandError, CommandResult},
     events::UpdateDownloadedComicsEvent,
     export,
@@ -24,7 +18,7 @@ use crate::{
     responses::{
         ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, UserProfileRespData,
     },
-    types::{Comic, ComicInFavorite, ComicInSearch, GetFavoriteResult, SearchResult},
+    types::{ChapterInfo, Comic, ComicInFavorite, ComicInSearch, GetFavoriteResult, SearchResult},
     utils,
 };
 
@@ -139,23 +133,11 @@ pub async fn search(app: AppHandle, keyword: String, page_num: i64) -> CommandRe
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> CommandResult<Comic> {
-    let copy_client = app.get_copy_client();
-
-    let get_comic_resp_data = copy_client
-        .get_comic(comic_path_word)
+    let comic = utils::get_comic(app, comic_path_word)
         .await
-        .map_err(|err| CommandError::from("获取漫画信息失败", err))?;
-    // TODO: 这里可以并发获取groups_chapters
-    let mut groups_chapters = HashMap::new();
-    for group_path_word in get_comic_resp_data.groups.keys() {
-        let chapters = copy_client
-            .get_group_chapters(comic_path_word, group_path_word)
-            .await
-            .map_err(|err| CommandError::from("获取漫画信息失败", err))?;
-        groups_chapters.insert(group_path_word.clone(), chapters);
-    }
-    let comic = Comic::from_resp_data(&app, get_comic_resp_data, groups_chapters)
-        .map_err(|err| CommandError::from("获取漫画信息失败", err))?;
+        .map_err(|err| {
+            CommandError::from(&format!("获取路径为`{comic_path_word}`的漫画失败"), err)
+        })?;
 
     Ok(comic)
 }
@@ -434,73 +416,49 @@ pub fn cancel_download_task(app: AppHandle, chapter_uuid: String) -> CommandResu
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
+    let config = app.get_config();
     let download_manager = app.get_download_manager();
 
     // 从下载目录中获取已下载的漫画
     let downloaded_comics = get_downloaded_comics(app.clone());
-    // 用于存储最新的漫画信息
-    let latest_comics = Arc::new(Mutex::new(Vec::new()));
-    // 限制并发数为10
-    let sem = Arc::new(Semaphore::new(10));
-    let current = Arc::new(AtomicI64::new(0));
-    // 发送正在获取漫画事件
+
     let total = downloaded_comics.len() as i64;
-    let _ = UpdateDownloadedComicsEvent::GettingComics { total }.emit(&app);
-    let mut join_set = JoinSet::new();
-    // 获取已下载漫画的最新信息
-    for downloaded_comic in downloaded_comics {
-        let sem = sem.clone();
-        let latest_comics = latest_comics.clone();
-        let current = current.clone();
-        let app = app.clone();
-        join_set.spawn(async move {
-            // 获取最新的漫画信息
-            let permit = sem
-                .acquire()
-                .await
-                .map_err(|err| CommandError::from("获取漫画信息失败", anyhow::Error::from(err)))?;
-            let path_word = &downloaded_comic.comic.path_word;
-            let comic = match get_comic(app.clone(), path_word).await {
-                Ok(comic) => comic,
-                Err(err) => {
-                    // 发送获取漫画失败事件
-                    let _ = UpdateDownloadedComicsEvent::GetComicError {
-                        comic_title: downloaded_comic.comic.name.clone(),
-                        err_msg: err.err_message,
-                    }
-                    .emit(&app);
-                    let current = current.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-                    // 发送获取到漫画事件
-                    let _ = UpdateDownloadedComicsEvent::ComicGot { current, total }.emit(&app);
-                    return Ok::<(), CommandError>(());
-                }
-            };
-            drop(permit);
-            // 将最新的漫画信息保存到元数据文件
-            let comic_title = &comic.comic.name;
-            comic.save_metadata().map_err(|err| {
-                CommandError::from(&format!("`{comic_title}`保存元数据失败"), err)
-            })?;
+    let interval_sec = config.read().update_downloaded_comics_interval_sec;
+    let _ = UpdateDownloadedComicsEvent::GetComicStart { total }.emit(&app);
 
-            latest_comics.lock().push(comic);
-            let current = current.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
-            // 发送获取到漫画事件
-            let _ = UpdateDownloadedComicsEvent::ComicGot { current, total }.emit(&app);
-            Ok::<(), CommandError>(())
+    for (i, downloaded_comic) in downloaded_comics.into_iter().enumerate() {
+        let comic_title = &downloaded_comic.comic.name;
+        let comic_path_word = &downloaded_comic.comic.path_word;
+        let current = (i + 1) as i64;
+        let _ = UpdateDownloadedComicsEvent::GetComicProgress { current, total }.emit(&app);
+
+        let comic = match utils::get_comic(app.clone(), comic_path_word)
+            .await
+            .context(format!("获取路径为`{comic_path_word}`的漫画失败"))
+        {
+            Ok(comic) => comic,
+            Err(err) => {
+                let err_title = format!("更新库存过程中，获取漫画`{comic_title}`失败，已跳过");
+                let err = err.context("可能是频率太高，请手动去`配置`里调整`更新库存时，每处理完一个已下载的漫画后休息`");
+                let string_chain = err.to_string_chain();
+                tracing::error!(err_title, message = string_chain);
+                sleep(Duration::from_secs(interval_sec)).await;
+                continue;
+            }
+        };
+
+        let has_downloaded_group = comic.comic.groups.iter().any(|(_, chapter_infos)| {
+            chapter_infos
+                .iter()
+                .any(|chapter_info| chapter_info.is_downloaded.unwrap_or(false))
         });
-    }
-    // 等待所有请求完成
-    while let Some(Ok(get_comic_result)) = join_set.join_next().await {
-        // 如果有请求失败，直接返回错误
-        get_comic_result?;
-    }
-    // 至此，已下载的漫画的最新信息已获取完毕
-    let latest_comics = std::mem::take(&mut *latest_comics.lock());
 
-    let mut downloaded_comic_and_groups_pairs = Vec::new();
-    for comic in latest_comics {
-        // 先过滤出至少有一个已下载章节的组
-        let downloaded_groups = comic
+        if !has_downloaded_group {
+            sleep(Duration::from_secs(interval_sec)).await;
+            continue;
+        }
+
+        let downloaded_groups: HashMap<&String, &Vec<ChapterInfo>> = comic
             .comic
             .groups
             .iter()
@@ -508,36 +466,62 @@ pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
                 chapter_infos
                     .iter()
                     .any(|chapter_info| chapter_info.is_downloaded.unwrap_or(false))
-                    .then_some((group_path_word.clone(), chapter_infos.clone()))
+                    .then_some((group_path_word, chapter_infos))
             })
-            .collect::<HashMap<_, _>>();
-
-        if !downloaded_groups.is_empty() {
-            downloaded_comic_and_groups_pairs.push((comic, downloaded_groups));
-        }
-    }
-    // 给需要下载的章节创建下载任务
-    for (comic, downloaded_groups) in downloaded_comic_and_groups_pairs {
-        // 过滤出未下载的章节
-        let chapters_to_download: Vec<_> = downloaded_groups
-            .into_iter()
-            .flat_map(|(_, chapter_infos)| chapter_infos)
-            .filter(|chapter_info| !chapter_info.is_downloaded.unwrap_or(false))
             .collect();
 
-        for chapter_info in chapters_to_download {
-            let comic = comic.clone();
-            let chapter_uuid = &chapter_info.chapter_uuid;
-            download_manager
-                .create_download_task(comic, chapter_uuid)
-                .map_err(|err| {
-                    CommandError::from(&format!("创建章节ID为`{chapter_uuid}`的下载任务失败"), err)
-                })?;
+        if downloaded_groups.is_empty() {
+            sleep(Duration::from_secs(interval_sec)).await;
+            continue;
         }
+
+        // 获取downloaded_groups中所有未下载的章节
+        let chapter_infos: Vec<&ChapterInfo> = downloaded_groups
+            .values()
+            .flat_map(|chapter_infos| {
+                chapter_infos
+                    .iter()
+                    .filter(|chapter_info| !chapter_info.is_downloaded.unwrap_or(false))
+            })
+            .collect();
+
+        if chapter_infos.is_empty() {
+            sleep(Duration::from_secs(interval_sec)).await;
+            continue;
+        }
+
+        let _ = UpdateDownloadedComicsEvent::CreateDownloadTasksStart {
+            comic_path_word: comic_path_word.clone(),
+            comic_title: comic_title.clone(),
+            current: 0,
+            total: chapter_infos.len() as i64,
+        }
+        .emit(&app);
+
+        for (i, chapter_info) in chapter_infos.into_iter().enumerate() {
+            let chapter_uuid = &chapter_info.chapter_uuid;
+            let current = (i + 1) as i64;
+
+            let _ = download_manager.create_download_task(comic.clone(), chapter_uuid);
+
+            let _ = UpdateDownloadedComicsEvent::CreateDownloadTaskProgress {
+                comic_path_word: comic_path_word.clone(),
+                current,
+            }
+            .emit(&app);
+
+            sleep(Duration::from_millis(100)).await;
+        }
+
+        let _ = UpdateDownloadedComicsEvent::CreateDownloadTasksEnd {
+            comic_path_word: comic_path_word.clone(),
+        }
+        .emit(&app);
+
+        sleep(Duration::from_secs(interval_sec)).await;
     }
 
-    // 发送下载任务创建完成事件
-    let _ = UpdateDownloadedComicsEvent::DownloadTaskCreated.emit(&app);
+    let _ = UpdateDownloadedComicsEvent::GetComicEnd.emit(&app);
 
     Ok(())
 }
@@ -550,7 +534,7 @@ pub fn get_logs_dir_size(app: AppHandle) -> CommandResult<u64> {
         .context("获取日志目录失败")
         .map_err(|err| CommandError::from("获取日志目录大小失败", err))?;
     let logs_dir_size = std::fs::read_dir(&logs_dir)
-        .context(format!("读取日志目录`{logs_dir:?}`失败"))
+        .context(format!("读取日志目录`{}`失败", logs_dir.display()))
         .map_err(|err| CommandError::from("获取日志目录大小失败", err))?
         .filter_map(Result::ok)
         .filter_map(|entry| entry.metadata().ok())

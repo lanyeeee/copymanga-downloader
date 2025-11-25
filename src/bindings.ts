@@ -252,7 +252,7 @@ export type ComicInGetChapterRespData = { name: string; uuid: string; path_word:
 export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; comicDirFmt: string; chapterDirFmt: string }
+export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; updateDownloadedComicsIntervalSec: number; comicDirFmt: string; chapterDirFmt: string }
 export type ContentRespData = { url: string }
 export type DownloadControlRiskEvent = { chapterUuid: string; retryAfter: number }
 export type DownloadFormat = "Webp" | "Jpeg"
@@ -275,7 +275,7 @@ export type Pagination<T> = { list: T[]; total: number; limit: number; offset: n
 export type RestrictRespData = { value: number; display: string }
 export type SearchResult = Pagination<ComicInSearch>
 export type Theme = { name: string; path_word: string }
-export type UpdateDownloadedComicsEvent = { event: "GettingComics"; data: { total: number } } | { event: "GetComicError"; data: { comicTitle: string; errMsg: string } } | { event: "ComicGot"; data: { current: number; total: number } } | { event: "DownloadTaskCreated" }
+export type UpdateDownloadedComicsEvent = { event: "GetComicStart"; data: { total: number } } | { event: "GetComicProgress"; data: { current: number; total: number } } | { event: "CreateDownloadTasksStart"; data: { comicPathWord: string; comicTitle: string; current: number; total: number } } | { event: "CreateDownloadTaskProgress"; data: { comicPathWord: string; current: number } } | { event: "CreateDownloadTasksEnd"; data: { comicPathWord: string } } | { event: "GetComicEnd" }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/
