@@ -2,17 +2,17 @@
 import { onMounted, ref, watch } from 'vue'
 import { commands } from './bindings.ts'
 import { useMessage, useNotification } from 'naive-ui'
-import LoginDialog from './components/LoginDialog.vue'
+import LoginDialog from './dialogs/LoginDialog.vue'
 import SearchPane from './panes/SearchPane.vue'
 import ChapterPane from './panes/ChapterPane.vue'
 import ProgressesPane from './panes/ProgressesPane/ProgressesPane.vue'
 import FavoritePane from './panes/FavoritePane.vue'
 import DownloadedPane from './panes/DownloadedPane/DownloadedPane.vue'
-import AboutDialog from './components/AboutDialog.vue'
+import AboutDialog from './dialogs/AboutDialog.vue'
 import { PhUser, PhGearSix, PhInfo, PhClockCounterClockwise } from '@phosphor-icons/vue'
-import SettingsDialog from './components/SettingsDialog.vue'
+import SettingsDialog from './dialogs/SettingsDialog.vue'
 import { useStore } from './store.ts'
-import LogDialog from './components/LogDialog.vue'
+import LogDialog from './dialogs/LogDialog.vue'
 
 const store = useStore()
 
