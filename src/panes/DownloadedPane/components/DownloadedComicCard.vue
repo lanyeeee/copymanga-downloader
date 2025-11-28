@@ -2,6 +2,8 @@
 import { Comic, ComicDetail, commands } from '../../../bindings.ts'
 import { computed } from 'vue'
 import { useStore } from '../../../store.ts'
+import { PhFilePdf, PhFileZip, PhFolderOpen } from '@phosphor-icons/vue'
+import IconButton from '../../../components/IconButton.vue'
 
 interface GroupInfo {
   name: string
@@ -84,7 +86,7 @@ async function showComicDownloadDirInFileManager() {
     <img class="w-24 object-cover mr-4" :src="comicDetail.cover" alt="" :draggable="false" />
     <div class="flex flex-col h-full w-full">
       <span
-        class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+        class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
         @click="pickComic">
         {{ comicDetail.name }}
       </span>
@@ -93,9 +95,17 @@ async function showComicDownloadDirInFileManager() {
         {{ groupInfo.name }}({{ groupInfo.downloaded }}/{{ groupInfo.total }})
       </span>
       <div class="flex mt-auto gap-col-2">
-        <n-button size="tiny" @click="showComicDownloadDirInFileManager">打开下载目录</n-button>
-        <n-button class="ml-auto" size="tiny" @click="exportCbz">导出cbz</n-button>
-        <n-button size="tiny" @click="exportPdf">导出pdf</n-button>
+        <IconButton title="打开下载目录" @click="showComicDownloadDirInFileManager">
+          <PhFolderOpen :size="24" />
+        </IconButton>
+
+        <IconButton class="ml-auto" title="导出cbz" @click="exportCbz">
+          <PhFileZip :size="24" />
+        </IconButton>
+
+        <IconButton title="导出pdf" @click="exportPdf">
+          <PhFilePdf :size="24" />
+        </IconButton>
       </div>
     </div>
   </div>

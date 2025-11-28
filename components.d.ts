@@ -10,6 +10,7 @@ declare module 'vue' {
     AboutDialog: typeof import('./src/dialogs/AboutDialog.vue')['default']
     ComicCard: typeof import('./src/components/ComicCard.vue')['default']
     FloatLabelInput: typeof import('./src/components/FloatLabelInput.vue')['default']
+    IconButton: typeof import('./src/components/IconButton.vue')['default']
     LogDialog: typeof import('./src/dialogs/LogDialog.vue')['default']
     LoginDialog: typeof import('./src/dialogs/LoginDialog.vue')['default']
     NA: typeof import('naive-ui')['NA']
