@@ -7,12 +7,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AboutDialog: typeof import('./src/dialogs/AboutDialog.vue')['default']
     ComicCard: typeof import('./src/components/ComicCard.vue')['default']
     FloatLabelInput: typeof import('./src/components/FloatLabelInput.vue')['default']
     IconButton: typeof import('./src/components/IconButton.vue')['default']
-    LogDialog: typeof import('./src/dialogs/LogDialog.vue')['default']
-    LoginDialog: typeof import('./src/dialogs/LoginDialog.vue')['default']
     NA: typeof import('naive-ui')['NA']
     NAvatar: typeof import('naive-ui')['NAvatar']
     NButton: typeof import('naive-ui')['NButton']
@@ -42,6 +39,5 @@ declare module 'vue' {
     NTabs: typeof import('naive-ui')['NTabs']
     NTooltip: typeof import('naive-ui')['NTooltip']
     NVirtualList: typeof import('naive-ui')['NVirtualList']
-    SettingsDialog: typeof import('./src/dialogs/SettingsDialog.vue')['default']
   }
 }

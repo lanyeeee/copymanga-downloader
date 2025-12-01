@@ -4,6 +4,8 @@ import { computed, nextTick, ref, watch, watchEffect } from 'vue'
 import { ChapterInfo, commands, DownloadTaskState } from '../bindings.ts'
 import { useMessage, DropdownOption } from 'naive-ui'
 import { useStore } from '../store.ts'
+import { PhFolderOpen } from '@phosphor-icons/vue'
+import IconButton from '../components/IconButton.vue'
 
 type State = DownloadTaskState | 'Idle'
 type ChapterInfoWithState = ChapterInfo & { state: State }
@@ -289,13 +291,13 @@ function isDownloading(state: State) {
           {{ store.pickedComic.comic.name }}
         </span>
         <span v-html="`作者：${store.pickedComic.comic.author.map((a) => a.name)}`" class="text-red" />
-        <n-button
+        <IconButton
           v-if="store.pickedComic.isDownloaded"
-          class="flex mt-auto mr-auto gap-col-2"
-          size="tiny"
+          class="mt-auto mr-auto"
+          title="打开下载目录"
           @click="showComicDownloadDirInFileManager">
-          打开下载目录
-        </n-button>
+          <PhFolderOpen :size="24" />
+        </IconButton>
       </div>
     </div>
 

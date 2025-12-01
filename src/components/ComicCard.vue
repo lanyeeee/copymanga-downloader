@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { AuthorRespData, commands } from '../bindings.ts'
 import { useStore } from '../store.ts'
+import IconButton from './IconButton.vue'
+import { PhFolderOpen } from '@phosphor-icons/vue'
 
 const store = useStore()
 
@@ -51,18 +53,18 @@ async function showComicDownloadDirInFileManager() {
         @click="pickComic" />
       <div class="flex flex-col h-full">
         <span
-          class="font-bold text-xl line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
+          class="font-bold text-lg line-clamp-3 cursor-pointer transition-colors duration-200 hover:text-blue-5"
           @click="pickComic">
           {{ comicTitle }}
         </span>
         <span v-html="`作者：${comicAuthor.map((a) => a.name)}`" class="text-red" />
-        <n-button
+        <IconButton
+          class="mt-auto mr-auto"
           v-if="comicDownloaded"
-          class="flex mt-auto mr-auto gap-col-2"
-          size="tiny"
+          title="打开下载目录"
           @click="showComicDownloadDirInFileManager">
-          打开下载目录
-        </n-button>
+          <PhFolderOpen :size="24" />
+        </IconButton>
       </div>
     </div>
   </n-card>
