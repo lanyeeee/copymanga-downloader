@@ -6,7 +6,7 @@ use specta::Type;
 use super::{AuthorRespData, Pagination};
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-pub struct GetFavoriteRespData(Pagination<FavoriteItemRespData>);
+pub struct GetFavoriteRespData(pub Pagination<FavoriteItemRespData>);
 
 impl Deref for GetFavoriteRespData {
     type Target = Pagination<FavoriteItemRespData>;

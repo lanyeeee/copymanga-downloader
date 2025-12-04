@@ -3,24 +3,23 @@ use std::{sync::Arc, time::Duration};
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
 use bytes::Bytes;
+use image::ImageFormat;
 use parking_lot::RwLock;
 use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
 use serde_json::json;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::task::JoinSet;
 
 use crate::{
-    account_pool::{Account, AccountPool},
-    config::Config,
+    account_pool::Account,
     errors::{CopyMangaError, CopyMangaResult, RiskControlError},
-    extensions::SendWithTimeoutMsg,
+    extensions::{AppHandleExt, SendWithTimeoutMsg},
     responses::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
         GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
-    types::AsyncRwLock,
 };
 
 #[derive(Clone)]
@@ -334,7 +333,7 @@ impl CopyClient {
             account
         } else {
             // 如果账号池里没有合适的账号
-            let account_pool = self.app.state::<AsyncRwLock<AccountPool>>();
+            let account_pool = self.app.get_account_pool();
             let mut account_pool = account_pool.write().await;
             // 拿到写锁后再次检查账号池里是否有合适的账号
             // 如果有，就用账号池里的账号，否则才注册一个新账号
@@ -368,11 +367,7 @@ impl CopyClient {
         if status == 210 {
             // 如果当前账号被风控，就更新账号的limited_at字段
             account.write().limited_at = chrono::Local::now().timestamp();
-            self.app
-                .state::<AsyncRwLock<AccountPool>>()
-                .write()
-                .await
-                .save()?;
+            self.app.get_account_pool().write().await.save()?;
             return Err(RiskControlError::GetChapter(body).into());
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
@@ -394,7 +389,7 @@ impl CopyClient {
         Ok(get_chapter_resp_data)
     }
 
-    pub async fn get_image_bytes(&self, url: &str) -> anyhow::Result<Bytes> {
+    pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
         // 发送下载图片请求
         let http_resp = self.img_client.get(url).send_with_timeout_msg().await?;
         // 检查http响应状态码
@@ -405,10 +400,23 @@ impl CopyClient {
                 "下载图片 {url} 失败，预料之外的状态码({status}): {body}"
             ));
         }
+        // 获取 resp headers 的 content-type 字段
+        let content_type = http_resp
+            .headers()
+            .get("content-type")
+            .ok_or(anyhow!("响应中没有content-type字段"))?
+            .to_str()
+            .context("响应中的content-type字段不是utf-8字符串")?
+            .to_string();
         // 读取图片数据
-        let image_data = http_resp.bytes().await?;
+        let img_data = http_resp.bytes().await?;
+        let img_format = match content_type.as_str() {
+            "image/webp" => ImageFormat::WebP,
+            "image/jpeg" => ImageFormat::Jpeg,
+            _ => return Err(anyhow!("原图出现了意料之外的格式: {content_type}")),
+        };
 
-        Ok(image_data)
+        Ok((img_data, img_format))
     }
 
     pub async fn get_favorite(&self, page_num: i64) -> CopyMangaResult<GetFavoriteRespData> {
@@ -454,19 +462,16 @@ impl CopyClient {
     }
 
     fn get_authorization(&self) -> String {
-        self.app
-            .state::<RwLock<Config>>()
-            .read()
-            .get_authorization()
+        self.app.get_config().read().get_authorization()
     }
 
     fn get_api_domain(&self) -> String {
-        self.app.state::<RwLock<Config>>().read().get_api_domain()
+        self.app.get_config().read().get_api_domain()
     }
 
     async fn get_account_from_pool(&self) -> Option<Arc<RwLock<Account>>> {
         self.app
-            .state::<AsyncRwLock<AccountPool>>()
+            .get_account_pool()
             .read()
             .await
             .get_available_account()

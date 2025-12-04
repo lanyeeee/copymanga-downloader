@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
+use crate::types::DownloadFormat;
+
 const DEFAULT_API_DOMAIN: &str = "api.2025copy.com";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -14,6 +16,15 @@ pub struct Config {
     pub export_dir: PathBuf,
     pub api_domain_mode: ApiDomainMode,
     pub custom_api_domain: String,
+    pub download_format: DownloadFormat,
+    pub enable_file_logger: bool,
+    pub chapter_concurrency: usize,
+    pub chapter_download_interval_sec: u64,
+    pub img_concurrency: usize,
+    pub img_download_interval_sec: u64,
+    pub update_downloaded_comics_interval_sec: u64,
+    pub comic_dir_fmt: String,
+    pub chapter_dir_fmt: String,
 }
 
 impl Config {
@@ -74,6 +85,15 @@ impl Config {
             export_dir: app_data_dir.join("漫画导出"),
             api_domain_mode: ApiDomainMode::default(),
             custom_api_domain: DEFAULT_API_DOMAIN.to_string(),
+            download_format: DownloadFormat::Webp,
+            enable_file_logger: true,
+            chapter_concurrency: 3,
+            chapter_download_interval_sec: 0,
+            img_concurrency: 30,
+            img_download_interval_sec: 0,
+            update_downloaded_comics_interval_sec: 0,
+            comic_dir_fmt: "{comic_title}".to_string(),
+            chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
         }
     }
 

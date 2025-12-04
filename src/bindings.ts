@@ -43,7 +43,7 @@ async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async search(keyword: string, pageNum: number) : Promise<Result<SearchRespData, CommandError>> {
+async search(keyword: string, pageNum: number) : Promise<Result<SearchResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search", { keyword, pageNum }) };
 } catch (e) {
@@ -75,7 +75,7 @@ async getChapter(comicPathWord: string, chapterUuid: string) : Promise<Result<Ge
     else return { status: "error", error: e  as any };
 }
 },
-async getFavorite(pageNum: number) : Promise<Result<GetFavoriteRespData, CommandError>> {
+async getFavorite(pageNum: number) : Promise<Result<GetFavoriteResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_favorite", { pageNum }) };
 } catch (e) {
@@ -83,9 +83,33 @@ async getFavorite(pageNum: number) : Promise<Result<GetFavoriteRespData, Command
     else return { status: "error", error: e  as any };
 }
 },
-async downloadChapters(chapters: ChapterInfo[]) : Promise<Result<null, CommandError>> {
+async createDownloadTask(comic: Comic, chapterUuid: string) : Promise<Result<null, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("download_chapters", { chapters }) };
+    return { status: "ok", data: await TAURI_INVOKE("create_download_task", { comic, chapterUuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async pauseDownloadTask(chapterUuid: string) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("pause_download_task", { chapterUuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resumeDownloadTask(chapterUuid: string) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resume_download_task", { chapterUuid }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelDownloadTask(chapterUuid: string) : Promise<Result<null, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("cancel_download_task", { chapterUuid }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -99,13 +123,8 @@ async saveMetadata(comic: Comic) : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getDownloadedComics() : Promise<Result<Comic[], CommandError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_downloaded_comics") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
+async getDownloadedComics() : Promise<Comic[]> {
+    return await TAURI_INVOKE("get_downloaded_comics");
 },
 async exportCbz(comic: Comic) : Promise<Result<null, CommandError>> {
     try {
@@ -131,9 +150,41 @@ async updateDownloadedComics() : Promise<Result<null, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getLogsDirSize() : Promise<Result<number, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_logs_dir_size") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("show_path_in_file_manager", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getSyncedComic(comic: Comic) : Promise<Result<Comic, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getSyncedComicInFavorite(comic: ComicInFavorite) : Promise<Result<ComicInFavorite, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic_in_favorite", { comic }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getSyncedComicInSearch(comic: ComicInSearch) : Promise<Result<ComicInSearch, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_synced_comic_in_search", { comic }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -145,14 +196,20 @@ async showPathInFileManager(path: string) : Promise<Result<null, CommandError>> 
 
 
 export const events = __makeEvents__<{
-downloadEvent: DownloadEvent,
+downloadControlRiskEvent: DownloadControlRiskEvent,
+downloadSpeedEvent: DownloadSpeedEvent,
+downloadTaskEvent: DownloadTaskEvent,
 exportCbzEvent: ExportCbzEvent,
 exportPdfEvent: ExportPdfEvent,
+logEvent: LogEvent,
 updateDownloadedComicsEvent: UpdateDownloadedComicsEvent
 }>({
-downloadEvent: "download-event",
+downloadControlRiskEvent: "download-control-risk-event",
+downloadSpeedEvent: "download-speed-event",
+downloadTaskEvent: "download-task-event",
 exportCbzEvent: "export-cbz-event",
 exportPdfEvent: "export-pdf-event",
+logEvent: "log-event",
 updateDownloadedComicsEvent: "update-downloaded-comics-event"
 })
 
@@ -169,10 +226,6 @@ export type ChapterInGetChapterRespData = { index: number; uuid: string; count: 
 export type ChapterInGetChaptersRespData = { index: number; uuid: string; count: number; ordered: number; size: number; name: string; comic_id: string; comic_path_word: string; group_id: string | null; group_path_word: string; type: number; news: string; datetime_created: string; prev: string | null; next: string | null }
 export type ChapterInfo = { chapterUuid: string; chapterTitle: string; 
 /**
- * 以order为前缀的章节标题
- */
-prefixedChapterTitle: string; 
-/**
  * 此章节有多少页
  */
 chapterSize: number; comicUuid: string; comicTitle: string; comicPathWord: string; groupPathWord: string; groupName: string; 
@@ -187,35 +240,42 @@ order: number;
 /**
  * 漫画的连载状态
  */
-comicStatus: ComicStatus; isDownloaded?: boolean | null }
-export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group } }
+comicStatus: ComicStatus; isDownloaded?: boolean | null; chapterDownloadDir?: string | null }
+export type Comic = { is_banned: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicDetail; popular: number; groups: { [key in string]: Group }; isDownloaded?: boolean | null; comicDownloadDir?: string | null }
 export type ComicDetail = { uuid: string; b_404: boolean; b_hidden: boolean; ban: number; ban_ip: boolean | null; name: string; alias: string | null; path_word: string; close_comment: boolean; close_roast: boolean; free_type: LabeledValue; restrict: LabeledValue; reclass: LabeledValue; seo_baidu: string | null; region: LabeledValue; status: LabeledValue; author: Author[]; theme: Theme[]; brief: string; datetime_updated: string; cover: string; last_chapter: LastChapter; popular: number; 
 /**
  * `group_path_word` -> `chapter_infos`
  */
 groups: { [key in string]: ChapterInfo[] } }
+export type ComicInFavorite = { uuid: string; bDisplay: boolean; name: string; pathWord: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetimeUpdated: string; lastChapterId: string; lastChapterName: string; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
-export type ComicInGetFavoriteRespData = { uuid: string; b_display: boolean; name: string; path_word: string; author: AuthorRespData[]; cover: string; status: number; popular: number; datetime_updated: string; last_chapter_id: string; last_chapter_name: string }
-export type ComicInSearchRespData = { name: string; alias: string | null; path_word: string; cover: string; ban: number; author: AuthorRespData[]; popular: number }
+export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicStatus = "ongoing" | "completed"
-export type CommandError = string
-export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string }
+export type CommandError = { err_title: string; err_message: string }
+export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; updateDownloadedComicsIntervalSec: number; comicDirFmt: string; chapterDirFmt: string }
 export type ContentRespData = { url: string }
-export type DownloadEvent = { event: "ChapterPending"; data: { chapterUuid: string; comicTitle: string; chapterTitle: string } } | { event: "ChapterControlRisk"; data: { chapterUuid: string; retryAfter: number } } | { event: "ChapterStart"; data: { chapterUuid: string; total: number } } | { event: "ChapterEnd"; data: { chapterUuid: string; errMsg: string | null } } | { event: "ImageSuccess"; data: { chapterUuid: string; url: string; current: number } } | { event: "ImageError"; data: { chapterUuid: string; url: string; errMsg: string } } | { event: "OverallUpdate"; data: { downloadedImageCount: number; totalImageCount: number; percentage: number } } | { event: "OverallSpeed"; data: { speed: string } }
-export type ExportCbzEvent = { event: "Start"; data: { uuid: string; comicTitle: string; total: number } } | { event: "Progress"; data: { uuid: string; current: number } } | { event: "Error"; data: { uuid: string } } | { event: "End"; data: { uuid: string } }
-export type ExportPdfEvent = { event: "CreateStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "CreateProgress"; data: { uuid: string; current: number } } | { event: "CreateError"; data: { uuid: string } } | { event: "CreateEnd"; data: { uuid: string } } | { event: "MergeStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "MergeProgress"; data: { uuid: string; current: number } } | { event: "MergeError"; data: { uuid: string } } | { event: "MergeEnd"; data: { uuid: string } }
-export type FavoriteItemRespData = { uuid: number; b_folder: boolean; comic: ComicInGetFavoriteRespData }
+export type DownloadControlRiskEvent = { chapterUuid: string; retryAfter: number }
+export type DownloadFormat = "Webp" | "Jpeg"
+export type DownloadSpeedEvent = { speed: string }
+export type DownloadTaskEvent = { event: "Create"; data: { state: DownloadTaskState; comic: Comic; chapterInfo: ChapterInfo; downloadedImgCount: number; totalImgCount: number } } | { event: "Update"; data: { chapterUuid: string; state: DownloadTaskState; downloadedImgCount: number; totalImgCount: number } }
+export type DownloadTaskState = "Pending" | "Downloading" | "Paused" | "Cancelled" | "Completed" | "Failed"
+export type ExportCbzEvent = { event: "Start"; data: { uuid: string; comicTitle: string; total: number } } | { event: "Progress"; data: { uuid: string; current: number } } | { event: "Error"; data: { uuid: string } } | { event: "End"; data: { uuid: string; chapterExportDir: string } }
+export type ExportPdfEvent = { event: "CreateStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "CreateProgress"; data: { uuid: string; current: number } } | { event: "CreateError"; data: { uuid: string } } | { event: "CreateEnd"; data: { uuid: string; chapterExportDir: string } } | { event: "MergeStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "MergeProgress"; data: { uuid: string; current: number } } | { event: "MergeError"; data: { uuid: string } } | { event: "MergeEnd"; data: { uuid: string; chapterExportDir: string } }
+export type FavoriteItem = { uuid: number; bFolder: boolean; comic: ComicInFavorite }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
-export type GetFavoriteRespData = Pagination<FavoriteItemRespData>
+export type GetFavoriteResult = Pagination<FavoriteItem>
 export type Group = { path_word: string; count: number; name: string }
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 export type LabeledValue = { value: number; display: string }
 export type LastChapter = { uuid: string; name: string }
+export type LogEvent = { timestamp: string; level: LogLevel; fields: { [key in string]: JsonValue }; target: string; filename: string; line_number: number }
+export type LogLevel = "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR"
 export type LoginRespData = { token: string; user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean }
 export type Pagination<T> = { list: T[]; total: number; limit: number; offset: number }
 export type RestrictRespData = { value: number; display: string }
-export type SearchRespData = Pagination<ComicInSearchRespData>
+export type SearchResult = Pagination<ComicInSearch>
 export type Theme = { name: string; path_word: string }
-export type UpdateDownloadedComicsEvent = { event: "GettingComics"; data: { total: number } } | { event: "GetComicError"; data: { comicTitle: string; errMsg: string } } | { event: "ComicGot"; data: { current: number; total: number } } | { event: "DownloadTaskCreated" }
+export type UpdateDownloadedComicsEvent = { event: "GetComicStart"; data: { total: number } } | { event: "GetComicProgress"; data: { current: number; total: number } } | { event: "CreateDownloadTasksStart"; data: { comicPathWord: string; comicTitle: string; current: number; total: number } } | { event: "CreateDownloadTaskProgress"; data: { comicPathWord: string; current: number } } | { event: "CreateDownloadTasksEnd"; data: { comicPathWord: string } } | { event: "GetComicEnd" }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/

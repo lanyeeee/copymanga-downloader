@@ -10,22 +10,31 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@phosphor-icons/vue": "^2.2.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.0.1",
     "@tauri-apps/plugin-shell": "^2",
     "@viselect/vue": "3.6.0",
+    "@vitejs/plugin-vue-jsx": "^5.0.1",
     "naive-ui": "^2.40.1",
-    "unocss": "^0.64.1",
+    "pinia": "^3.0.3",
     "unplugin-auto-import": "^0.18.5",
     "unplugin-vue-components": "^0.27.4",
     "vue": "^3.3.4"
   },
   "devDependencies": {
+    "@eslint/js": "^9.32.0",
     "@tauri-apps/cli": "^2",
-    "@vitejs/plugin-vue": "^5.0.5",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "eslint": "^9.32.0",
+    "eslint-plugin-vue": "^10.4.0",
+    "globals": "^16.3.0",
     "prettier": "^3.4.2",
     "typescript": "^5.2.2",
-    "vite": "^5.3.1",
+    "typescript-eslint": "^8.39.0",
+    "unocss": "^66.4.1",
+    "vite": "^7.0.6",
+    "vite-plugin-vue-devtools": "^8.0.0",
     "vue-tsc": "^2.0.22"
   },
   "packageManager": "pnpm@9.5.0"

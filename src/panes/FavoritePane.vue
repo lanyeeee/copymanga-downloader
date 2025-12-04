@@ -1,36 +1,27 @@
 <script setup lang="ts">
 import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
-import { Comic, commands, GetFavoriteRespData, UserProfileRespData } from '../bindings.ts'
-import { useNotification } from 'naive-ui'
-import { CurrentTabName } from '../types.ts'
+import { commands } from '../bindings.ts'
+import { useStore } from '../store.ts'
 
-const notification = useNotification()
+const store = useStore()
 
-const props = defineProps<{
-  userProfile: UserProfileRespData | undefined
-}>()
-
-const pickedComic = defineModel<Comic | undefined>('pickedComic', { required: true })
-const currentTabName = defineModel<CurrentTabName>('currentTabName', { required: true })
-// 获取收藏返回的数据
-const getFavoriteRespData = ref<GetFavoriteRespData>()
 // 当前页码
 const currentPage = ref<number>(1)
 // 总页数
 const pageCount = computed(() => {
-  if (getFavoriteRespData.value === undefined) {
+  if (store.getFavoriteResult === undefined) {
     return 0
   }
   // FIXME: 有潜在的页码错误问题，例如当total为36时，应该返回2，但实际返回3，应该改用向上取整
-  return Math.floor(getFavoriteRespData.value.total / 18) + 1
+  return Math.floor(store.getFavoriteResult.total / 18) + 1
 })
 // 如果用户信息变化，重新获取收藏
 watch(
-  () => props.userProfile,
+  () => store.userProfile,
   async () => {
-    if (props.userProfile === undefined) {
-      getFavoriteRespData.value = undefined
+    if (store.userProfile === undefined) {
+      store.getFavoriteResult = undefined
       return
     }
     await getFavourite(1)
@@ -42,23 +33,26 @@ async function getFavourite(page: number) {
   currentPage.value = page
   const result = await commands.getFavorite(page)
   if (result.status === 'error') {
-    notification.error({ title: '获取收藏失败', description: result.error })
+    console.error(result.error)
     return
   }
-  getFavoriteRespData.value = result.data
+  store.getFavoriteResult = result.data
 }
 </script>
 
 <template>
   <div class="h-full flex flex-col">
-    <div v-if="getFavoriteRespData !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
+    <div v-if="store.getFavoriteResult !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
-          v-for="favoriteItemRespData in getFavoriteRespData.list"
-          :key="favoriteItemRespData.uuid"
-          :comic-info="favoriteItemRespData.comic"
-          v-model:picked-comic="pickedComic"
-          v-model:current-tab-name="currentTabName" />
+          v-for="favoriteItem in store.getFavoriteResult.list"
+          :key="favoriteItem.uuid"
+          :comic-title="favoriteItem.comic.name"
+          :comic-path-word="favoriteItem.comic.pathWord"
+          :comic-cover="favoriteItem.comic.cover"
+          :comic-author="favoriteItem.comic.author"
+          :comic-downloaded="favoriteItem.comic.isDownloaded"
+          :comic-download-dir="favoriteItem.comic.comicDownloadDir" />
       </div>
       <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavourite($event)" />
     </div>
