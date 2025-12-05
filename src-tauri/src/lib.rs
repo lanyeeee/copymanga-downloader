@@ -23,7 +23,10 @@ use types::AsyncRwLock;
 
 use crate::commands::*;
 use crate::config::Config;
-use crate::events::{DownloadControlRiskEvent, DownloadSpeedEvent, DownloadTaskEvent, LogEvent};
+use crate::events::{
+    DownloadControlRiskEvent, DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent,
+    LogEvent,
+};
 
 fn generate_context() -> tauri::Context<Wry> {
     tauri::generate_context!()
@@ -63,6 +66,7 @@ pub fn run() {
             DownloadTaskEvent,
             DownloadControlRiskEvent,
             DownloadSpeedEvent,
+            DownloadSleepingEvent,
             ExportCbzEvent,
             ExportPdfEvent,
             UpdateDownloadedComicsEvent,
