@@ -20,6 +20,13 @@ onMounted(async () => {
   await events.downloadSpeedEvent.listen(async ({ payload: { speed } }) => {
     downloadSpeed.value = speed
   })
+  // 监听休息事件
+  await events.downloadSleepingEvent.listen(async ({ payload: { chapterUuid, remainingSec } }) => {
+    const progressData = store.progresses.get(chapterUuid)
+    if (progressData !== undefined) {
+      progressData.indicator = `将在${remainingSec}秒后继续下载`
+    }
+  })
   // 监听下载控制风控事件
   await events.downloadControlRiskEvent.listen(async ({ payload: { chapterUuid, retryAfter } }) => {
     const progressData = store.progresses.get(chapterUuid)
