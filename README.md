@@ -11,7 +11,7 @@
 
 # 图形界面
 
-![image](https://github.com/user-attachments/assets/79d4f70e-b41f-4b8f-b516-1c006c8a80c4)
+![image](https://github.com/user-attachments/assets/44e78386-640e-4398-b934-17006a75375e)
 
 # 使用方法
 
