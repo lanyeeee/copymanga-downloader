@@ -219,10 +219,17 @@ async function showConfigInFileManager() {
           </div>
           <div>
             <span class="rounded bg-gray-500 px-1 select-all">order</span>
-            <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点</span>
+            <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点，支持补齐</span>
+          </div>
+          <div class="text-xs">
+            <span>补齐用法：</span>
+            <span class="rounded bg-gray-500 px-1 select-all font-mono">{order:0>4}</span>
+            <span>表示用0补齐4位，</span>
+            <span class="mr-2">例如 13 &rarr; 0013</span>
+            <span>13.1 &rarr; 0013.1</span>
           </div>
           <div class="font-semibold mt-2">例如格式</div>
-          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order} {chapter_title}</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order:0>3} {chapter_title}</div>
           <div class="font-semibold">
             <span>下载</span>
             <span class="text-blue mx-1">電鋸人 - 默認 - 第13话</span>
@@ -231,11 +238,11 @@ async function showConfigInFileManager() {
           <div class="flex gap-1">
             <span class="bg-gray-200 rounded-md px-1 w-fit text-black">默認</span>
             <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">13 第13话</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">013 第13话</span>
           </div>
           <div class="font-semibold">
             两层文件夹，章节元数据保存在最内层的文件夹
-            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">13 第13话</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">013 第13话</span>
             里
           </div>
           <template #trigger>
