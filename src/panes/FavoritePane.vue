@@ -22,11 +22,11 @@ const orderingSelected = ref<GetFavoriteOrdering>('Added')
 const currentPage = ref<number>(1)
 // 总页数
 const pageCount = computed(() => {
+  const LIMIT = 18
   if (store.getFavoriteResult === undefined) {
     return 0
   }
-  // FIXME: 有潜在的页码错误问题，例如当total为36时，应该返回2，但实际返回3，应该改用向上取整
-  return Math.floor(store.getFavoriteResult.total / 18) + 1
+  return Math.ceil(store.getFavoriteResult.total / LIMIT)
 })
 // 如果用户信息变化，重新获取收藏
 watch(
