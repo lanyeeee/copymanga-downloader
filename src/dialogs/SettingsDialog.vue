@@ -30,7 +30,22 @@ async function showConfigInFileManager() {
   <n-modal v-if="store.config !== undefined" v-model:show="showing">
     <n-dialog class="w-140!" :showIcon="false" title="设置" content-style="" @close="showing = false">
       <div class="flex flex-col">
-        <span class="font-bold">图片下载格式</span>
+        <span class="font-bold">API域名</span>
+        <n-radio-group v-model:value="store.config.apiDomainMode">
+          <n-radio value="Default">默认</n-radio>
+          <n-radio value="Custom">自定义</n-radio>
+        </n-radio-group>
+        <n-input-group v-if="store.config.apiDomainMode === 'Custom'">
+          <n-input-group-label size="small">自定义API域名</n-input-group-label>
+          <n-input
+            v-model:value="customApiDomain"
+            size="small"
+            placeholder=""
+            @blur="store.config.customApiDomain = customApiDomain"
+            @keydown.enter="store.config.customApiDomain = customApiDomain" />
+        </n-input-group>
+
+        <span class="font-bold mt-2">图片下载格式</span>
         <n-radio-group v-model:value="store.config.downloadFormat">
           <n-tooltip placement="top" trigger="hover">
             <div>推荐使用，这是拷贝服务器上的原图格式</div>
@@ -49,21 +64,6 @@ async function showConfigInFileManager() {
             </template>
           </n-tooltip>
         </n-radio-group>
-
-        <span class="font-bold mt-2">API域名</span>
-        <n-radio-group v-model:value="store.config.apiDomainMode">
-          <n-radio value="Default">默认</n-radio>
-          <n-radio value="Custom">自定义</n-radio>
-        </n-radio-group>
-        <n-input-group v-if="store.config.apiDomainMode === 'Custom'">
-          <n-input-group-label size="small">自定义API域名</n-input-group-label>
-          <n-input
-            v-model:value="customApiDomain"
-            size="small"
-            placeholder=""
-            @blur="store.config.customApiDomain = customApiDomain"
-            @keydown.enter="store.config.customApiDomain = customApiDomain" />
-        </n-input-group>
 
         <span class="mr-2 font-bold mt-2">下载速度</span>
         <div class="flex flex-col gap-1">
@@ -121,6 +121,20 @@ async function showConfigInFileManager() {
               :parse="(x: string) => Number(x)" />
             <n-input-group-label size="small">秒</n-input-group-label>
           </n-input-group>
+        </div>
+
+        <span class="font-bold mt-2">导出相关</span>
+        <div class="flex gap-1 items-center">
+          <n-input-group class="w-70">
+            <n-input-group-label size="small">创建pdf并发数</n-input-group-label>
+            <n-input-number
+              class="w-full"
+              v-model:value="store.config.createPdfConcurrency"
+              size="small"
+              :min="1"
+              :parse="(x: string) => Number(x)" />
+          </n-input-group>
+          <n-checkbox class="w-fit" v-model:checked="store.config.enableMergePdf">创建完成后是否自动合并</n-checkbox>
         </div>
 
         <span class="font-bold mt-2">漫画目录格式</span>
