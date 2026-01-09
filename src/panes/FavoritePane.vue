@@ -1,20 +1,32 @@
 <script setup lang="ts">
 import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
-import { commands } from '../bindings.ts'
+import { commands, GetFavoriteOrdering } from '../bindings.ts'
 import { useStore } from '../store.ts'
+import { SelectProps } from 'naive-ui'
 
 const store = useStore()
+
+const orderingLabels: Record<GetFavoriteOrdering, string> = {
+  Added: '按加到书架时间降序排序',
+  Updated: '按作品更新时间降序排序',
+  Read: '按上次阅读时间排序',
+}
+const orderingOptions: SelectProps['options'] = Object.entries(orderingLabels).map(([ordering, label]) => ({
+  label: label,
+  value: ordering as GetFavoriteOrdering,
+}))
+const orderingSelected = ref<GetFavoriteOrdering>('Added')
 
 // 当前页码
 const currentPage = ref<number>(1)
 // 总页数
 const pageCount = computed(() => {
+  const LIMIT = 18
   if (store.getFavoriteResult === undefined) {
     return 0
   }
-  // FIXME: 有潜在的页码错误问题，例如当total为36时，应该返回2，但实际返回3，应该改用向上取整
-  return Math.floor(store.getFavoriteResult.total / 18) + 1
+  return Math.ceil(store.getFavoriteResult.total / LIMIT)
 })
 // 如果用户信息变化，重新获取收藏
 watch(
@@ -24,14 +36,15 @@ watch(
       store.getFavoriteResult = undefined
       return
     }
-    await getFavourite(1)
+    await getFavorite(1, orderingSelected.value)
   },
   { immediate: true },
 )
 
-async function getFavourite(page: number) {
+async function getFavorite(page: number, ordering: GetFavoriteOrdering) {
+  orderingSelected.value = ordering
   currentPage.value = page
-  const result = await commands.getFavorite(page)
+  const result = await commands.getFavorite(page, ordering)
   if (result.status === 'error') {
     console.error(result.error)
     return
@@ -42,6 +55,18 @@ async function getFavourite(page: number) {
 
 <template>
   <div class="h-full flex flex-col">
+    <div v-if="store.getFavoriteResult !== undefined" class="flex box-border px-2 pt-2">
+      <n-input-group>
+        <n-input-group-label size="small">排序方式</n-input-group-label>
+        <n-select
+          class="w-50"
+          v-model:value="orderingSelected"
+          :options="orderingOptions"
+          :show-checkmark="false"
+          size="small"
+          @update-value="getFavorite(1, $event)" />
+      </n-input-group>
+    </div>
     <div v-if="store.getFavoriteResult !== undefined" class="flex flex-col gap-row-1 overflow-auto p-2">
       <div class="flex flex-col gap-row-2 overflow-auto pr-2 pb-2">
         <comic-card
@@ -54,7 +79,7 @@ async function getFavourite(page: number) {
           :comic-downloaded="favoriteItem.comic.isDownloaded"
           :comic-download-dir="favoriteItem.comic.comicDownloadDir" />
       </div>
-      <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavourite($event)" />
+      <n-pagination :page-count="pageCount" :page="currentPage" @update:page="getFavorite($event, orderingSelected)" />
     </div>
   </div>
 </template>

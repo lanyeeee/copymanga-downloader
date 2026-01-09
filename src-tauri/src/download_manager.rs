@@ -14,6 +14,7 @@ use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use image::ImageFormat;
 use parking_lot::RwLock;
+use regex_lite::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::AppHandle;
@@ -961,7 +962,7 @@ impl ChapterInfo {
             .as_object()
             .context("ChapterDirFmtParams不是JSON对象")?;
 
-        let mut vars: HashMap<String, String> = json_map
+        let vars: HashMap<String, String> = json_map
             .into_iter()
             .map(|(k, v)| {
                 let key = k.clone();
@@ -972,14 +973,9 @@ impl ChapterInfo {
                 (key, value)
             })
             .collect();
-        // 如果 order 是整数，则去掉末尾的 .0
-        if let Some(order_string) = vars.get_mut("order") {
-            if order_string.ends_with(".0") {
-                *order_string = order_string.trim_end_matches(".0").to_string();
-            }
-        }
-
-        let chapter_dir_fmt = app.get_config().read().chapter_dir_fmt.clone();
+        let mut chapter_dir_fmt = app.get_config().read().chapter_dir_fmt.clone();
+        Self::preprocess_order_placeholder(&mut chapter_dir_fmt, &vars)
+            .context("预处理`order`占位符失败")?;
 
         let dir_fmt_parts: Vec<&str> = chapter_dir_fmt.split('/').collect();
 
@@ -998,5 +994,82 @@ impl ChapterInfo {
         }
 
         Ok(chapter_download_dir)
+    }
+
+    /// 预处理`fmt`中的`order`占位符
+    ///
+    /// ### 功能描述
+    /// 标准的格式化(如`{order:0>4}`)会将宽度补齐应用于整个数字字符串
+    /// 当`order`为`5.1`时，标准输出为`05.1`(总长度4)
+    ///
+    /// 本函数旨在实现**仅对整数部分补齐，小数部分追加在后**的效果
+    /// 当`order`为`5.1`时，本函数会将其转换为`0005.1`(整数补齐至4位，小数保留)
+    ///
+    /// ### 处理流程
+    /// 1. **解析数值**：从`vars`中提取`order`，将其拆分为整数部分和小数部分
+    /// 2. **正则扫描**：使用正则查找模板中的`{order}`或`{order:xxx}`占位符，同时兼容`{{` 和 `}}`转义
+    /// 3. **自定义格式化**：
+    ///    - 提取占位符中的格式参数(如`0>4`)
+    ///    - 仅将该参数应用于整数部分
+    ///    - 若存在非零小数部分，将其追加到格式化后的整数后面
+    /// 4. **原地替换**：将计算出的最终字符串(如 `0005.1`)直接替换掉原模板中的占位符
+    ///
+    /// ### 示例
+    /// - 输入 fmt: `"{order:0>3} {chapter_title}"`, order: `"1.5"`
+    /// - 处理后 fmt: `"001.5 {chapter_title}"`
+    fn preprocess_order_placeholder(
+        fmt: &mut String,
+        vars: &HashMap<String, String>,
+    ) -> anyhow::Result<()> {
+        use strfmt::strfmt;
+
+        let Some(order_str) = vars.get("order") else {
+            return Ok(());
+        };
+
+        // 分离整数和小数
+        let (int_part, frac_part) = match order_str.split_once('.') {
+            Some((i, f)) => (i, f),
+            None => (order_str.as_str(), ""),
+        };
+        let should_append_frac = !frac_part.is_empty() && frac_part != "0";
+
+        // group 1: "{{" (转义左括号)
+        // group 2: "}}" (转义右括号)
+        // group 3: "{order...}" (真正的目标)
+        // group 4: 冒号后的格式参数 (仅当 group 3 匹配时有效)
+        let re = Regex::new(r"(\{\{)|(\}\})|(\{order(?::(.*?))?\})")?;
+
+        // 执行替换
+        let new_fmt = re.replace_all(fmt, |caps: &Captures| {
+            // 遇到 {{，原样返回，消耗掉字符避免后续匹配误伤
+            if caps.get(1).is_some() {
+                return "{{".to_string();
+            }
+            // 遇到 }}，同理
+            if caps.get(2).is_some() {
+                return "}}".to_string();
+            }
+            // 匹配到了 {order...}
+            // 此时 Group 4 是格式参数 (例如 "0>4")
+            let fmt_spec = caps.get(4).map_or("", |m| m.as_str());
+
+            // 构造临时模板 "{v:xxx}" 来格式化整数部分
+            let int_fmt = format!("{{v:{fmt_spec}}}");
+            let mut temp_vars = HashMap::new();
+            temp_vars.insert("v".to_string(), int_part.to_string());
+
+            let formatted_int = strfmt(&int_fmt, &temp_vars).unwrap_or(int_part.to_string());
+
+            if should_append_frac {
+                format!("{formatted_int}.{frac_part}")
+            } else {
+                formatted_int
+            }
+        });
+
+        *fmt = new_fmt.to_string();
+
+        Ok(())
     }
 }

@@ -18,7 +18,10 @@ use crate::{
     responses::{
         ChapterInGetChaptersRespData, GetChapterRespData, LoginRespData, UserProfileRespData,
     },
-    types::{ChapterInfo, Comic, ComicInFavorite, ComicInSearch, GetFavoriteResult, SearchResult},
+    types::{
+        ChapterInfo, Comic, ComicInFavorite, ComicInSearch, GetFavoriteOrdering, GetFavoriteResult,
+        SearchResult,
+    },
     utils,
 };
 
@@ -178,11 +181,15 @@ pub async fn get_chapter(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_favorite(app: AppHandle, page_num: i64) -> CommandResult<GetFavoriteResult> {
+pub async fn get_favorite(
+    app: AppHandle,
+    page_num: i64,
+    ordering: GetFavoriteOrdering,
+) -> CommandResult<GetFavoriteResult> {
     let copy_client = app.get_copy_client();
 
     let get_favorite_resp_data = copy_client
-        .get_favorite(page_num)
+        .get_favorite(page_num, ordering)
         .await
         .map_err(|err| CommandError::from("获取收藏夹失败", err))?;
 

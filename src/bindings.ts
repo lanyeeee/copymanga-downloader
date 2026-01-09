@@ -75,9 +75,9 @@ async getChapter(comicPathWord: string, chapterUuid: string) : Promise<Result<Ge
     else return { status: "error", error: e  as any };
 }
 },
-async getFavorite(pageNum: number) : Promise<Result<GetFavoriteResult, CommandError>> {
+async getFavorite(pageNum: number, ordering: GetFavoriteOrdering) : Promise<Result<GetFavoriteResult, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_favorite", { pageNum }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_favorite", { pageNum, ordering }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -254,7 +254,7 @@ export type ComicInGetChapterRespData = { name: string; uuid: string; path_word:
 export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicStatus = "ongoing" | "completed"
 export type CommandError = { err_title: string; err_message: string }
-export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; updateDownloadedComicsIntervalSec: number; comicDirFmt: string; chapterDirFmt: string }
+export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; updateDownloadedComicsIntervalSec: number; comicDirFmt: string; chapterDirFmt: string; createPdfConcurrency: number; enableMergePdf: boolean }
 export type ContentRespData = { url: string }
 export type DownloadControlRiskEvent = { chapterUuid: string; retryAfter: number }
 export type DownloadFormat = "Webp" | "Jpeg"
@@ -266,6 +266,19 @@ export type ExportCbzEvent = { event: "Start"; data: { uuid: string; comicTitle:
 export type ExportPdfEvent = { event: "CreateStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "CreateProgress"; data: { uuid: string; current: number } } | { event: "CreateError"; data: { uuid: string } } | { event: "CreateEnd"; data: { uuid: string; chapterExportDir: string } } | { event: "MergeStart"; data: { uuid: string; comicTitle: string; total: number } } | { event: "MergeProgress"; data: { uuid: string; current: number } } | { event: "MergeError"; data: { uuid: string } } | { event: "MergeEnd"; data: { uuid: string; chapterExportDir: string } }
 export type FavoriteItem = { uuid: number; bFolder: boolean; comic: ComicInFavorite }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
+export type GetFavoriteOrdering = 
+/**
+ * 按加到书架时间降序排序
+ */
+"Added" | 
+/**
+ * 按作品更新时间降序排序
+ */
+"Updated" | 
+/**
+ * 按上次阅读时间排序
+ */
+"Read"
 export type GetFavoriteResult = Pagination<FavoriteItem>
 export type Group = { path_word: string; count: number; name: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }

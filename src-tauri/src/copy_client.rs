@@ -20,6 +20,7 @@ use crate::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
         GetComicRespData, GetFavoriteRespData, LoginRespData, SearchRespData, UserProfileRespData,
     },
+    types::GetFavoriteOrdering,
 };
 
 #[derive(Clone)]
@@ -419,13 +420,17 @@ impl CopyClient {
         Ok((img_data, img_format))
     }
 
-    pub async fn get_favorite(&self, page_num: i64) -> CopyMangaResult<GetFavoriteRespData> {
+    pub async fn get_favorite(
+        &self,
+        page_num: i64,
+        ordering: GetFavoriteOrdering,
+    ) -> CopyMangaResult<GetFavoriteRespData> {
         const LIMIT: i64 = 18;
         let params = json!({
             "limit": LIMIT,
             "offset": (page_num - 1) * LIMIT,
             "free_type": 1,
-            "ordering": "-datetime_modifier",
+            "ordering": ordering.as_params(),
         });
         // 发送获取收藏请求
         let api_domain = self.get_api_domain();

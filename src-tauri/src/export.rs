@@ -19,7 +19,7 @@ use zip::{write::SimpleFileOptions, ZipWriter};
 
 use crate::{
     events::{ExportCbzEvent, ExportPdfEvent},
-    extensions::PathIsImg,
+    extensions::{AppHandleExt, PathIsImg},
     types::{ChapterInfo, Comic, ComicInfo},
     utils,
 };
@@ -259,58 +259,67 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
     // 章节和他们对应的pdf路径
     let chapter_and_pdf_path_pairs = Mutex::new(Vec::new());
     // 并发处理
-    let downloaded_chapters = downloaded_chapters.into_par_iter();
-    downloaded_chapters.try_for_each(|chapter_info| -> anyhow::Result<()> {
-        let chapter_title = &chapter_info.chapter_title;
-        let group_name = &chapter_info.group_name;
-        let err_prefix = format!("`{comic_title} - {group_name} - {chapter_title}`");
-        // 创建pdf文件
-        let chapter_download_dir = chapter_info
-            .chapter_download_dir
-            .as_ref()
-            .context(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
-        let chapter_download_dir_name = chapter_download_dir
-            .file_name()
-            .and_then(|name| name.to_str())
-            .context(format!(
-                "{err_prefix} 获取`{}`的目录名失败",
+    let create_pdf_concurrency = app.get_config().read().create_pdf_concurrency;
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(create_pdf_concurrency)
+        .build()
+        .context("rayon线程池创建失败")?;
+
+    thread_pool.install(|| {
+        let downloaded_chapters = downloaded_chapters.into_par_iter();
+        downloaded_chapters.try_for_each(|chapter_info| -> anyhow::Result<()> {
+            let chapter_title = &chapter_info.chapter_title;
+            let group_name = &chapter_info.group_name;
+            let err_prefix = format!("`{comic_title} - {group_name} - {chapter_title}`");
+            // 创建pdf文件
+            let chapter_download_dir = chapter_info
+                .chapter_download_dir
+                .as_ref()
+                .context(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
+            let chapter_download_dir_name = chapter_download_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .context(format!(
+                    "{err_prefix} 获取`{}`的目录名失败",
+                    chapter_download_dir.display()
+                ))?;
+            let chapter_relative_dir = chapter_info
+                .get_chapter_relative_dir(comic)
+                .context(format!("{err_prefix} 获取章节相对目录失败"))?;
+            let chapter_relative_dir_parent = chapter_relative_dir.parent().context(format!(
+                "{err_prefix} `{}`没有父目录",
+                chapter_relative_dir.display()
+            ))?;
+            let chapter_export_dir = pdf_export_dir.join(chapter_relative_dir_parent);
+            // 保证导出目录存在
+            std::fs::create_dir_all(&chapter_export_dir).context(format!(
+                "{err_prefix} 创建目录`{}`失败",
+                chapter_export_dir.display()
+            ))?;
+
+            let pdf_path =
+                chapter_export_dir.join(format!("{chapter_download_dir_name}.{extension}"));
+
+            let image_paths = get_image_paths(chapter_download_dir).context(format!(
+                "{err_prefix} 获取`{}`中的图片失败",
                 chapter_download_dir.display()
             ))?;
-        let chapter_relative_dir = chapter_info
-            .get_chapter_relative_dir(comic)
-            .context(format!("{err_prefix} 获取章节相对目录失败"))?;
-        let chapter_relative_dir_parent = chapter_relative_dir.parent().context(format!(
-            "{err_prefix} `{}`没有父目录",
-            chapter_relative_dir.display()
-        ))?;
-        let chapter_export_dir = pdf_export_dir.join(chapter_relative_dir_parent);
-        // 保证导出目录存在
-        std::fs::create_dir_all(&chapter_export_dir).context(format!(
-            "{err_prefix} 创建目录`{}`失败",
-            chapter_export_dir.display()
-        ))?;
 
-        let pdf_path = chapter_export_dir.join(format!("{chapter_download_dir_name}.{extension}"));
+            create_pdf(image_paths, &pdf_path).context(format!("{err_prefix} 创建pdf失败"))?;
 
-        let image_paths = get_image_paths(chapter_download_dir).context(format!(
-            "{err_prefix} 获取`{}`中的图片失败",
-            chapter_download_dir.display()
-        ))?;
-
-        create_pdf(image_paths, &pdf_path).context(format!("{err_prefix} 创建pdf失败"))?;
-
-        chapter_and_pdf_path_pairs
-            .lock()
-            .push((chapter_info, pdf_path));
-        // 更新创建pdf的进度
-        let current = created_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
-        // 发送创建pdf进度事件
-        let _ = ExportPdfEvent::CreateProgress {
-            uuid: create_event_uuid.clone(),
-            current,
-        }
-        .emit(app);
-        Ok(())
+            chapter_and_pdf_path_pairs
+                .lock()
+                .push((chapter_info, pdf_path));
+            // 更新创建pdf的进度
+            let current = created_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            // 发送创建pdf进度事件
+            let _ = ExportPdfEvent::CreateProgress {
+                uuid: create_event_uuid.clone(),
+                current,
+            }
+            .emit(app);
+            Ok(())
+        })
     })?;
     // 标记为成功，后面drop时就不会发送CreateError事件
     create_error_event_guard.success = true;
@@ -320,6 +329,11 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
         chapter_export_dir: pdf_export_dir.clone(),
     }
     .emit(app);
+
+    let enable_merge_pdf = app.get_config().read().enable_merge_pdf;
+    if !enable_merge_pdf {
+        return Ok(());
+    }
 
     let mut chapter_and_pdf_path_pairs = std::mem::take(&mut *chapter_and_pdf_path_pairs.lock());
     chapter_and_pdf_path_pairs.sort_by_key(|(chapter_info, _)| FloatOrd(chapter_info.order));

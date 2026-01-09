@@ -21,7 +21,7 @@ const pageCount = computed(() => {
     return 0
   }
   const total = store.searchResult.total
-  return Math.floor(total / LIMIT) + 1
+  return Math.ceil(total / LIMIT)
 })
 
 async function search(keyword: string, page: number) {

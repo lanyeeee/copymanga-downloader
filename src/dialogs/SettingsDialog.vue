@@ -30,7 +30,22 @@ async function showConfigInFileManager() {
   <n-modal v-if="store.config !== undefined" v-model:show="showing">
     <n-dialog class="w-140!" :showIcon="false" title="设置" content-style="" @close="showing = false">
       <div class="flex flex-col">
-        <span class="font-bold">图片下载格式</span>
+        <span class="font-bold">API域名</span>
+        <n-radio-group v-model:value="store.config.apiDomainMode">
+          <n-radio value="Default">默认</n-radio>
+          <n-radio value="Custom">自定义</n-radio>
+        </n-radio-group>
+        <n-input-group v-if="store.config.apiDomainMode === 'Custom'">
+          <n-input-group-label size="small">自定义API域名</n-input-group-label>
+          <n-input
+            v-model:value="customApiDomain"
+            size="small"
+            placeholder=""
+            @blur="store.config.customApiDomain = customApiDomain"
+            @keydown.enter="store.config.customApiDomain = customApiDomain" />
+        </n-input-group>
+
+        <span class="font-bold mt-2">图片下载格式</span>
         <n-radio-group v-model:value="store.config.downloadFormat">
           <n-tooltip placement="top" trigger="hover">
             <div>推荐使用，这是拷贝服务器上的原图格式</div>
@@ -49,21 +64,6 @@ async function showConfigInFileManager() {
             </template>
           </n-tooltip>
         </n-radio-group>
-
-        <span class="font-bold mt-2">API域名</span>
-        <n-radio-group v-model:value="store.config.apiDomainMode">
-          <n-radio value="Default">默认</n-radio>
-          <n-radio value="Custom">自定义</n-radio>
-        </n-radio-group>
-        <n-input-group v-if="store.config.apiDomainMode === 'Custom'">
-          <n-input-group-label size="small">自定义API域名</n-input-group-label>
-          <n-input
-            v-model:value="customApiDomain"
-            size="small"
-            placeholder=""
-            @blur="store.config.customApiDomain = customApiDomain"
-            @keydown.enter="store.config.customApiDomain = customApiDomain" />
-        </n-input-group>
 
         <span class="mr-2 font-bold mt-2">下载速度</span>
         <div class="flex flex-col gap-1">
@@ -121,6 +121,20 @@ async function showConfigInFileManager() {
               :parse="(x: string) => Number(x)" />
             <n-input-group-label size="small">秒</n-input-group-label>
           </n-input-group>
+        </div>
+
+        <span class="font-bold mt-2">导出相关</span>
+        <div class="flex gap-1 items-center">
+          <n-input-group class="w-70">
+            <n-input-group-label size="small">创建pdf并发数</n-input-group-label>
+            <n-input-number
+              class="w-full"
+              v-model:value="store.config.createPdfConcurrency"
+              size="small"
+              :min="1"
+              :parse="(x: string) => Number(x)" />
+          </n-input-group>
+          <n-checkbox class="w-fit" v-model:checked="store.config.enableMergePdf">创建完成后是否自动合并</n-checkbox>
         </div>
 
         <span class="font-bold mt-2">漫画目录格式</span>
@@ -219,10 +233,17 @@ async function showConfigInFileManager() {
           </div>
           <div>
             <span class="rounded bg-gray-500 px-1 select-all">order</span>
-            <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点</span>
+            <span class="ml-2">章节在分组中的序号，一些特殊章节会有小数点，支持补齐</span>
+          </div>
+          <div class="text-xs">
+            <span>补齐用法：</span>
+            <span class="rounded bg-gray-500 px-1 select-all font-mono">{order:0>4}</span>
+            <span>表示用0补齐4位，</span>
+            <span class="mr-2">例如 13 &rarr; 0013</span>
+            <span>13.1 &rarr; 0013.1</span>
           </div>
           <div class="font-semibold mt-2">例如格式</div>
-          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order} {chapter_title}</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{group_title}/{order:0>3} {chapter_title}</div>
           <div class="font-semibold">
             <span>下载</span>
             <span class="text-blue mx-1">電鋸人 - 默認 - 第13话</span>
@@ -231,11 +252,11 @@ async function showConfigInFileManager() {
           <div class="flex gap-1">
             <span class="bg-gray-200 rounded-md px-1 w-fit text-black">默認</span>
             <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
-            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">13 第13话</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">013 第13话</span>
           </div>
           <div class="font-semibold">
             两层文件夹，章节元数据保存在最内层的文件夹
-            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">13 第13话</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal">013 第13话</span>
             里
           </div>
           <template #trigger>
