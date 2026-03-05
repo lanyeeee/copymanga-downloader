@@ -11,7 +11,7 @@
 
 # 图形界面
 
-![image](https://github.com/user-attachments/assets/79d4f70e-b41f-4b8f-b516-1c006c8a80c4)
+![image](https://github.com/user-attachments/assets/44e78386-640e-4398-b934-17006a75375e)
 
 # 使用方法
 
@@ -38,7 +38,7 @@ https://github.com/user-attachments/assets/5d282480-0f7e-4250-a1e1-e8f3605577e7
 我能想到的解决办法只有：
 
 1. 根据下面的**如何构建(build)**，自行编译
-2. 希望你相信我的承诺，我承诺你在[Release页面](https://github.com/lanyeeee/copymanga-downloader/releases)下载到的所有东西都是安全的
+2. 希望你相信我的承诺，我承诺你在[Release页面](https://github.com/lanyeeee/copymanga-downloader/releases)下载到的所有东西都是安全的。切勿轻信他人分享的文件，请**仅**在[Release页面](https://github.com/lanyeeee/copymanga-downloader/releases)下载。任何不是从该页面下载的版本均可能**已被篡改**并**真的包含病毒**(而非误报)，包括但不限于`网盘`、`通过邮箱或社交软件分享`、`issue或discussion里的文件`、`其他fork(仓库)`、`其他网站`
 
 # 如何构建(build)
 

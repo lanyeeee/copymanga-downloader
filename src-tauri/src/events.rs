@@ -68,6 +68,7 @@ pub enum ExportCbzEvent {
     #[serde(rename_all = "camelCase")]
     End {
         uuid: String,
+        comic_path_word: String,
         chapter_export_dir: PathBuf,
     },
 }
@@ -88,6 +89,7 @@ pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]
     CreateEnd {
         uuid: String,
+        comic_path_word: String,
         chapter_export_dir: PathBuf,
     },
 
@@ -104,6 +106,7 @@ pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]
     MergeEnd {
         uuid: String,
+        comic_path_word: String,
         chapter_export_dir: PathBuf,
     },
 }

@@ -27,6 +27,8 @@ pub struct Config {
     pub chapter_dir_fmt: String,
     pub create_pdf_concurrency: usize,
     pub enable_merge_pdf: bool,
+    /// 导出跳过模式
+    pub export_skip_mode: ExportSkipMode,
 }
 
 impl Config {
@@ -102,6 +104,7 @@ impl Config {
             chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
             create_pdf_concurrency: cpu_core_num,
             enable_merge_pdf: true,
+            export_skip_mode: ExportSkipMode::default(),
         }
     }
 
@@ -123,4 +126,16 @@ pub enum ApiDomainMode {
     #[default]
     Default,
     Custom,
+}
+
+/// 导出跳过模式
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum ExportSkipMode {
+    /// 每次重新导出所有章节
+    #[default]
+    None,
+    /// 跳过本地已存在的导出文件
+    SkipExisting,
+    /// 跳过曾导出过的章节（即使本地文件已删除）
+    SkipExported,
 }

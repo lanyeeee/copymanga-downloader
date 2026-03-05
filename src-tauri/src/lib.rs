@@ -17,6 +17,7 @@ use anyhow::Context;
 use copy_client::CopyClient;
 use download_manager::DownloadManager;
 use events::{ExportCbzEvent, ExportPdfEvent, UpdateDownloadedComicsEvent};
+use export::ComicExportLock;
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 use types::AsyncRwLock;
@@ -55,6 +56,8 @@ pub fn run() {
             get_downloaded_comics,
             export_cbz,
             export_pdf,
+            export_cbz_chapters,
+            export_pdf_chapters,
             update_downloaded_comics,
             get_logs_dir_size,
             show_path_in_file_manager,
@@ -111,6 +114,9 @@ pub fn run() {
 
             let account_pool = AsyncRwLock::new(AccountPool::new(app.handle())?);
             app.manage(account_pool);
+
+            let export_lock = ComicExportLock::new();
+            app.manage(export_lock);
 
             logger::init(app.handle())?;
 

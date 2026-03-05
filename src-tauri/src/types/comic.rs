@@ -190,6 +190,14 @@ impl Comic {
                     .context(format!("`{}`没有父目录", metadata_path.display()))?;
                 chapter_info.chapter_download_dir = Some(parent.to_path_buf());
                 chapter_info.is_downloaded = Some(true);
+                chapter_info.is_pdf_exported = chapter_json
+                    .get("isPdfExported")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
+                chapter_info.is_cbz_exported = chapter_json
+                    .get("isCbzExported")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false);
             }
         }
 
@@ -384,6 +392,8 @@ impl ComicDetail {
                     comic_status,
                     is_downloaded: None,
                     chapter_download_dir: None,
+                    is_pdf_exported: false,
+                    is_cbz_exported: false,
                 })
                 .collect();
 
