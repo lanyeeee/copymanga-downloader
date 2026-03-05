@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::{
     account_pool::AccountPool, config::Config, copy_client::CopyClient,
-    download_manager::DownloadManager, export::ExportQueue, types::AsyncRwLock,
+    download_manager::DownloadManager, export::ComicExportLock, types::AsyncRwLock,
 };
 
 pub trait AnyhowErrorToStringChain {
@@ -96,7 +96,7 @@ pub trait AppHandleExt {
     fn get_copy_client(&self) -> State<CopyClient>;
     fn get_download_manager(&self) -> State<DownloadManager>;
     fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>>;
-    fn get_export_queue(&self) -> State<ExportQueue>;
+    fn get_export_lock(&self) -> State<ComicExportLock>;
 }
 
 impl AppHandleExt for AppHandle {
@@ -112,7 +112,7 @@ impl AppHandleExt for AppHandle {
     fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>> {
         self.state::<AsyncRwLock<AccountPool>>()
     }
-    fn get_export_queue(&self) -> State<ExportQueue> {
-        self.state::<ExportQueue>()
+    fn get_export_lock(&self) -> State<ComicExportLock> {
+        self.state::<ComicExportLock>()
     }
 }

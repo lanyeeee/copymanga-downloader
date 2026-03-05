@@ -70,8 +70,8 @@ function getChapterClass(chapter: ChapterInfoWithState): Record<string, boolean>
     classes.downloaded = chapter.isDownloaded === true
   } else {
     // 导出模式：根据导出状态显示不同颜色
-    const hasPdf = chapter.exportedPdf === true
-    const hasCbz = chapter.exportedCbz === true
+    const hasPdf = chapter.isPdfExported === true
+    const hasCbz = chapter.isCbzExported === true
     classes.exportedPdf = hasPdf && !hasCbz
     classes.exportedCbz = hasCbz && !hasPdf
     classes.exportedBoth = hasPdf && hasCbz

@@ -137,6 +137,6 @@ pub enum ExportSkipMode {
     None,
     /// 跳过本地已存在的导出文件
     SkipExisting,
-    /// 跳过已导出过的章节（即使本地文件已删除）
+    /// 跳过曾导出过的章节（即使本地文件已删除）
     SkipExported,
 }

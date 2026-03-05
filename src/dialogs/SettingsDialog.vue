@@ -19,7 +19,7 @@ const chapterDirFmt = ref<string>(store.config?.chapterDirFmt ?? '')
 const exportSkipModeOptions = [
   { label: '每次重新导出', value: 'none' },
   { label: '跳过已存在的文件', value: 'skipExisting' },
-  { label: '跳过已导出过的章节', value: 'skipExported' },
+  { label: '跳过曾导出过的章节', value: 'skipExported' },
 ]
 
 async function showConfigInFileManager() {

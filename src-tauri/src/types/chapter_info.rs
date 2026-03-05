@@ -8,6 +8,7 @@ use crate::types::Comic;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct ChapterInfo {
     pub chapter_uuid: String,
     pub chapter_title: String,
@@ -24,16 +25,14 @@ pub struct ChapterInfo {
     pub order: f64,
     /// 漫画的连载状态
     pub comic_status: ComicStatus,
+    /// 是否曾导出过PDF
+    pub is_pdf_exported: bool,
+    /// 是否曾导出过CBZ
+    pub is_cbz_exported: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_downloaded: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chapter_download_dir: Option<PathBuf>,
-    /// 是否已导出PDF
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub exported_pdf: Option<bool>,
-    /// 是否已导出CBZ
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub exported_cbz: Option<bool>,
 }
 
 impl ChapterInfo {

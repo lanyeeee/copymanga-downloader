@@ -92,10 +92,8 @@ async function handleExportCbzEvents() {
         progressData.comicPathWord = comicPathWord
         progressData.indicator = 'CBZ创建完成'
       }
-      // 刷新当前漫画数据
-      if (comicPathWord) {
-        await syncPickedComic(comicPathWord)
-      }
+      // 同步当前漫画数据
+      await syncPickedComic(comicPathWord)
     }
   })
 }
@@ -140,10 +138,8 @@ async function handleExportPdfEvents() {
         progressData.comicPathWord = comicPathWord
         progressData.indicator = 'PDF创建完成'
       }
-      // 刷新当前漫画数据
-      if (comicPathWord) {
-        await syncPickedComic(comicPathWord)
-      }
+      // 同步当前漫画数据
+      await syncPickedComic(comicPathWord)
     } else if (exportEvent.event === 'MergeStart') {
       const { uuid, comicTitle } = exportEvent.data
       progresses.value.set(uuid, {
@@ -173,10 +169,6 @@ async function handleExportPdfEvents() {
         progressData.chapterExportDir = chapterExportDir
         progressData.comicPathWord = comicPathWord
         progressData.indicator = 'PDF合并完成'
-      }
-      // 刷新当前漫画数据
-      if (comicPathWord) {
-        await syncPickedComic(comicPathWord)
       }
     }
   })
