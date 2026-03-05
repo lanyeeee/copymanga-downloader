@@ -3,6 +3,7 @@
 </p>
 
 # 拷贝漫画下载器
+
 一个用于 mangacopy.com 拷贝漫画 copymanga 的多线程下载器，带图形界面，带收藏夹，**支持下载下架的漫画，没有每分钟15次API请求的限制**，下载速度飞快。图形界面基于[Tauri](https://v2.tauri.app/start/)
 
 在[Release页面](https://github.com/lanyeeee/copymanga-downloader/releases)可以直接下载
@@ -74,7 +75,7 @@ pnpm tauri build
 
 # 提交PR
 
-**PR请提交至`develop`分支**
+**PR请基于`develop`分支开发，并提交至`develop`分支**
 
 **如果想新加一个功能，请先开个`issue`或`discussion`讨论一下，避免无效工作**
 
@@ -94,4 +95,4 @@ pnpm tauri build
 
 # 其他
 
-任何使用中遇到的问题、任何希望添加的功能，都欢迎提交issue或开discussion交流，我会尽力解决  
+任何使用中遇到的问题、任何希望添加的功能，都欢迎提交issue或开discussion交流，我会尽力解决
