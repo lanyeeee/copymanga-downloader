@@ -128,7 +128,7 @@ pub fn cbz(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
     };
 
     // 获取配置
-    let skip_mode = app.get_config().read().export_skip_mode.clone();
+    let skip_mode = app.get_config().read().export_skip_mode;
 
     // 获取已下载章节
     let downloaded_chapters = get_downloaded_chapters(&comic.comic.groups);
@@ -138,7 +138,7 @@ pub fn cbz(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
         app,
         comic,
         downloaded_chapters,
-        &skip_mode,
+        skip_mode,
         comic_path_word,
         comic_title,
     )
@@ -175,7 +175,7 @@ pub fn cbz_chapters(
         app,
         comic,
         downloaded_chapters,
-        &ExportSkipMode::None,
+        ExportSkipMode::None,
         comic_path_word,
         comic_title,
     )
@@ -189,7 +189,7 @@ fn cbz_internal(
     app: &AppHandle,
     comic: &Comic,
     downloaded_chapters: Vec<ChapterInfo>,
-    skip_mode: &ExportSkipMode,
+    skip_mode: ExportSkipMode,
     comic_path_word: &str,
     comic_title: &str,
 ) -> anyhow::Result<()> {
@@ -421,7 +421,7 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
     // 获取配置
     let config = app.get_config();
     let config_guard = config.read();
-    let skip_mode = config_guard.export_skip_mode.clone();
+    let skip_mode = config_guard.export_skip_mode;
     let enable_merge_pdf = config_guard.enable_merge_pdf;
 
     let enable_merge = match skip_mode {
@@ -438,7 +438,7 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
         app,
         comic,
         downloaded_chapters,
-        &skip_mode,
+        skip_mode,
         enable_merge,
         comic_path_word,
         comic_title,
@@ -475,8 +475,8 @@ pub fn pdf_chapters(
         app,
         comic,
         downloaded_chapters,
-        &ExportSkipMode::None, // 用户主动选择，不跳过
-        false,                 // 选择性导出，不合并
+        ExportSkipMode::None, // 用户主动选择，不跳过
+        false,                // 选择性导出，不合并
         comic_path_word,
         comic_title,
     )
@@ -489,7 +489,7 @@ fn pdf_internal(
     app: &AppHandle,
     comic: &Comic,
     downloaded_chapters: Vec<ChapterInfo>,
-    skip_mode: &ExportSkipMode,
+    skip_mode: ExportSkipMode,
     enable_merge: bool,
     comic_path_word: &str,
     comic_title: &str,
@@ -569,9 +569,15 @@ fn pdf_internal(
                 _ => false,
             };
 
+            println!(
+                "enable_merge={enable_merge}, should_skip={should_skip}, pdf_path={}",
+                pdf_path.display()
+            );
+
             if should_skip {
                 // 如果文件存在且需要合并，记录路径
                 if enable_merge && pdf_path.exists() {
+                    println!("add to merge, pdf_path={}", pdf_path.display());
                     chapter_and_pdf_path_pairs
                         .lock()
                         .push((chapter_info.clone(), pdf_path));

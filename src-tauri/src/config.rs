@@ -121,7 +121,7 @@ impl Config {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub enum ApiDomainMode {
     #[default]
     Default,
@@ -129,7 +129,7 @@ pub enum ApiDomainMode {
 }
 
 /// 导出跳过模式
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub enum ExportSkipMode {
     /// 每次重新导出所有章节
     #[default]
