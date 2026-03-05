@@ -153,43 +153,79 @@ impl Comic {
             let metadata_str = std::fs::read_to_string(metadata_path)
                 .context(format!("读取`{}`失败", metadata_path.display()))?;
 
-            let chapter_json: serde_json::Value =
-                serde_json::from_str(&metadata_str).context(format!(
-                    "将`{}`反序列化为serde_json::Value失败",
-                    metadata_path.display()
-                ))?;
+            // 尝试解析为完整的 ChapterInfo 结构
+            let chapter_info_from_metadata: Result<ChapterInfo, _> =
+                serde_json::from_str(&metadata_str);
 
-            let chapter_uuid = chapter_json
-                .get("chapterUuid")
-                .and_then(|uuid| uuid.as_str())
-                .context(format!(
-                    "`{}`没有`chapterUuid`字段",
-                    metadata_path.display()
-                ))?
-                .to_string();
+            if let Ok(metadata_chapter) = chapter_info_from_metadata {
+                // 成功解析完整结构，使用元数据中的字段
+                let group_path_word = metadata_chapter.group_path_word.clone();
+                let chapter_uuid = metadata_chapter.chapter_uuid.clone();
 
-            let group_path_word = chapter_json
-                .get("groupPathWord")
-                .and_then(|word| word.as_str())
-                .context(format!(
-                    "`{}`没有`groupPathWord`字段",
-                    metadata_path.display()
-                ))?
-                .to_string();
+                let Some(group) = self.comic.groups.get_mut(&group_path_word) else {
+                    continue;
+                };
 
-            let Some(group) = self.comic.groups.get_mut(&group_path_word) else {
-                continue;
-            };
+                if let Some(chapter_info) = group
+                    .iter_mut()
+                    .find(|chapter| chapter.chapter_uuid == chapter_uuid)
+                {
+                    let parent = metadata_path
+                        .parent()
+                        .context(format!("`{}`没有父目录", metadata_path.display()))?;
+                    chapter_info.chapter_download_dir = Some(parent.to_path_buf());
+                    chapter_info.is_downloaded = Some(true);
+                    // 从元数据中读取导出状态字段
+                    chapter_info.exported_pdf = metadata_chapter.exported_pdf;
+                    chapter_info.exported_cbz = metadata_chapter.exported_cbz;
+                }
+            } else {
+                // 兼容旧版本元数据格式
+                let chapter_json: serde_json::Value =
+                    serde_json::from_str(&metadata_str).context(format!(
+                        "将`{}`反序列化为serde_json::Value失败",
+                        metadata_path.display()
+                    ))?;
 
-            if let Some(chapter_info) = group
-                .iter_mut()
-                .find(|chapter| chapter.chapter_uuid == chapter_uuid)
-            {
-                let parent = metadata_path
-                    .parent()
-                    .context(format!("`{}`没有父目录", metadata_path.display()))?;
-                chapter_info.chapter_download_dir = Some(parent.to_path_buf());
-                chapter_info.is_downloaded = Some(true);
+                let chapter_uuid = chapter_json
+                    .get("chapterUuid")
+                    .and_then(|uuid| uuid.as_str())
+                    .context(format!(
+                        "`{}`没有`chapterUuid`字段",
+                        metadata_path.display()
+                    ))?
+                    .to_string();
+
+                let group_path_word = chapter_json
+                    .get("groupPathWord")
+                    .and_then(|word| word.as_str())
+                    .context(format!(
+                        "`{}`没有`groupPathWord`字段",
+                        metadata_path.display()
+                    ))?
+                    .to_string();
+
+                let Some(group) = self.comic.groups.get_mut(&group_path_word) else {
+                    continue;
+                };
+
+                if let Some(chapter_info) = group
+                    .iter_mut()
+                    .find(|chapter| chapter.chapter_uuid == chapter_uuid)
+                {
+                    let parent = metadata_path
+                        .parent()
+                        .context(format!("`{}`没有父目录", metadata_path.display()))?;
+                    chapter_info.chapter_download_dir = Some(parent.to_path_buf());
+                    chapter_info.is_downloaded = Some(true);
+                    // 尝试从旧格式中读取导出状态字段
+                    chapter_info.exported_pdf = chapter_json
+                        .get("exportedPdf")
+                        .and_then(|v| v.as_bool());
+                    chapter_info.exported_cbz = chapter_json
+                        .get("exportedCbz")
+                        .and_then(|v| v.as_bool());
+                }
             }
         }
 
@@ -384,6 +420,8 @@ impl ComicDetail {
                     comic_status,
                     is_downloaded: None,
                     chapter_download_dir: None,
+                    exported_pdf: None,
+                    exported_cbz: None,
                 })
                 .collect();
 

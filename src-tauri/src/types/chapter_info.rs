@@ -28,6 +28,12 @@ pub struct ChapterInfo {
     pub is_downloaded: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chapter_download_dir: Option<PathBuf>,
+    /// 是否已导出PDF
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exported_pdf: Option<bool>,
+    /// 是否已导出CBZ
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exported_cbz: Option<bool>,
 }
 
 impl ChapterInfo {

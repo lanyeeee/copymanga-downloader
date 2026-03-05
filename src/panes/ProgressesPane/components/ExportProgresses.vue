@@ -1,10 +1,11 @@
 <script setup lang="tsx">
-import { events } from '../../../bindings.ts'
+import { events, commands } from '../../../bindings.ts'
 import { onMounted, ref, watchEffect, nextTick } from 'vue'
 import { NIcon, DropdownOption } from 'naive-ui'
 import { PhChecks, PhTrash } from '@phosphor-icons/vue'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
 import ExportProgress from './ExportProgress.vue'
+import { useStore } from '../../../store.ts'
 
 type ProgressState = 'Processing' | 'Error' | 'End'
 
@@ -18,8 +19,10 @@ export interface ProgressData {
   percentage: number
   indicator: string
   chapterExportDir?: string
+  comicPathWord?: string
 }
 
+const store = useStore()
 const selectedIds = ref<Set<string>>(new Set())
 const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
 
@@ -34,6 +37,20 @@ watchEffect(() => {
     }
   }
 })
+
+// 同步当前漫画数据
+async function syncPickedComic(comicPathWord: string) {
+  if (store.pickedComic === undefined) {
+    return
+  }
+  if (store.pickedComic.comic.path_word !== comicPathWord) {
+    return
+  }
+  const result = await commands.getSyncedComic(store.pickedComic)
+  if (result.status === 'ok') {
+    Object.assign(store.pickedComic, result.data)
+  }
+}
 
 // 处理导出CBZ事件
 async function handleExportCbzEvents() {
@@ -67,12 +84,17 @@ async function handleExportCbzEvents() {
         progressData.indicator = 'CBZ创建失败'
       }
     } else if (exportEvent.event === 'End') {
-      const { uuid, chapterExportDir } = exportEvent.data
+      const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
       const progressData = progresses.value.get(uuid)
       if (progressData !== undefined) {
         progressData.state = 'End'
         progressData.chapterExportDir = chapterExportDir
+        progressData.comicPathWord = comicPathWord
         progressData.indicator = 'CBZ创建完成'
+      }
+      // 刷新当前漫画数据
+      if (comicPathWord) {
+        await syncPickedComic(comicPathWord)
       }
     }
   })
@@ -110,12 +132,17 @@ async function handleExportPdfEvents() {
         progressData.indicator = '创建PDF失败'
       }
     } else if (exportEvent.event === 'CreateEnd') {
-      const { uuid, chapterExportDir } = exportEvent.data
+      const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
       const progressData = progresses.value.get(uuid)
       if (progressData !== undefined) {
         progressData.state = 'End'
         progressData.chapterExportDir = chapterExportDir
+        progressData.comicPathWord = comicPathWord
         progressData.indicator = 'PDF创建完成'
+      }
+      // 刷新当前漫画数据
+      if (comicPathWord) {
+        await syncPickedComic(comicPathWord)
       }
     } else if (exportEvent.event === 'MergeStart') {
       const { uuid, comicTitle } = exportEvent.data
@@ -137,14 +164,19 @@ async function handleExportPdfEvents() {
         progressData.indicator = 'PDF合并失败'
       }
     } else if (exportEvent.event === 'MergeEnd') {
-      const { uuid, chapterExportDir } = exportEvent.data
+      const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
       const progressData = progresses.value.get(uuid)
       if (progressData !== undefined) {
         progressData.state = 'End'
         progressData.current = progressData.total
         progressData.percentage = 100
         progressData.chapterExportDir = chapterExportDir
+        progressData.comicPathWord = comicPathWord
         progressData.indicator = 'PDF合并完成'
+      }
+      // 刷新当前漫画数据
+      if (comicPathWord) {
+        await syncPickedComic(comicPathWord)
       }
     }
   })
