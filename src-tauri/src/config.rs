@@ -130,7 +130,6 @@ pub enum ApiDomainMode {
 
 /// 导出跳过模式
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
 pub enum ExportSkipMode {
     /// 每次重新导出所有章节
     #[default]

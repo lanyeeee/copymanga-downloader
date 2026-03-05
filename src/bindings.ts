@@ -299,15 +299,15 @@ export type ExportSkipMode =
 /**
  * 每次重新导出所有章节
  */
-"none" | 
+"None" | 
 /**
  * 跳过本地已存在的导出文件
  */
-"skipExisting" | 
+"SkipExisting" | 
 /**
  * 跳过曾导出过的章节（即使本地文件已删除）
  */
-"skipExported"
+"SkipExported"
 export type FavoriteItem = { uuid: number; bFolder: boolean; comic: ComicInFavorite }
 export type GetChapterRespData = { is_banned: boolean; show_app: boolean; is_lock: boolean; is_login: boolean; is_mobile_bind: boolean; is_vip: boolean; comic: ComicInGetChapterRespData; chapter: ChapterInGetChapterRespData }
 export type GetFavoriteOrdering = 

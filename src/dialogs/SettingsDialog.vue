@@ -17,9 +17,9 @@ const comicDirFmt = ref<string>(store.config?.comicDirFmt ?? '')
 const chapterDirFmt = ref<string>(store.config?.chapterDirFmt ?? '')
 
 const exportSkipModeOptions = [
-  { label: '每次重新导出', value: 'none' },
-  { label: '跳过已存在的文件', value: 'skipExisting' },
-  { label: '跳过曾导出过的章节', value: 'skipExported' },
+  { label: '不跳过，每次都重新导出', value: 'None' },
+  { label: '跳过已存在的文件', value: 'SkipExisting' },
+  { label: '跳过曾导出过的章节', value: 'SkipExported' },
 ]
 
 async function showConfigInFileManager() {
@@ -142,13 +142,13 @@ async function showConfigInFileManager() {
           </n-input-group>
           <n-checkbox class="w-fit" v-model:checked="store.config.enableMergePdf">创建完成后是否自动合并</n-checkbox>
         </div>
-        <n-input-group>
-          <n-input-group-label size="small">增量导出策略</n-input-group-label>
+        <n-input-group class="mt-1">
+          <n-input-group-label size="small">导出策略</n-input-group-label>
           <n-select
             v-model:value="store.config.exportSkipMode"
             :options="exportSkipModeOptions"
             size="small"
-            class="w-60" />
+            class="w-50" />
         </n-input-group>
 
         <span class="font-bold mt-2">漫画目录格式</span>
