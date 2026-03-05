@@ -188,7 +188,7 @@ pub fn cbz_chapters(
 fn cbz_internal(
     app: &AppHandle,
     comic: &Comic,
-    mut downloaded_chapters: Vec<ChapterInfo>,
+    downloaded_chapters: Vec<ChapterInfo>,
     skip_mode: &ExportSkipMode,
     comic_path_word: &str,
     comic_title: &str,
@@ -223,9 +223,6 @@ fn cbz_internal(
         .get_comic_export_dir(app)
         .context(format!("`{comic_title}` 获取导出目录失败"))?;
     let cbz_export_dir = comic_export_dir.join(extension);
-
-    // 按章节顺序排序
-    downloaded_chapters.sort_by(|a, b| FloatOrd(a.order).cmp(&FloatOrd(b.order)));
 
     // 并发处理
     let download_chapters = downloaded_chapters.into_par_iter();
@@ -491,7 +488,7 @@ pub fn pdf_chapters(
 fn pdf_internal(
     app: &AppHandle,
     comic: &Comic,
-    mut downloaded_chapters: Vec<ChapterInfo>,
+    downloaded_chapters: Vec<ChapterInfo>,
     skip_mode: &ExportSkipMode,
     enable_merge: bool,
     comic_path_word: &str,
@@ -519,9 +516,6 @@ fn pdf_internal(
         .get_comic_export_dir(app)
         .context(format!("`{comic_title}` 获取导出目录失败"))?;
     let pdf_export_dir = comic_export_dir.join(extension);
-
-    // 按章节顺序排序
-    downloaded_chapters.sort_by(|a, b| FloatOrd(a.order).cmp(&FloatOrd(b.order)));
 
     // 章节和它们对应的pdf路径（用于合并）
     let chapter_and_pdf_path_pairs = Arc::new(Mutex::new(Vec::new()));
