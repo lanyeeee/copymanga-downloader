@@ -118,13 +118,14 @@ impl CopyClient {
         Ok(login_resp_data)
     }
 
-    pub async fn get_user_profile(&self) -> CopyMangaResult<UserProfileRespData> {
+    pub async fn get_user_profile(&self, token: &str) -> CopyMangaResult<UserProfileRespData> {
         // 发送获取用户信息请求
+        let authorization = format!("Token {token}");
         let api_domain = self.get_api_domain();
         let http_resp = self
             .api_client
             .get(format!("https://{api_domain}/api/v3/member/info"))
-            .header("authorization", self.get_authorization())
+            .header("authorization", authorization)
             .send_with_timeout_msg()
             .await?;
         // 检查http响应状态码

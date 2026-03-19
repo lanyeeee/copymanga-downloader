@@ -106,11 +106,11 @@ pub async fn login(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn get_user_profile(app: AppHandle) -> CommandResult<UserProfileRespData> {
+pub async fn get_user_profile(app: AppHandle, token: String) -> CommandResult<UserProfileRespData> {
     let copy_client = app.get_copy_client();
 
     let user_profile_resp_data = copy_client
-        .get_user_profile()
+        .get_user_profile(&token)
         .await
         .map_err(|err| CommandError::from("获取用户信息失败", err))?;
 

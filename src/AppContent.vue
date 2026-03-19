@@ -38,11 +38,21 @@ watch(
 
 watch(
   () => store.config?.token,
-  async () => {
-    if (store.config === undefined || store.config.token === '') {
+  async (value, oldValue) => {
+    if (store.config === undefined) {
       return
     }
-    const result = await commands.getUserProfile()
+    if (oldValue !== undefined && oldValue !== '' && value === '') {
+      // 如果旧的 token 不为空，新的 token 为空，相当于退出登录
+      store.userProfile = undefined
+      message.success('已退出登录')
+      return
+    } else if (value === undefined || value === '') {
+      // 如果 token 为空，说明用户没有登录
+      return
+    }
+
+    const result = await commands.getUserProfile(value)
     if (result.status === 'error') {
       console.error(result.error)
       store.userProfile = undefined

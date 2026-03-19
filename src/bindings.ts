@@ -35,9 +35,9 @@ async login(username: string, password: string) : Promise<Result<LoginRespData, 
     else return { status: "error", error: e  as any };
 }
 },
-async getUserProfile() : Promise<Result<UserProfileRespData, CommandError>> {
+async getUserProfile(token: string) : Promise<Result<UserProfileRespData, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_user_profile") };
+    return { status: "ok", data: await TAURI_INVOKE("get_user_profile", { token }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
