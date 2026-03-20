@@ -26,7 +26,7 @@ use tokio::{
 };
 
 use crate::{
-    errors::{CopyMangaError, RiskControlError},
+    errors::RiskControlError,
     events::{
         DownloadControlRiskEvent, DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent,
     },
@@ -381,12 +381,11 @@ impl DownloadTask {
         let chapter_uuid = &self.chapter_info.chapter_uuid;
 
         let copy_client = self.app.get_copy_client();
-        let mut retry_count = 0;
         loop {
             match copy_client.get_chapter(comic_path_word, chapter_uuid).await {
                 Ok(data) => return Ok(data),
-                Err(CopyMangaError::Anyhow(err)) => return Err(err),
-                Err(CopyMangaError::RiskControl(RiskControlError::Register(_))) => {
+                Err(RiskControlError::Anyhow(err)) => return Err(err),
+                Err(RiskControlError::RiskControl(_)) => {
                     const RETRY_WAIT_TIME: u32 = 60;
                     for i in 1..=RETRY_WAIT_TIME {
                         let _ = DownloadControlRiskEvent {
@@ -396,16 +395,6 @@ impl DownloadTask {
                         .emit(&self.app);
                         sleep(Duration::from_secs(1)).await;
                     }
-                }
-                Err(err) => {
-                    // 随机等待1000-5000ms
-                    let wait_time = 1000 + rand::random::<u64>() % 4000;
-                    sleep(Duration::from_millis(wait_time)).await;
-                    if retry_count < 5 {
-                        retry_count += 1;
-                        continue;
-                    }
-                    return Err(err.into());
                 }
             }
         }

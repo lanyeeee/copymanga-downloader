@@ -14,7 +14,7 @@ use tokio::task::JoinSet;
 
 use crate::{
     account_pool::Account,
-    errors::{CopyMangaError, CopyMangaResult, RiskControlError},
+    errors::{GetUserProfileError, GetUserProfileResult, RiskControlError, RiskControlResult},
     extensions::{AppHandleExt, SendWithTimeoutMsg},
     responses::{
         ChapterInGetChaptersRespData, CopyResp, GetChapterRespData, GetChaptersRespData,
@@ -41,7 +41,7 @@ impl CopyClient {
         }
     }
 
-    pub async fn register(&self, username: &str, password: &str) -> CopyMangaResult<()> {
+    pub async fn register(&self, username: &str, password: &str) -> RiskControlResult<()> {
         // 发送注册请求
         let form = json!({
             "username": username,
@@ -59,7 +59,7 @@ impl CopyClient {
         let status = http_resp.status();
         let body = http_resp.text().await?;
         if status == 210 {
-            return Err(RiskControlError::Register(body).into());
+            return Err(RiskControlError::RiskControl(body));
         } else if status != StatusCode::OK {
             return Err(anyhow!("注册失败，预料之外的状态码({status}): {body}").into());
         }
@@ -74,7 +74,7 @@ impl CopyClient {
         Ok(())
     }
 
-    pub async fn login(&self, username: &str, password: &str) -> CopyMangaResult<LoginRespData> {
+    pub async fn login(&self, username: &str, password: &str) -> anyhow::Result<LoginRespData> {
         // 对密码进行编码
         const SALT: i32 = 1729;
         let password = general_purpose::STANDARD.encode(format!("{password}-{SALT}").as_bytes());
@@ -94,10 +94,10 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::Login(body).into());
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("使用账号密码登录失败，预料之外的状态码({status}): {body}").into());
+        if status != StatusCode::OK {
+            return Err(anyhow!(
+                "使用账号密码登录失败，预料之外的状态码({status}): {body}"
+            ));
         }
         // 尝试将body解析为CopyResp
         let copy_resp = serde_json::from_str::<CopyResp>(&body).context(format!(
@@ -105,9 +105,9 @@ impl CopyClient {
         ))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(
-                anyhow!("使用账号密码登录失败，CopyResp的code字段不为200: {copy_resp:?}").into(),
-            );
+            return Err(anyhow!(
+                "使用账号密码登录失败，CopyResp的code字段不为200: {copy_resp:?}"
+            ));
         }
         // 尝试将CopyResp的results字段解析为LoginRespData
         let results_str = copy_resp.results.to_string();
@@ -118,7 +118,7 @@ impl CopyClient {
         Ok(login_resp_data)
     }
 
-    pub async fn get_user_profile(&self, token: &str) -> CopyMangaResult<UserProfileRespData> {
+    pub async fn get_user_profile(&self, token: &str) -> GetUserProfileResult<UserProfileRespData> {
         // 发送获取用户信息请求
         let authorization = format!("Token {token}");
         let api_domain = self.get_api_domain();
@@ -131,10 +131,8 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::GetUserProfile(body).into());
-        } else if status == 401 {
-            return Err(anyhow!("获取用户信息失败，token错误或过期: {body}").into());
+        if status == 401 {
+            return Err(GetUserProfileError::TokenErrorOrExpired);
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取用户信息失败，预料之外的状态码({status}): {body}").into());
         }
@@ -156,7 +154,7 @@ impl CopyClient {
         Ok(user_profile_resp_data)
     }
 
-    pub async fn search(&self, keyword: &str, page_num: i64) -> CopyMangaResult<SearchRespData> {
+    pub async fn search(&self, keyword: &str, page_num: i64) -> anyhow::Result<SearchRespData> {
         const LIMIT: i64 = 20;
         // page_num从1开始
         let offset = (page_num - 1) * LIMIT;
@@ -178,17 +176,15 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::Search(body).into());
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("搜索漫画失败，预料之外的状态码({status}): {body}").into());
+        if status != StatusCode::OK {
+            return Err(anyhow!("搜索漫画失败，预料之外的状态码({status}): {body}"));
         }
         // 尝试将body解析为CopyResp
         let copy_resp = serde_json::from_str::<CopyResp>(&body)
             .context(format!("搜索漫画失败，将body解析为CopyResp失败: {body}"))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(anyhow!("搜索漫画失败，预料之外的code: {copy_resp:?}").into());
+            return Err(anyhow!("搜索漫画失败，预料之外的code: {copy_resp:?}"));
         }
         // 尝试将CopyResp的results字段解析为SearchRespData
         let results_str = copy_resp.results.to_string();
@@ -199,7 +195,7 @@ impl CopyClient {
         Ok(search_resp_data)
     }
 
-    pub async fn get_comic(&self, comic_path_word: &str) -> CopyMangaResult<GetComicRespData> {
+    pub async fn get_comic(&self, comic_path_word: &str) -> anyhow::Result<GetComicRespData> {
         let params = json!({
             "platform": 1,
         });
@@ -215,17 +211,15 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::GetComic(body).into());
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("获取漫画失败，预料之外的状态码({status}): {body}").into());
+        if status != StatusCode::OK {
+            return Err(anyhow!("获取漫画失败，预料之外的状态码({status}): {body}"));
         }
         // 尝试将body解析为CopyResp
         let copy_resp = serde_json::from_str::<CopyResp>(&body)
             .context(format!("获取漫画失败，将body解析为CopyResp失败: {body}"))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(anyhow!("获取漫画失败，预料之外的code: {copy_resp:?}").into());
+            return Err(anyhow!("获取漫画失败，预料之外的code: {copy_resp:?}"));
         }
         // 尝试将CopyResp的results字段解析为ComicRespData
         let results_str = copy_resp.results.to_string();
@@ -240,7 +234,7 @@ impl CopyClient {
         &self,
         comic_path_word: &str,
         group_path_word: &str,
-    ) -> CopyMangaResult<Vec<ChapterInGetChaptersRespData>> {
+    ) -> anyhow::Result<Vec<ChapterInGetChaptersRespData>> {
         const LIMIT: i64 = 100;
         let mut chapters = vec![];
         // 获取第一页的章节
@@ -266,7 +260,7 @@ impl CopyClient {
                 let chapter_resp_data = copy_client
                     .get_chapters(&comic_path_word, &group_path_word, LIMIT, offset)
                     .await?;
-                Ok::<_, CopyMangaError>(chapter_resp_data)
+                Ok::<_, anyhow::Error>(chapter_resp_data)
             });
         }
         // 将剩余页的章节添加到chapters中
@@ -284,7 +278,7 @@ impl CopyClient {
         group_path_word: &str,
         limit: i64,
         offset: i64,
-    ) -> CopyMangaResult<GetChaptersRespData> {
+    ) -> anyhow::Result<GetChaptersRespData> {
         let params = json!({
             "limit": limit,
             "offset": offset,
@@ -303,10 +297,10 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::GetChapters(body).into());
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("获取章节分页失败，预料之外的状态码({status}): {body}").into());
+        if status != StatusCode::OK {
+            return Err(anyhow!(
+                "获取章节分页失败，预料之外的状态码({status}): {body}"
+            ));
         }
         // 尝试将body解析为CopyResp
         let copy_resp = serde_json::from_str::<CopyResp>(&body).context(format!(
@@ -314,7 +308,7 @@ impl CopyClient {
         ))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(anyhow!("获取章节分页失败，预料之外的code: {copy_resp:?}").into());
+            return Err(anyhow!("获取章节分页失败，预料之外的code: {copy_resp:?}"));
         }
         // 尝试将CopyResp的results字段解析为GetChaptersRespData
         let results_str = copy_resp.results.to_string();
@@ -330,7 +324,7 @@ impl CopyClient {
         &self,
         comic_path_word: &str,
         chapter_uuid: &str,
-    ) -> CopyMangaResult<GetChapterRespData> {
+    ) -> RiskControlResult<GetChapterRespData> {
         let account = if let Some(account) = self.get_account_from_pool().await {
             account
         } else {
@@ -370,7 +364,7 @@ impl CopyClient {
             // 如果当前账号被风控，就更新账号的limited_at字段
             account.write().limited_at = chrono::Local::now().timestamp();
             self.app.get_account_pool().write().await.save()?;
-            return Err(RiskControlError::GetChapter(body).into());
+            return Err(RiskControlError::RiskControl(body));
         } else if status != StatusCode::OK {
             return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
         }
@@ -425,7 +419,7 @@ impl CopyClient {
         &self,
         page_num: i64,
         ordering: GetFavoriteOrdering,
-    ) -> CopyMangaResult<GetFavoriteRespData> {
+    ) -> anyhow::Result<GetFavoriteRespData> {
         const LIMIT: i64 = 18;
         let params = json!({
             "limit": LIMIT,
@@ -445,17 +439,15 @@ impl CopyClient {
         // 检查http响应状态码
         let status = http_resp.status();
         let body = http_resp.text().await?;
-        if status == 210 {
-            return Err(RiskControlError::GetFavorite(body).into());
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("获取收藏失败，预料之外的状态码({status}): {body}").into());
+        if status != StatusCode::OK {
+            return Err(anyhow!("获取收藏失败，预料之外的状态码({status}): {body}"));
         }
         // 尝试将body解析为CopyResp
         let copy_resp = serde_json::from_str::<CopyResp>(&body)
             .context(format!("获取收藏失败，将body解析为CopyResp失败: {body}"))?;
         // 检查CopyResp的code字段
         if copy_resp.code != 200 {
-            return Err(anyhow!("获取收藏失败，预料之外的code: {copy_resp:?}").into());
+            return Err(anyhow!("获取收藏失败，预料之外的code: {copy_resp:?}"));
         }
         // 尝试将CopyResp的results字段解析为GetFavoriteRespData
         let results_str = copy_resp.results.to_string();

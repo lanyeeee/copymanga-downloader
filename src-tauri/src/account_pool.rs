@@ -5,7 +5,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::{errors::CopyMangaResult, extensions::AppHandleExt};
+use crate::extensions::AppHandleExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
@@ -63,7 +63,7 @@ impl AccountPool {
             .cloned()
     }
 
-    pub async fn register(&mut self) -> CopyMangaResult<Arc<RwLock<Account>>> {
+    pub async fn register(&mut self) -> anyhow::Result<Arc<RwLock<Account>>> {
         use fake::faker::internet::en::Password;
         use fake::faker::name::en::{FirstName, LastName};
         use fake::Fake;

@@ -26,56 +26,56 @@ impl CommandError {
     }
 }
 
-pub type CopyMangaResult<T> = Result<T, CopyMangaError>;
+pub type RiskControlResult<T> = Result<T, RiskControlError>;
 
 #[derive(Debug)]
-pub enum CopyMangaError {
+pub enum RiskControlError {
     Anyhow(anyhow::Error),
-    RiskControl(RiskControlError), // 风控
+    RiskControl(String),
 }
 
-impl<E> From<E> for CopyMangaError
+impl<E> From<E> for RiskControlError
 where
     E: Into<anyhow::Error>,
     Result<(), E>: anyhow::Context<(), E>,
 {
     fn from(err: E) -> Self {
-        CopyMangaError::Anyhow(err.into())
+        RiskControlError::Anyhow(err.into())
     }
 }
 
-impl From<CopyMangaError> for anyhow::Error {
-    fn from(err: CopyMangaError) -> Self {
+impl From<RiskControlError> for anyhow::Error {
+    fn from(err: RiskControlError) -> Self {
         match err {
-            CopyMangaError::Anyhow(err) => err,
-            CopyMangaError::RiskControl(err) => match err {
-                RiskControlError::Register(err) => anyhow!(err),
-                RiskControlError::Login(err) => anyhow!(err),
-                RiskControlError::GetUserProfile(err) => anyhow!(err),
-                RiskControlError::Search(err) => anyhow!(err),
-                RiskControlError::GetComic(err) => anyhow!(err),
-                RiskControlError::GetChapter(err) => anyhow!(err),
-                RiskControlError::GetChapters(err) => anyhow!(err),
-                RiskControlError::GetFavorite(err) => anyhow!(err),
-            },
+            RiskControlError::Anyhow(err) => err,
+            RiskControlError::RiskControl(body) => anyhow!(body),
         }
     }
 }
 
-impl From<RiskControlError> for CopyMangaError {
-    fn from(err: RiskControlError) -> Self {
-        CopyMangaError::RiskControl(err)
+pub type GetUserProfileResult<T> = Result<T, GetUserProfileError>;
+
+#[derive(Debug)]
+pub enum GetUserProfileError {
+    Anyhow(anyhow::Error),
+    TokenErrorOrExpired,
+}
+
+impl<E> From<E> for GetUserProfileError
+where
+    E: Into<anyhow::Error>,
+    Result<(), E>: anyhow::Context<(), E>,
+{
+    fn from(err: E) -> Self {
+        GetUserProfileError::Anyhow(err.into())
     }
 }
 
-#[derive(Debug)]
-pub enum RiskControlError {
-    Register(String),
-    Login(String),
-    GetUserProfile(String),
-    Search(String),
-    GetComic(String),
-    GetChapter(String),
-    GetChapters(String),
-    GetFavorite(String),
+impl From<GetUserProfileError> for anyhow::Error {
+    fn from(err: GetUserProfileError) -> Self {
+        match err {
+            GetUserProfileError::Anyhow(err) => err,
+            GetUserProfileError::TokenErrorOrExpired => anyhow!("token错误或已过期"),
+        }
+    }
 }
