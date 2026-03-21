@@ -395,6 +395,7 @@ impl DownloadTask {
                         .emit(&self.app);
                         sleep(Duration::from_secs(1)).await;
                     }
+                    self.emit_download_task_update_event();
                 }
             }
         }

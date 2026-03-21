@@ -16,4 +16,4 @@ pub use get_favorite_result::*;
 pub use log_level::*;
 pub use search_result::*;
 
-pub type AsyncRwLock<T> = tokio::sync::RwLock<T>;
+pub type AsyncMutex<T> = tokio::sync::Mutex<T>;

@@ -1,10 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose, Engine};
 use bytes::Bytes;
 use image::ImageFormat;
-use parking_lot::RwLock;
 use reqwest::StatusCode;
 use reqwest_middleware::ClientWithMiddleware;
 use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddleware};
@@ -13,7 +12,6 @@ use tauri::AppHandle;
 use tokio::task::JoinSet;
 
 use crate::{
-    account_pool::Account,
     errors::{GetUserProfileError, GetUserProfileResult, RiskControlError, RiskControlResult},
     extensions::{AppHandleExt, SendWithTimeoutMsg},
     responses::{
@@ -325,64 +323,54 @@ impl CopyClient {
         comic_path_word: &str,
         chapter_uuid: &str,
     ) -> RiskControlResult<GetChapterRespData> {
-        let account = if let Some(account) = self.get_account_from_pool().await {
-            account
-        } else {
-            // 如果账号池里没有合适的账号
-            let account_pool = self.app.get_account_pool();
-            let mut account_pool = account_pool.write().await;
-            // 拿到写锁后再次检查账号池里是否有合适的账号
-            // 如果有，就用账号池里的账号，否则才注册一个新账号
-            // 确认一下是因为可能在拿到写锁之前，其他线程已经注册了一个新账号，避免重复注册
-            match account_pool.get_available_account() {
-                Some(account) => account,
-                None => account_pool.register().await?,
+        loop {
+            let account = self.app.get_account_pool().acquire_account().await?;
+
+            let token = account.token.clone();
+            let authorization = format!("Token {token}");
+
+            let params = json!({
+                "platform": 1,
+            });
+            // 发送获取章节请求
+            let api_domain = self.get_api_domain();
+            let url = format!(
+                "https://{api_domain}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}"
+            );
+            let resp = self
+                .api_client
+                .get(url)
+                .query(&params)
+                .header("authorization", authorization)
+                .send_with_timeout_msg()
+                .await?;
+            // 检查http响应状态码
+            let status = resp.status();
+            let body = resp.text().await?;
+            if status == 210 {
+                // 如果当前账号被风控，就将账号标记为风控
+                self.app.get_account_pool().mark_account_limited(&account)?;
+                // 然后重新从开头执行，获取下一个可用账号
+                continue;
+            } else if status != StatusCode::OK {
+                return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
             }
-        };
+            // 尝试将body解析为CopyResp
+            let copy_resp = serde_json::from_str::<CopyResp>(&body)
+                .context(format!("获取章节失败，将body解析为CopyResp失败: {body}"))?;
+            // 检查CopyResp的code字段
+            if copy_resp.code != 200 {
+                return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}").into());
+            }
+            // 尝试将CopyResp的results字段解析为GetChapterRespData
+            let results_str = copy_resp.results.to_string();
+            let get_chapter_resp_data = serde_json::from_str::<GetChapterRespData>(&results_str)
+                .context(format!(
+                    "获取章节失败，将results解析为GetChapterRespData失败: {results_str}"
+                ))?;
 
-        let token = account.read().token.clone();
-        let authorization = format!("Token {token}");
-
-        let params = json!({
-            "platform": 1,
-        });
-        // 发送获取章节请求
-        let api_domain = self.get_api_domain();
-        let url =
-            format!("https://{api_domain}/api/v3/comic/{comic_path_word}/chapter2/{chapter_uuid}");
-        let resp = self
-            .api_client
-            .get(url)
-            .query(&params)
-            .header("authorization", authorization)
-            .send_with_timeout_msg()
-            .await?;
-        // 检查http响应状态码
-        let status = resp.status();
-        let body = resp.text().await?;
-        if status == 210 {
-            // 如果当前账号被风控，就更新账号的limited_at字段
-            account.write().limited_at = chrono::Local::now().timestamp();
-            self.app.get_account_pool().write().await.save()?;
-            return Err(RiskControlError::RiskControl(body));
-        } else if status != StatusCode::OK {
-            return Err(anyhow!("获取章节失败，预料之外的状态码({status}): {body}").into());
+            return Ok(get_chapter_resp_data);
         }
-        // 尝试将body解析为CopyResp
-        let copy_resp = serde_json::from_str::<CopyResp>(&body)
-            .context(format!("获取章节失败，将body解析为CopyResp失败: {body}"))?;
-        // 检查CopyResp的code字段
-        if copy_resp.code != 200 {
-            return Err(anyhow!("获取章节失败，预料之外的code: {copy_resp:?}").into());
-        }
-        // 尝试将CopyResp的results字段解析为GetChapterRespData
-        let results_str = copy_resp.results.to_string();
-        let get_chapter_resp_data = serde_json::from_str::<GetChapterRespData>(&results_str)
-            .context(format!(
-                "获取章节失败，将results解析为GetChapterRespData失败: {results_str}"
-            ))?;
-
-        Ok(get_chapter_resp_data)
     }
 
     pub async fn get_img_data_and_format(&self, url: &str) -> anyhow::Result<(Bytes, ImageFormat)> {
@@ -465,14 +453,6 @@ impl CopyClient {
 
     fn get_api_domain(&self) -> String {
         self.app.get_config().read().get_api_domain()
-    }
-
-    async fn get_account_from_pool(&self) -> Option<Arc<RwLock<Account>>> {
-        self.app
-            .get_account_pool()
-            .read()
-            .await
-            .get_available_account()
     }
 }
 
