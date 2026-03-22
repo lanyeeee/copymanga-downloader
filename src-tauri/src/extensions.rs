@@ -92,27 +92,27 @@ impl PathIsImg for std::path::Path {
 }
 
 pub trait AppHandleExt {
-    fn get_config(&self) -> State<RwLock<Config>>;
-    fn get_copy_client(&self) -> State<CopyClient>;
-    fn get_download_manager(&self) -> State<DownloadManager>;
-    fn get_account_pool(&self) -> State<AccountPool>;
-    fn get_export_lock(&self) -> State<ComicExportLock>;
+    fn get_config(&self) -> State<'_, RwLock<Config>>;
+    fn get_copy_client(&self) -> State<'_, CopyClient>;
+    fn get_download_manager(&self) -> State<'_, DownloadManager>;
+    fn get_account_pool(&self) -> State<'_, AccountPool>;
+    fn get_export_lock(&self) -> State<'_, ComicExportLock>;
 }
 
 impl AppHandleExt for AppHandle {
-    fn get_config(&self) -> State<RwLock<Config>> {
+    fn get_config(&self) -> State<'_, RwLock<Config>> {
         self.state::<RwLock<Config>>()
     }
-    fn get_copy_client(&self) -> State<CopyClient> {
+    fn get_copy_client(&self) -> State<'_, CopyClient> {
         self.state::<CopyClient>()
     }
-    fn get_download_manager(&self) -> State<DownloadManager> {
+    fn get_download_manager(&self) -> State<'_, DownloadManager> {
         self.state::<DownloadManager>()
     }
-    fn get_account_pool(&self) -> State<AccountPool> {
+    fn get_account_pool(&self) -> State<'_, AccountPool> {
         self.state::<AccountPool>()
     }
-    fn get_export_lock(&self) -> State<ComicExportLock> {
+    fn get_export_lock(&self) -> State<'_, ComicExportLock> {
         self.state::<ComicExportLock>()
     }
 }
