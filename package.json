@@ -20,7 +20,8 @@
     "pinia": "^3.0.3",
     "unplugin-auto-import": "^0.18.5",
     "unplugin-vue-components": "^0.27.4",
-    "vue": "^3.3.4"
+    "vue": "^3.3.4",
+    "z-vue-scan": "^0.0.35"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
