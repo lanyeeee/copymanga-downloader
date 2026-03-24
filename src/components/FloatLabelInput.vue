@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { InputInst, InputProps } from 'naive-ui'
+import { InputInst, InputProps, NInput, NEl } from 'naive-ui'
 
 const props = withDefaults(
   defineProps<{

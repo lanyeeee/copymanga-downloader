@@ -1,7 +1,7 @@
 <script setup lang="tsx">
 import { events, commands } from '../../../bindings.ts'
 import { onMounted, ref, watchEffect, nextTick } from 'vue'
-import { NIcon, DropdownOption } from 'naive-ui'
+import { NIcon, DropdownOption, NDropdown } from 'naive-ui'
 import { PhChecks, PhTrash } from '@phosphor-icons/vue'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
 import ExportProgress from './ExportProgress.vue'

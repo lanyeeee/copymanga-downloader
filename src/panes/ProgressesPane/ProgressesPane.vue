@@ -8,6 +8,7 @@ import UncompletedProgresses from './components/UncompletedProgresses.vue'
 import CompletedProgresses from './components/CompletedProgresses.vue'
 import { ProgressData } from '../../types.ts'
 import ExportProgresses from './components/ExportProgresses.vue'
+import { NButton, NIcon, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs } from 'naive-ui'
 
 export type ProgressesPaneTabName = 'uncompleted' | 'completed' | 'export'
 

@@ -5,6 +5,7 @@ import ComicCard from '../components/ComicCard.vue'
 import FloatLabelInput from '../components/FloatLabelInput.vue'
 import { PhMagnifyingGlass } from '@phosphor-icons/vue'
 import { useStore } from '../store.ts'
+import { NButton, NIcon, NInputGroup, NPagination } from 'naive-ui'
 
 const store = useStore()
 

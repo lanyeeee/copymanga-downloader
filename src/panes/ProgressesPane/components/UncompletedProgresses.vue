@@ -3,7 +3,7 @@ import { ProgressData } from '../../../types.ts'
 import { ref, watchEffect, computed, nextTick } from 'vue'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
 import { commands, DownloadTaskState } from '../../../bindings.ts'
-import { DropdownOption, NIcon, ProgressProps } from 'naive-ui'
+import { DropdownOption, NDropdown, NIcon, NProgress, ProgressProps } from 'naive-ui'
 import { useStore } from '../../../store.ts'
 import {
   PhPause,

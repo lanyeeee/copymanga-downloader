@@ -2,7 +2,13 @@
 // This starter template is using Vue 3 <script setup> SFCs
 // Check out https://vuejs.org/api/sfc-script-setup.html#script-setup
 import AppContent from './AppContent.vue'
-import { GlobalThemeOverrides } from 'naive-ui'
+import {
+  GlobalThemeOverrides,
+  NConfigProvider,
+  NModalProvider,
+  NNotificationProvider,
+  NMessageProvider,
+} from 'naive-ui'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {

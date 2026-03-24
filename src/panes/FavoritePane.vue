@@ -3,7 +3,7 @@ import ComicCard from '../components/ComicCard.vue'
 import { computed, ref, watch } from 'vue'
 import { commands, GetFavoriteOrdering } from '../bindings.ts'
 import { useStore } from '../store.ts'
-import { SelectProps } from 'naive-ui'
+import { NPagination, NSelect, SelectProps, NInputGroup, NInputGroupLabel } from 'naive-ui'
 
 const store = useStore()
 

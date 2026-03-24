@@ -6,6 +6,7 @@ import { PhFolderOpen } from '@phosphor-icons/vue'
 import IconButton from '../../components/IconButton.vue'
 import ChapterDownloadPanel from './components/ChapterDownloadPanel.vue'
 import ChapterExportPanel from './components/ChapterExportPanel.vue'
+import { NEmpty } from 'naive-ui'
 
 export type State = DownloadTaskState | 'Idle'
 export type ChapterInfoWithState = ChapterInfo & { state: State }

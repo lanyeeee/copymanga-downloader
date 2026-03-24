@@ -4,7 +4,21 @@ import { ref } from 'vue'
 import { path } from '@tauri-apps/api'
 import { appDataDir } from '@tauri-apps/api/path'
 import { useStore } from '../store.ts'
-import { useMessage } from 'naive-ui'
+import {
+  NButton,
+  NDialog,
+  NInput,
+  NInputGroup,
+  NInputGroupLabel,
+  NInputNumber,
+  NModal,
+  NRadio,
+  NRadioGroup,
+  NTooltip,
+  NCheckbox,
+  useMessage,
+  NSelect,
+} from 'naive-ui'
 
 const store = useStore()
 

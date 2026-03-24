@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { MessageReactive, useMessage } from 'naive-ui'
+import { MessageReactive, useMessage, NButton } from 'naive-ui'
 import { commands, events, UpdateDownloadedComicsEvent } from '../../../bindings.ts'
 
 const message = useMessage()

@@ -3,6 +3,7 @@ import { PhCircleNotch, PhFolderOpen } from '@phosphor-icons/vue'
 import { ProgressData } from './ExportProgresses.vue'
 import { commands } from '../../../bindings.ts'
 import IconButton from '../../../components/IconButton.vue'
+import { NIcon, NProgress } from 'naive-ui'
 
 const props = defineProps<{
   p: ProgressData

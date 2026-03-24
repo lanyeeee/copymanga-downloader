@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useStore } from '../../../store.ts'
 import { PhFilePdf, PhFileZip, PhFolderOpen } from '@phosphor-icons/vue'
 import IconButton from '../../../components/IconButton.vue'
+import { NCheckbox } from 'naive-ui'
 
 interface GroupInfo {
   name: string

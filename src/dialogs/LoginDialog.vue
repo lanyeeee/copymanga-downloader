@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { commands } from '../bindings.ts'
-import { useMessage } from 'naive-ui'
+import { NDialog, NModal, useMessage } from 'naive-ui'
 import FloatLabelInput from '../components/FloatLabelInput.vue'
 import { useStore } from '../store.ts'
 

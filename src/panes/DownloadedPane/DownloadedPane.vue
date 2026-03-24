@@ -6,7 +6,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
 import { useStore } from '../../store.ts'
 import { SelectionArea, SelectionEvent } from '@viselect/vue'
-import { DropdownOption } from 'naive-ui'
+import { DropdownOption, NButton, NDropdown, NIcon, NInput, NInputGroup, NInputGroupLabel, NPagination } from 'naive-ui'
 import UpdateDownloadedComicsButton from './components/UpdateDownloadedComicsButton.vue'
 
 const store = useStore()

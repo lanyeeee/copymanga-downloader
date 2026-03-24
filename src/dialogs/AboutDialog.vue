@@ -2,6 +2,7 @@
 import { getVersion } from '@tauri-apps/api/app'
 import { ref, onMounted } from 'vue'
 import icon from '../../src-tauri/icons/128x128.png'
+import { NA, NDialog, NModal } from 'naive-ui'
 
 const showing = defineModel<boolean>('showing', { required: true })
 const version = ref('')

@@ -1,7 +1,18 @@
 <script setup lang="tsx">
 import { onMounted, ref, watch } from 'vue'
 import { commands } from './bindings.ts'
-import { useMessage, useNotification } from 'naive-ui'
+import {
+  NAvatar,
+  NButton,
+  NIcon,
+  NInput,
+  NInputGroup,
+  NInputGroupLabel,
+  NTabPane,
+  NTabs,
+  useMessage,
+  useNotification,
+} from 'naive-ui'
 import LoginDialog from './dialogs/LoginDialog.vue'
 import SearchPane from './panes/SearchPane.vue'
 import ChapterPane from './panes/ChapterPane/ChapterPane.vue'

@@ -2,7 +2,19 @@
 import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
 import { computed, nextTick, ref, watchEffect } from 'vue'
 import { commands } from '../../../bindings.ts'
-import { DropdownOption } from 'naive-ui'
+import {
+  DropdownOption,
+  NButton,
+  NCheckbox,
+  NCheckboxGroup,
+  NDropdown,
+  NIcon,
+  NPopover,
+  NRadioButton,
+  NRadioGroup,
+  NTabPane,
+  NTabs,
+} from 'naive-ui'
 import { useStore } from '../../../store.ts'
 import { ChapterInfoWithState, ChapterPaneMode, State } from '../ChapterPane.vue'
 import { PhPalette } from '@phosphor-icons/vue'
