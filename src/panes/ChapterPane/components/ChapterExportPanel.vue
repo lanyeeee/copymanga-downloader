@@ -1,12 +1,10 @@
-<script setup lang="ts">
-import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
-import { computed, nextTick, ref, watchEffect } from 'vue'
-import { commands } from '../../../bindings.ts'
+<script setup lang="tsx">
+import { PartialSelectionOptions, SelectionArea, SelectionEvent } from '@viselect/vue'
+import { ChapterInfo, commands, DownloadTaskState } from '../../../bindings.ts'
 import {
   DropdownOption,
   NButton,
   NCheckbox,
-  NCheckboxGroup,
   NDropdown,
   NIcon,
   NPopover,
@@ -16,58 +14,89 @@ import {
   NTabs,
 } from 'naive-ui'
 import { useStore } from '../../../store.ts'
-import { ChapterInfoWithState, ChapterPaneMode, State } from '../ChapterPane.vue'
+import { ChapterPaneMode } from '../ChapterPane.vue'
 import { PhPalette } from '@phosphor-icons/vue'
+import { computed, defineComponent, nextTick, PropType, ref, watch, watchEffect, useTemplateRef } from 'vue'
+
+type State = DownloadTaskState | 'Idle'
+
+const store = useStore()
 
 const props = defineProps<{
-  sortedGroups: [string, ChapterInfoWithState[]][]
+  sortedGroups: [string, ChapterInfo[]][]
   reload: () => void
 }>()
 
 const chapterPaneMode = defineModel<ChapterPaneMode>('chapterPaneMode', { required: true })
-const groupPath = defineModel<string>('groupPath', { required: true })
-
-const store = useStore()
-
-const selectionOptions = {
-  selectables: '.selectable',
-  features: { deselectOnBlur: true },
-} as SelectionOptions
-
-const checkedIds = ref<string[]>([])
-const selectedIds = ref<Set<string>>(new Set())
-
-const currentGroup = computed<ChapterInfoWithState[] | undefined>(
-  () => props.sortedGroups.find(([path]) => path === groupPath.value)?.[1],
+// 当前tab的分组路径
+const currentGroupPath = defineModel<string>('currentGroupPath', { required: true })
+// 当前tab的分组
+const currentGroup = computed<ChapterInfo[] | undefined>(
+  () => props.sortedGroups.find(([path]) => path === currentGroupPath.value)?.[1],
 )
 
+const selectionOptions: PartialSelectionOptions = {
+  selectables: '.selectable',
+  features: { deselectOnBlur: true },
+  boundaries: '.chapter-download-pane-selection-container',
+}
+// SelectionArea组件的ref
+const selectionAreaRef = useTemplateRef('selectionAreaRef')
+// 已勾选的章节id
+const checkedIds = ref<Set<string>>(new Set())
+// 已选中(被框选选到)的章节id
+const selectedIds = ref<Set<string>>(new Set())
+// 正在导出的章节id
+const exportingChapterUuids = ref<Set<string>>(new Set())
+// 如果漫画变了，清空勾选和选中状态
+function clearCheckedAndSelected() {
+  checkedIds.value.clear()
+  selectedIds.value.clear()
+  selectionAreaRef.value?.selection?.clearSelection()
+}
+watch(
+  () => store.pickedComic,
+  () => {
+    clearCheckedAndSelected()
+    exportingChapterUuids.value.clear()
+  },
+)
+
+// 只保留selectable的章节
 watchEffect(() => {
-  const selectableChapterUuids = props.sortedGroups
-    .flatMap(([, chapters]) => chapters)
-    .filter((chapter) => isChapterSelectable(chapter))
-    .map((chapter) => chapter.chapterUuid)
-  checkedIds.value = checkedIds.value.filter((uuid) => selectableChapterUuids.includes(uuid))
+  if (store.pickedComic === undefined || props.sortedGroups === undefined) {
+    return
+  }
+
+  const selectableChapterUuids = new Set(
+    props.sortedGroups
+      .flatMap(([, chapters]) => chapters)
+      .filter((chapter) => isChapterSelectable(chapter))
+      .map((chapter) => chapter.chapterUuid),
+  )
+
+  for (const uuid of checkedIds.value) {
+    if (!selectableChapterUuids.has(uuid)) {
+      checkedIds.value.delete(uuid)
+    }
+  }
+
+  for (const uuid of selectedIds.value) {
+    if (!selectableChapterUuids.has(uuid)) {
+      selectedIds.value.delete(uuid)
+    }
+  }
 })
 
+// 提取章节id
 function extractIds(elements: Element[]): string[] {
   return elements
     .map((element) => element.getAttribute('data-key'))
-    .filter(Boolean)
-    .filter((id) => {
-      const chapterInfo = currentGroup.value?.find((chapter) => chapter.chapterUuid === id)
-      return chapterInfo !== undefined && isChapterSelectable(chapterInfo)
-    }) as string[]
+    .filter((uuid): uuid is string => uuid !== null)
+    .filter((uuid) => currentGroup.value?.find((chapter) => chapter.chapterUuid === uuid) !== undefined)
 }
 
-function updateSelectedIds({
-  store: {
-    changed: { added, removed },
-  },
-}: SelectionEvent) {
-  extractIds(added).forEach((id) => selectedIds.value.add(id))
-  extractIds(removed).forEach((id) => selectedIds.value.delete(id))
-}
-
+// 取消所有已选中(被框选选到)的章节
 function unselectAll({ event, selection }: SelectionEvent) {
   if (!event?.ctrlKey && !event?.metaKey) {
     selection.clearSelection()
@@ -75,18 +104,31 @@ function unselectAll({ event, selection }: SelectionEvent) {
   }
 }
 
+// 更新已选中(被框选选到)的章节id
+function updateSelectedIds({
+  store: {
+    changed: { added, removed },
+  },
+}: SelectionEvent) {
+  extractIds(added).forEach((uuid) => selectedIds.value.add(uuid))
+  extractIds(removed).forEach((uuid) => selectedIds.value.delete(uuid))
+}
+
+// dropdown的x坐标
 const dropdownX = ref<number>(0)
+// dropdown的y坐标
 const dropdownY = ref<number>(0)
+// 是否显示dropdown
 const dropdownShowing = ref<boolean>(false)
-const dropdownOptions = computed<DropdownOption[]>(() => [
+// dropdown选项
+const dropdownOptions: DropdownOption[] = [
   {
     label: '勾选',
     key: 'check',
     props: {
       onClick: () => {
-        ;[...selectedIds.value]
-          .filter((id) => !checkedIds.value.includes(id))
-          .forEach((id) => checkedIds.value.push(id))
+        // 只有未勾选的才会被勾选
+        selectedIds.value.forEach((uuid) => checkedIds.value.add(uuid))
         dropdownShowing.value = false
       },
     },
@@ -96,7 +138,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'uncheck',
     props: {
       onClick: () => {
-        checkedIds.value = checkedIds.value.filter((id) => !selectedIds.value.has(id))
+        selectedIds.value.forEach((uuid) => checkedIds.value.delete(uuid))
         dropdownShowing.value = false
       },
     },
@@ -106,9 +148,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'check all',
     props: {
       onClick: () => {
-        currentGroup.value
-          ?.filter((chapter) => isChapterSelectable(chapter) && !checkedIds.value.includes(chapter.chapterUuid))
-          .forEach((chapter) => checkedIds.value.push(chapter.chapterUuid))
+        currentGroup.value?.filter((c) => isChapterSelectable(c)).forEach((c) => checkedIds.value.add(c.chapterUuid))
         dropdownShowing.value = false
       },
     },
@@ -118,14 +158,14 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'uncheck all',
     props: {
       onClick: () => {
-        const currentGroupIds = currentGroup.value?.map((chapter) => chapter.chapterUuid) ?? []
-        checkedIds.value = checkedIds.value.filter((id) => !currentGroupIds.includes(id))
+        currentGroup.value?.forEach((chapter) => checkedIds.value.delete(chapter.chapterUuid))
         dropdownShowing.value = false
       },
     },
   },
-])
+]
 
+// 显示dropdown
 async function showDropdown(e: MouseEvent) {
   dropdownShowing.value = false
   await nextTick()
@@ -140,18 +180,24 @@ async function exportPdf() {
   }
 
   const chapterUuids = currentGroup.value
-    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.includes(chapter.chapterUuid))
+    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.has(chapter.chapterUuid))
     .map((chapter) => chapter.chapterUuid)
   if (chapterUuids === undefined || chapterUuids.length === 0) {
     return
   }
 
   store.progressesPaneTabName = 'export'
+  chapterUuids.forEach((uuid) => exportingChapterUuids.value.add(uuid))
+
   const result = await commands.exportPdfChapters(store.pickedComic, chapterUuids)
   if (result.status === 'error') {
     console.error(result.error)
+    exportingChapterUuids.value.clear()
     return
   }
+
+  clearCheckedAndSelected()
+  exportingChapterUuids.value.clear()
 }
 
 async function exportCbz() {
@@ -160,27 +206,83 @@ async function exportCbz() {
   }
 
   const chapterUuids = currentGroup.value
-    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.includes(chapter.chapterUuid))
+    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.has(chapter.chapterUuid))
     .map((chapter) => chapter.chapterUuid)
   if (chapterUuids === undefined || chapterUuids.length === 0) {
     return
   }
 
   store.progressesPaneTabName = 'export'
+  chapterUuids.forEach((uuid) => exportingChapterUuids.value.add(uuid))
+
   const result = await commands.exportCbzChapters(store.pickedComic, chapterUuids)
   if (result.status === 'error') {
     console.error(result.error)
+    exportingChapterUuids.value.clear()
     return
   }
+
+  clearCheckedAndSelected()
+  exportingChapterUuids.value.clear()
 }
 
-function isDownloading(state: State) {
+function getChapterState(chapter: ChapterInfo): State {
+  return store.progresses.get(chapter.chapterUuid)?.state ?? 'Idle'
+}
+
+function isDownloadingChapter(chapter: ChapterInfo) {
+  const state = getChapterState(chapter)
   return state === 'Pending' || state === 'Downloading' || state === 'Paused'
 }
 
-function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
-  return !isDownloading(chapter.state) && chapter.isDownloaded === true
+function isDownloadedChapter(chapter: ChapterInfo): boolean {
+  return chapter.isDownloaded === true
 }
+
+function isExportingChapter(chapter: ChapterInfo): boolean {
+  return exportingChapterUuids.value.has(chapter.chapterUuid)
+}
+
+function isChapterSelectable(chapter: ChapterInfo): boolean {
+  return !isDownloadingChapter(chapter) && isDownloadedChapter(chapter) && !isExportingChapter(chapter)
+}
+
+const ChapterCheckbox = defineComponent({
+  name: 'ChapterCheckbox',
+  props: {
+    chapter: {
+      type: Object as PropType<ChapterInfo>,
+      required: true,
+    },
+  },
+  setup: (props) => {
+    return () => (
+      <NCheckbox
+        class={[
+          'hover:bg-gray-200!',
+          {
+            selectable: isChapterSelectable(props.chapter),
+            selected: selectedIds.value.has(props.chapter.chapterUuid),
+            downloading: isDownloadingChapter(props.chapter),
+            pdfExported: props.chapter.isPdfExported && !props.chapter.isCbzExported,
+            cbzExported: props.chapter.isCbzExported && !props.chapter.isPdfExported,
+            exportedBoth: props.chapter.isPdfExported && props.chapter.isCbzExported,
+          },
+        ]}
+        checked={checkedIds.value.has(props.chapter.chapterUuid)}
+        onUpdate:checked={(checked: boolean) => {
+          if (checked) {
+            checkedIds.value.add(props.chapter.chapterUuid)
+          } else {
+            checkedIds.value.delete(props.chapter.chapterUuid)
+          }
+        }}
+        label={props.chapter.chapterTitle}
+        disabled={!isChapterSelectable(props.chapter)}
+      />
+    )
+  },
+})
 </script>
 
 <template>
@@ -192,7 +294,7 @@ function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
       </n-radio-group>
       <n-popover placement="bottom" trigger="hover" raw>
         <template #trigger>
-          <n-icon class="ml-1 cursor-help" size="22"><PhPalette class="" /></n-icon>
+          <n-icon class="ml-1 cursor-help" size="22"><PhPalette /></n-icon>
         </template>
         <div class="flex flex-col gap-1 text-xs leading-5 bg-white p-2 rounded-lg">
           <div class="flex items-center gap-2">
@@ -214,37 +316,26 @@ function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
       <n-button size="small" type="primary" @click="exportPdf">导出pdf</n-button>
     </div>
 
-    <n-tabs class="flex-1 overflow-auto" v-model:value="groupPath" type="line" size="small" animated>
+    <SelectionArea ref="selectionAreaRef" :options="selectionOptions" @move="updateSelectedIds" @start="unselectAll" />
+
+    <n-tabs class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small" animated>
       <n-tab-pane
         v-for="[groupPath, chapters] in sortedGroups"
         :key="groupPath"
         :name="groupPath"
         :tab="store.pickedComic.groups[groupPath].name"
         class="overflow-auto p-0! h-full">
-        <SelectionArea
-          class="selection-container flex flex-col flex-1 box-border pt-2 px-2 overflow-auto h-full"
-          :options="selectionOptions"
-          @contextmenu="showDropdown"
-          @move="updateSelectedIds"
-          @start="unselectAll">
-          <n-checkbox-group v-model:value="checkedIds" class="grid grid-cols-3 gap-1.5 w-full mb-3">
-            <n-checkbox
+        <div
+          class="chapter-download-pane-selection-container box-border p-2 overflow-auto h-full"
+          @contextmenu="showDropdown">
+          <div class="grid grid-cols-3 gap-1.5 w-full">
+            <ChapterCheckbox
               v-for="chapter in chapters"
               :key="chapter.chapterUuid"
               :data-key="chapter.chapterUuid"
-              class="selectable hover:bg-gray-200!"
-              :value="chapter.chapterUuid"
-              :label="chapter.chapterTitle"
-              :disabled="!isChapterSelectable(chapter)"
-              :class="{
-                selected: selectedIds.has(chapter.chapterUuid),
-                downloading: isDownloading(chapter.state),
-                pdfExported: chapter.isPdfExported && !chapter.isCbzExported,
-                cbzExported: chapter.isCbzExported && !chapter.isPdfExported,
-                exportedBoth: chapter.isPdfExported && chapter.isCbzExported,
-              }" />
-          </n-checkbox-group>
-        </SelectionArea>
+              :chapter="chapter" />
+          </div>
+        </div>
       </n-tab-pane>
     </n-tabs>
 
@@ -260,27 +351,27 @@ function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
 </template>
 
 <style scoped>
-.selection-container {
+.chapter-download-pane-selection-container {
   @apply select-none overflow-auto;
 }
 
-.selection-container .pdfExported {
+.chapter-download-pane-selection-container .pdfExported {
   @apply bg-orange-1;
 }
 
-.selection-container .cbzExported {
+.chapter-download-pane-selection-container .cbzExported {
   @apply bg-fuchsia-1;
 }
 
-.selection-container .exportedBoth {
+.chapter-download-pane-selection-container .exportedBoth {
   @apply bg-indigo-2;
 }
 
-.selection-container .selected {
-  @apply bg-[rgb(204,232,255)];
+.chapter-download-pane-selection-container .selected {
+  @apply bg-[rgb(204,232,255)] !important;
 }
 
-.selection-container .downloading {
+.chapter-download-pane-selection-container .downloading {
   @apply bg-[rgba(114,46,209,0.16)];
 }
 

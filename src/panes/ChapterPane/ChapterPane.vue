@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ChapterInfo, commands, DownloadTaskState } from '../../bindings.ts'
+import { ChapterInfo, commands } from '../../bindings.ts'
 import { useStore } from '../../store.ts'
 import { PhFolderOpen } from '@phosphor-icons/vue'
 import IconButton from '../../components/IconButton.vue'
@@ -8,39 +8,30 @@ import ChapterDownloadPanel from './components/ChapterDownloadPanel.vue'
 import ChapterExportPanel from './components/ChapterExportPanel.vue'
 import { NEmpty } from 'naive-ui'
 
-export type State = DownloadTaskState | 'Idle'
-export type ChapterInfoWithState = ChapterInfo & { state: State }
 export type ChapterPaneMode = 'download' | 'export'
 
 const store = useStore()
 
 const chapterPaneMode = ref<ChapterPaneMode>('download')
-const currentGroupPath = ref<string>('default')
-
-const sortedGroups = computed<[string, ChapterInfoWithState[]][]>(() => {
+const sortedGroups = computed<[string, ChapterInfo[]][]>(() => {
   if (store.pickedComic === undefined) {
     return []
   }
 
-  return Object.entries(store.pickedComic.comic.groups)
-    .map(([groupPath, chapters]): [string, ChapterInfoWithState[]] => [
-      groupPath,
-      chapters.map((chapter) => {
-        const progressData = store.progresses.get(chapter.chapterUuid)
-        return { ...chapter, state: progressData?.state ?? 'Idle' }
-      }),
-    ])
-    .sort((a, b) => b[1].length - a[1].length)
+  return Object.entries(store.pickedComic.comic.groups).sort((a, b) => b[1].length - a[1].length)
 })
+const firstGroupPath = computed(() => sortedGroups.value[0]?.[0] ?? '')
+const currentGroupPath = ref<string>(firstGroupPath.value)
 
 watch(
   () => store.pickedComic,
   () => {
-    currentGroupPath.value = 'default'
+    currentGroupPath.value = firstGroupPath.value
     chapterPaneMode.value = 'download'
   },
 )
 
+// 重新加载选中的漫画
 async function reloadPickedComic() {
   if (store.pickedComic === undefined) {
     return
@@ -87,14 +78,14 @@ async function showComicDownloadDirInFileManager() {
       <ChapterDownloadPanel
         v-if="chapterPaneMode === 'download'"
         v-model:chapterPaneMode="chapterPaneMode"
-        v-model:group-path="currentGroupPath"
-        :sorted-groups="sortedGroups"
+        v-model:currentGroupPath="currentGroupPath"
+        :sortedGroups="sortedGroups"
         :reload="reloadPickedComic" />
       <ChapterExportPanel
         v-else
         v-model:chapterPaneMode="chapterPaneMode"
-        v-model:group-path="currentGroupPath"
-        :sorted-groups="sortedGroups"
+        v-model:currentGroupPath="currentGroupPath"
+        :sortedGroups="sortedGroups"
         :reload="reloadPickedComic" />
     </template>
 

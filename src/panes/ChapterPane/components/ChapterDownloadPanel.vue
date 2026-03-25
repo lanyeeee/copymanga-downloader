@@ -1,68 +1,83 @@
-<script setup lang="ts">
-import { SelectionArea, SelectionEvent, SelectionOptions } from '@viselect/vue'
-import { computed, nextTick, ref, watchEffect } from 'vue'
-import { commands } from '../../../bindings.ts'
-import {
-  DropdownOption,
-  NButton,
-  NCheckbox,
-  NCheckboxGroup,
-  NDropdown,
-  NRadioButton,
-  NRadioGroup,
-  NTabPane,
-  NTabs,
-} from 'naive-ui'
+<script setup lang="tsx">
+import { PartialSelectionOptions, SelectionArea, SelectionEvent } from '@viselect/vue'
+import { ChapterInfo, commands, DownloadTaskState } from '../../../bindings.ts'
+import { DropdownOption, NButton, NCheckbox, NDropdown, NRadioButton, NRadioGroup, NTabPane, NTabs } from 'naive-ui'
 import { useStore } from '../../../store.ts'
-import { ChapterInfoWithState, ChapterPaneMode, State } from '../ChapterPane.vue'
+import { ChapterPaneMode } from '../ChapterPane.vue'
+import { computed, defineComponent, nextTick, PropType, ref, watch, watchEffect, useTemplateRef } from 'vue'
+
+type State = DownloadTaskState | 'Idle'
+
+const store = useStore()
 
 const props = defineProps<{
-  sortedGroups: [string, ChapterInfoWithState[]][]
+  sortedGroups: [string, ChapterInfo[]][]
   reload: () => void
 }>()
 
 const chapterPaneMode = defineModel<ChapterPaneMode>('chapterPaneMode', { required: true })
-const groupPath = defineModel<string>('groupPath', { required: true })
+// 当前tab的分组路径
+const currentGroupPath = defineModel<string>('currentGroupPath', { required: true })
+// 当前tab的分组
+const currentGroup = computed<ChapterInfo[] | undefined>(
+  () => props.sortedGroups.find(([path]) => path === currentGroupPath.value)?.[1],
+)
 
-const store = useStore()
-
-const selectionOptions = {
+const selectionOptions: PartialSelectionOptions = {
   selectables: '.selectable',
   features: { deselectOnBlur: true },
-} as SelectionOptions
-const checkedIds = ref<string[]>([])
+  boundaries: '.chapter-download-pane-selection-container',
+}
+// SelectionArea组件的ref
+const selectionAreaRef = useTemplateRef('selectionAreaRef')
+// 已勾选的章节id
+const checkedIds = ref<Set<string>>(new Set())
+// 已选中(被框选选到)的章节id
 const selectedIds = ref<Set<string>>(new Set())
-
-const currentGroup = computed<ChapterInfoWithState[] | undefined>(
-  () => props.sortedGroups.find(([path]) => path === groupPath.value)?.[1],
+// 如果漫画变了，清空勾选和选中状态
+watch(
+  () => store.pickedComic,
+  () => {
+    checkedIds.value.clear()
+    selectedIds.value.clear()
+    selectionAreaRef.value?.selection?.clearSelection()
+  },
 )
+// 只保留selectable的章节
 watchEffect(() => {
-  const selectableChapterUuids = props.sortedGroups
-    .flatMap(([, chapters]) => chapters)
-    .filter((chapter) => isChapterSelectable(chapter))
-    .map((chapter) => chapter.chapterUuid)
-  checkedIds.value = checkedIds.value.filter((uuid) => selectableChapterUuids.includes(uuid))
+  if (store.pickedComic === undefined || props.sortedGroups === undefined) {
+    return
+  }
+
+  const selectableChapterUuids = new Set(
+    props.sortedGroups
+      .flatMap(([, chapters]) => chapters)
+      .filter((chapter) => isChapterSelectable(chapter))
+      .map((chapter) => chapter.chapterUuid),
+  )
+
+  for (const uuid of checkedIds.value) {
+    if (!selectableChapterUuids.has(uuid)) {
+      checkedIds.value.delete(uuid)
+    }
+  }
+
+  for (const uuid of selectedIds.value) {
+    if (!selectableChapterUuids.has(uuid)) {
+      selectedIds.value.delete(uuid)
+    }
+  }
 })
 
+// 提取章节id
 function extractIds(elements: Element[]): string[] {
   return elements
     .map((element) => element.getAttribute('data-key'))
-    .filter(Boolean)
-    .filter((id) => {
-      const chapterInfo = currentGroup.value?.find((chapter) => chapter.chapterUuid === id)
-      return chapterInfo !== undefined && isChapterSelectable(chapterInfo)
-    }) as string[]
+    .filter((uuid): uuid is string => uuid !== null)
+    .filter((uuid) => currentGroup.value?.find((chapter) => chapter.chapterUuid === uuid) !== undefined)
 }
 
-function updateSelectedIds({
-  store: {
-    changed: { added, removed },
-  },
-}: SelectionEvent) {
-  extractIds(added).forEach((id) => selectedIds.value.add(id))
-  extractIds(removed).forEach((id) => selectedIds.value.delete(id))
-}
-
+// 取消所有已选中(被框选选到)的章节
 function unselectAll({ event, selection }: SelectionEvent) {
   if (!event?.ctrlKey && !event?.metaKey) {
     selection.clearSelection()
@@ -70,18 +85,31 @@ function unselectAll({ event, selection }: SelectionEvent) {
   }
 }
 
+// 更新已选中(被框选选到)的章节id
+function updateSelectedIds({
+  store: {
+    changed: { added, removed },
+  },
+}: SelectionEvent) {
+  extractIds(added).forEach((uuid) => selectedIds.value.add(uuid))
+  extractIds(removed).forEach((uuid) => selectedIds.value.delete(uuid))
+}
+
+// dropdown的x坐标
 const dropdownX = ref<number>(0)
+// dropdown的y坐标
 const dropdownY = ref<number>(0)
+// 是否显示dropdown
 const dropdownShowing = ref<boolean>(false)
-const dropdownOptions = computed<DropdownOption[]>(() => [
+// dropdown选项
+const dropdownOptions: DropdownOption[] = [
   {
     label: '勾选',
     key: 'check',
     props: {
       onClick: () => {
-        ;[...selectedIds.value]
-          .filter((id) => !checkedIds.value.includes(id))
-          .forEach((id) => checkedIds.value.push(id))
+        // 只有未勾选的才会被勾选
+        selectedIds.value.forEach((uuid) => checkedIds.value.add(uuid))
         dropdownShowing.value = false
       },
     },
@@ -91,7 +119,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'uncheck',
     props: {
       onClick: () => {
-        checkedIds.value = checkedIds.value.filter((id) => !selectedIds.value.has(id))
+        selectedIds.value.forEach((uuid) => checkedIds.value.delete(uuid))
         dropdownShowing.value = false
       },
     },
@@ -101,9 +129,7 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'check all',
     props: {
       onClick: () => {
-        currentGroup.value
-          ?.filter((chapter) => isChapterSelectable(chapter) && !checkedIds.value.includes(chapter.chapterUuid))
-          .forEach((chapter) => checkedIds.value.push(chapter.chapterUuid))
+        currentGroup.value?.filter((c) => isChapterSelectable(c)).forEach((c) => checkedIds.value.add(c.chapterUuid))
         dropdownShowing.value = false
       },
     },
@@ -113,13 +139,14 @@ const dropdownOptions = computed<DropdownOption[]>(() => [
     key: 'uncheck all',
     props: {
       onClick: () => {
-        const currentGroupIds = currentGroup.value?.map((chapter) => chapter.chapterUuid) ?? []
-        checkedIds.value = checkedIds.value.filter((id) => !currentGroupIds.includes(id))
+        currentGroup.value?.forEach((chapter) => checkedIds.value.delete(chapter.chapterUuid))
         dropdownShowing.value = false
       },
     },
   },
-])
+]
+
+// 显示dropdown
 async function showDropdown(e: MouseEvent) {
   dropdownShowing.value = false
   await nextTick()
@@ -128,13 +155,15 @@ async function showDropdown(e: MouseEvent) {
   dropdownY.value = e.clientY
 }
 
-async function downloadChapters() {
+// 下载勾选的章节
+async function downloadCheckedChapters() {
   if (store.pickedComic === undefined) {
     return
   }
 
+  // 下载没有下载过的且已勾选的章节
   const chapterUuidsToDownload = currentGroup.value
-    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.includes(chapter.chapterUuid))
+    ?.filter((chapter) => isChapterSelectable(chapter) && checkedIds.value.has(chapter.chapterUuid))
     .map((chapter) => chapter.chapterUuid)
   if (chapterUuidsToDownload === undefined || chapterUuidsToDownload.length === 0) {
     return
@@ -145,13 +174,57 @@ async function downloadChapters() {
   }
 }
 
-function isDownloading(state: State) {
+function getChapterState(chapter: ChapterInfo): State {
+  return store.progresses.get(chapter.chapterUuid)?.state ?? 'Idle'
+}
+
+function isDownloadingChapter(chapter: ChapterInfo) {
+  const state = getChapterState(chapter)
   return state === 'Pending' || state === 'Downloading' || state === 'Paused'
 }
 
-function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
-  return !isDownloading(chapter.state) && chapter.isDownloaded !== true
+function isDownloadedChapter(chapter: ChapterInfo): boolean {
+  return chapter.isDownloaded === true
 }
+
+function isChapterSelectable(chapter: ChapterInfo): boolean {
+  return !isDownloadingChapter(chapter) && !isDownloadedChapter(chapter)
+}
+
+const ChapterCheckbox = defineComponent({
+  name: 'ChapterCheckbox',
+  props: {
+    chapter: {
+      type: Object as PropType<ChapterInfo>,
+      required: true,
+    },
+  },
+  setup: (props) => {
+    return () => (
+      <NCheckbox
+        class={[
+          'hover:bg-gray-200!',
+          {
+            selectable: isChapterSelectable(props.chapter),
+            selected: selectedIds.value.has(props.chapter.chapterUuid),
+            downloaded: isDownloadedChapter(props.chapter),
+            downloading: !isDownloadedChapter(props.chapter) && isDownloadingChapter(props.chapter),
+          },
+        ]}
+        checked={checkedIds.value.has(props.chapter.chapterUuid)}
+        onUpdate:checked={(checked: boolean) => {
+          if (checked) {
+            checkedIds.value.add(props.chapter.chapterUuid)
+          } else {
+            checkedIds.value.delete(props.chapter.chapterUuid)
+          }
+        }}
+        label={props.chapter.chapterTitle}
+        disabled={!isChapterSelectable(props.chapter)}
+      />
+    )
+  },
+})
 </script>
 
 <template>
@@ -162,38 +235,29 @@ function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
         <n-radio-button value="export">导出</n-radio-button>
       </n-radio-group>
       <n-button class="ml-auto" size="small" @click="props.reload">刷新</n-button>
-      <n-button size="small" type="primary" @click="downloadChapters">下载勾选章节</n-button>
+      <n-button size="small" type="primary" @click="downloadCheckedChapters">下载勾选章节</n-button>
     </div>
 
-    <n-tabs class="flex-1 overflow-auto" v-model:value="groupPath" type="line" size="small" animated>
+    <SelectionArea ref="selectionAreaRef" :options="selectionOptions" @move="updateSelectedIds" @start="unselectAll" />
+
+    <n-tabs class="flex-1 overflow-auto" v-model:value="currentGroupPath" type="line" size="small" animated>
       <n-tab-pane
         v-for="[groupPath, chapters] in sortedGroups"
         :key="groupPath"
         :name="groupPath"
         :tab="store.pickedComic.groups[groupPath].name"
         class="overflow-auto p-0! h-full">
-        <SelectionArea
-          class="selection-container flex flex-col flex-1 box-border pt-2 px-2 overflow-auto h-full"
-          :options="selectionOptions"
-          @contextmenu="showDropdown"
-          @move="updateSelectedIds"
-          @start="unselectAll">
-          <n-checkbox-group v-model:value="checkedIds" class="grid grid-cols-3 gap-1.5 w-full mb-3">
-            <n-checkbox
+        <div
+          class="chapter-download-pane-selection-container box-border p-2 overflow-auto h-full"
+          @contextmenu="showDropdown">
+          <div class="grid grid-cols-3 gap-1.5 w-full">
+            <ChapterCheckbox
               v-for="chapter in chapters"
               :key="chapter.chapterUuid"
               :data-key="chapter.chapterUuid"
-              class="selectable hover:bg-gray-200!"
-              :value="chapter.chapterUuid"
-              :label="chapter.chapterTitle"
-              :disabled="!isChapterSelectable(chapter)"
-              :class="{
-                selected: selectedIds.has(chapter.chapterUuid),
-                downloaded: chapter.isDownloaded,
-                downloading: !chapter.isDownloaded && isDownloading(chapter.state),
-              }" />
-          </n-checkbox-group>
-        </SelectionArea>
+              :chapter="chapter" />
+          </div>
+        </div>
       </n-tab-pane>
     </n-tabs>
 
@@ -209,19 +273,19 @@ function isChapterSelectable(chapter: ChapterInfoWithState): boolean {
 </template>
 
 <style scoped>
-.selection-container {
+.chapter-download-pane-selection-container {
   @apply select-none overflow-auto;
 }
 
-.selection-container .selected {
+.chapter-download-pane-selection-container .selected {
   @apply bg-[rgb(204,232,255)] !important;
 }
 
-.selection-container .downloaded {
+.chapter-download-pane-selection-container .downloaded {
   @apply bg-[rgba(24,160,88,0.16)];
 }
 
-.selection-container .downloading {
+.chapter-download-pane-selection-container .downloading {
   @apply bg-[rgba(114,46,209,0.16)];
 }
 
