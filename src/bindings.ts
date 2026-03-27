@@ -83,13 +83,8 @@ async getFavorite(pageNum: number, ordering: GetFavoriteOrdering) : Promise<Resu
     else return { status: "error", error: e  as any };
 }
 },
-async createDownloadTask(comic: Comic, chapterUuid: string) : Promise<Result<null, CommandError>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("create_download_task", { comic, chapterUuid }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
+async createDownloadTasks(comic: Comic, chapterUuids: string[]) : Promise<void> {
+    await TAURI_INVOKE("create_download_tasks", { comic, chapterUuids });
 },
 async pauseDownloadTask(chapterUuid: string) : Promise<Result<null, CommandError>> {
     try {
@@ -335,7 +330,7 @@ export type Pagination<T> = { list: T[]; total: number; limit: number; offset: n
 export type RestrictRespData = { value: number; display: string }
 export type SearchResult = Pagination<ComicInSearch>
 export type Theme = { name: string; path_word: string }
-export type UpdateDownloadedComicsEvent = { event: "GetComicStart"; data: { total: number } } | { event: "GetComicProgress"; data: { current: number; total: number } } | { event: "CreateDownloadTasksStart"; data: { comicPathWord: string; comicTitle: string; current: number; total: number } } | { event: "CreateDownloadTaskProgress"; data: { comicPathWord: string; current: number } } | { event: "CreateDownloadTasksEnd"; data: { comicPathWord: string } } | { event: "GetComicEnd" }
+export type UpdateDownloadedComicsEvent = { event: "GetComicStart"; data: { total: number } } | { event: "GetComicProgress"; data: { current: number; total: number } } | { event: "CreateDownloadTasksStart"; data: { comicPathWord: string; comicTitle: string } } | { event: "CreateDownloadTasksEnd"; data: { comicPathWord: string } } | { event: "GetComicEnd" }
 export type UserProfileRespData = { user_id: string; username: string; nickname: string; avatar: string; datetime_created: string; ticket: number; reward_ticket: number; downloads: number; vip_downloads: number; reward_downloads: number; scy_answer: boolean; day_downloads_refresh: string; day_downloads: number }
 
 /** tauri-specta globals **/

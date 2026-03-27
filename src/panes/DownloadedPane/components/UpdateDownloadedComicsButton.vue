@@ -20,33 +20,25 @@ onMounted(async () => {
       const { current, total } = updateEvent.data
       updateMessage.content = `正在获取已下载漫画的最新数据(${current}/${total})`
     } else if (updateEvent.event === 'CreateDownloadTasksStart') {
-      const { comicPathWord, comicTitle, current, total } = updateEvent.data
+      const { comicPathWord, comicTitle } = updateEvent.data
       progresses.value.set(comicPathWord, {
         comicPathWord,
         comicTitle,
-        current,
-        total,
         progressMessage: message.loading(
           () => {
             const progressData = progresses.value.get(comicPathWord)
             if (progressData === undefined) return ''
-            return `${progressData.comicTitle} 正在创建下载任务(${progressData.current}/${progressData.total})`
+            return `${progressData.comicTitle} 正在创建下载任务`
           },
           { duration: 0 },
         ),
       })
-    } else if (updateEvent.event === 'CreateDownloadTaskProgress') {
-      const { comicPathWord, current } = updateEvent.data
-      const progressData = progresses.value.get(comicPathWord)
-      if (progressData) {
-        progressData.current = current
-      }
     } else if (updateEvent.event === 'CreateDownloadTasksEnd' && updateMessage !== undefined) {
       const { comicPathWord } = updateEvent.data
       const progressData = progresses.value.get(comicPathWord)
       if (progressData) {
         progressData.progressMessage.type = 'success'
-        progressData.progressMessage.content = `${progressData.comicTitle} 创建下载任务完成(${progressData.current}/${progressData.total})`
+        progressData.progressMessage.content = `${progressData.comicTitle} 创建下载任务完成`
         setTimeout(() => {
           progressData.progressMessage.destroy()
           progresses.value.delete(comicPathWord)

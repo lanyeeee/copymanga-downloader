@@ -47,7 +47,7 @@ pub fn run() {
             get_group_chapters,
             get_chapter,
             get_favorite,
-            create_download_task,
+            create_download_tasks,
             pause_download_task,
             resume_download_task,
             cancel_download_task,

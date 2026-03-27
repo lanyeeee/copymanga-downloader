@@ -110,11 +110,7 @@ const dropdownOptions: DropdownOption[] = [
           }
           const { state, comic } = progressData
           if (state === 'Cancelled' || state === 'Completed' || state === 'Failed') {
-            const result = await commands.createDownloadTask(comic, chapterUuid)
-            if (result.status === 'error') {
-              console.error(result.error)
-            }
-            return
+            await commands.createDownloadTasks(comic, [chapterUuid])
           }
 
           const result = await commands.resumeDownloadTask(chapterUuid)
@@ -202,10 +198,7 @@ const UncompletedProgress = defineComponent({
           return
         }
         const { comic } = progressData
-        const result = await commands.createDownloadTask(comic, props.p.chapterInfo.chapterUuid)
-        if (result.status === 'error') {
-          console.error(result.error)
-        }
+        await commands.createDownloadTasks(comic, [props.p.chapterInfo.chapterUuid])
       }
     }
 

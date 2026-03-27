@@ -98,22 +98,45 @@ impl DownloadManager {
         }
     }
 
-    pub fn create_download_task(&self, comic: Comic, chapter_uuid: &str) -> anyhow::Result<()> {
+    pub fn create_download_tasks(&self, mut comic: Comic, chapter_uuids: &[String]) {
         use DownloadTaskState::{Downloading, Paused, Pending};
+
+        let _ = comic.ensure_download_dir_fields(&self.app);
+
+        let comic_title = &comic.comic.name;
         let mut tasks = self.download_tasks.write();
-        if let Some(task) = tasks.get(chapter_uuid) {
-            // 如果任务已经存在，且状态是`Pending`、`Downloading`或`Paused`，则不创建新任务
-            let state = *task.state_sender.borrow();
-            if matches!(state, Pending | Downloading | Paused) {
-                return Err(anyhow!("章节ID为`{chapter_uuid}`的下载任务已存在"));
+        for chapter_uuid in chapter_uuids {
+            if let Some(task) = tasks.get(chapter_uuid) {
+                // 如果任务已经存在，且状态是`Pending`、`Downloading`或`Paused`，则不创建新任务
+                let state = *task.state_sender.borrow();
+                if matches!(state, Pending | Downloading | Paused) {
+                    let err_title =
+                        format!("`{comic_title}`的章节ID为`{chapter_uuid}`的下载任务创建失败");
+                    let err_msg = format!("章节ID为`{chapter_uuid}`的下载任务已存在");
+                    tracing::error!(err_title, message = err_msg);
+                    continue;
+                }
             }
+
+            tasks.remove(chapter_uuid);
+
+            let task = match DownloadTask::new(self.app.clone(), comic.clone(), chapter_uuid) {
+                Ok(task) => task,
+                Err(err) => {
+                    let err_title =
+                        format!("`{comic_title}`的章节ID为`{chapter_uuid}`的下载任务创建失败");
+                    let string_chain = err.to_string_chain();
+                    tracing::error!(err_title, message = string_chain);
+                    continue;
+                }
+            };
+
+            tauri::async_runtime::spawn(task.clone().process());
+
+            tasks.insert(chapter_uuid.clone(), task);
+
+            tracing::debug!("创建章节ID为`{chapter_uuid}`的下载任务成功");
         }
-        tasks.remove(chapter_uuid);
-        let task = DownloadTask::new(self.app.clone(), comic, chapter_uuid)
-            .context("DownloadTask创建失败")?;
-        tauri::async_runtime::spawn(task.clone().process());
-        tasks.insert(chapter_uuid.to_string(), task);
-        Ok(())
     }
 
     pub fn pause_download_task(&self, chapter_uuid: &str) -> anyhow::Result<()> {
@@ -157,12 +180,10 @@ struct DownloadTask {
 
 impl DownloadTask {
     fn new(app: AppHandle, mut comic: Comic, chapter_uuid: &str) -> anyhow::Result<Self> {
-        comic
-            .update_download_dir_fields_by_fmt(&app)
-            .context(format!(
-                "漫画`{}`更新`download_dir`字段失败",
-                comic.comic.name
-            ))?;
+        comic.ensure_download_dir_fields(&app).context(format!(
+            "漫画`{}`更新`download_dir`字段失败",
+            comic.comic.name
+        ))?;
 
         let chapter_info = comic
             .comic
@@ -823,6 +844,26 @@ pub struct ComicDirFmtParams {
 }
 
 impl Comic {
+    fn ensure_download_dir_fields(&mut self, app: &AppHandle) -> anyhow::Result<()> {
+        if self.has_download_dir_fields() {
+            return Ok(());
+        }
+
+        self.update_download_dir_fields_by_fmt(app)
+    }
+
+    fn has_download_dir_fields(&self) -> bool {
+        let comic_download_dir_ready = self.comic_download_dir.is_some();
+        let chapter_download_dir = self
+            .comic
+            .groups
+            .values()
+            .flatten()
+            .all(|chapter| chapter.chapter_download_dir.is_some());
+
+        comic_download_dir_ready && chapter_download_dir
+    }
+
     /// 根据fmt更新`comic_download_dir`和`chapter_infos.chapter_download_dir`字段
     fn update_download_dir_fields_by_fmt(&mut self, app: &AppHandle) -> anyhow::Result<()> {
         let comic_uuid = self.comic.uuid.clone();
@@ -845,12 +886,7 @@ impl Comic {
         let comic_download_dir = Comic::get_comic_download_dir_by_fmt(app, &comic_dir_fmt_params)?;
         self.comic_download_dir = Some(comic_download_dir.clone());
 
-        for chapter_info in &mut self
-            .comic
-            .groups
-            .iter_mut()
-            .flat_map(|(_, chapters)| chapters)
-        {
+        for chapter_info in &mut self.comic.groups.values_mut().flatten() {
             let chapter_dir_fmt_params = ChapterDirFmtParams {
                 comic_uuid: comic_uuid.clone(),
                 comic_path_word: comic_path_word.clone(),

@@ -124,14 +124,6 @@ pub enum UpdateDownloadedComicsEvent {
     CreateDownloadTasksStart {
         comic_path_word: String,
         comic_title: String,
-        current: i64,
-        total: i64,
-    },
-
-    #[serde(rename_all = "camelCase")]
-    CreateDownloadTaskProgress {
-        comic_path_word: String,
-        current: i64,
     },
 
     #[serde(rename_all = "camelCase")]

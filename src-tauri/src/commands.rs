@@ -386,22 +386,10 @@ pub fn export_pdf_chapters(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
-pub fn create_download_task(
-    app: AppHandle,
-    comic: Comic,
-    chapter_uuid: String,
-) -> CommandResult<()> {
+pub fn create_download_tasks(app: AppHandle, comic: Comic, chapter_uuids: Vec<String>) {
     let download_manager = app.get_download_manager();
-    let comic_title = comic.comic.name.clone();
 
-    download_manager
-        .create_download_task(comic, &chapter_uuid)
-        .map_err(|err| {
-            let err_title = format!("`{comic_title}`的章节ID为`{chapter_uuid}`的下载任务创建失败");
-            CommandError::from(&err_title, err)
-        })?;
-    tracing::debug!("创建章节ID为`{chapter_uuid}`的下载任务成功");
-    Ok(())
+    download_manager.create_download_tasks(comic, &chapter_uuids);
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -530,25 +518,15 @@ pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
         let _ = UpdateDownloadedComicsEvent::CreateDownloadTasksStart {
             comic_path_word: comic_path_word.clone(),
             comic_title: comic_title.clone(),
-            current: 0,
-            total: chapter_infos.len() as i64,
         }
         .emit(&app);
 
-        for (i, chapter_info) in chapter_infos.into_iter().enumerate() {
-            let chapter_uuid = &chapter_info.chapter_uuid;
-            let current = (i + 1) as i64;
+        let chapter_uuids: Vec<_> = chapter_infos
+            .into_iter()
+            .map(|chapter| chapter.chapter_uuid.clone())
+            .collect();
 
-            let _ = download_manager.create_download_task(comic.clone(), chapter_uuid);
-
-            let _ = UpdateDownloadedComicsEvent::CreateDownloadTaskProgress {
-                comic_path_word: comic_path_word.clone(),
-                current,
-            }
-            .emit(&app);
-
-            sleep(Duration::from_millis(100)).await;
-        }
+        download_manager.create_download_tasks(comic.clone(), &chapter_uuids);
 
         let _ = UpdateDownloadedComicsEvent::CreateDownloadTasksEnd {
             comic_path_word: comic_path_word.clone(),

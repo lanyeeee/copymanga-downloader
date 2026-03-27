@@ -169,9 +169,7 @@ async function downloadCheckedChapters() {
     return
   }
 
-  for (const chapterUuid of chapterUuidsToDownload) {
-    await commands.createDownloadTask(store.pickedComic, chapterUuid)
-  }
+  await commands.createDownloadTasks(store.pickedComic, chapterUuidsToDownload)
 }
 
 function getChapterState(chapter: ChapterInfo): State {
