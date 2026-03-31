@@ -2,7 +2,7 @@ mod account_pool;
 mod commands;
 mod config;
 mod copy_client;
-mod download_manager;
+mod downloader;
 mod errors;
 mod events;
 mod export;
@@ -12,20 +12,20 @@ mod responses;
 mod types;
 mod utils;
 
-use account_pool::AccountPool;
 use anyhow::Context;
-use copy_client::CopyClient;
-use download_manager::DownloadManager;
-use events::{ExportCbzEvent, ExportPdfEvent, UpdateDownloadedComicsEvent};
-use export::ComicExportLock;
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 
-use crate::commands::*;
-use crate::config::Config;
-use crate::events::{
-    DownloadControlRiskEvent, DownloadSleepingEvent, DownloadSpeedEvent, DownloadTaskEvent,
-    LogEvent,
+use crate::{
+    account_pool::AccountPool,
+    commands::*,
+    config::Config,
+    copy_client::CopyClient,
+    downloader::download_manager::DownloadManager,
+    events::{
+        DownloadEvent, ExportCbzEvent, ExportPdfEvent, LogEvent, UpdateDownloadedComicsEvent,
+    },
+    export::ComicExportLock,
 };
 
 fn generate_context() -> tauri::Context<Wry> {
@@ -50,7 +50,7 @@ pub fn run() {
             create_download_tasks,
             pause_download_task,
             resume_download_task,
-            cancel_download_task,
+            delete_download_task,
             save_metadata,
             get_downloaded_comics,
             export_cbz,
@@ -65,10 +65,7 @@ pub fn run() {
             get_synced_comic_in_search,
         ])
         .events(tauri_specta::collect_events![
-            DownloadTaskEvent,
-            DownloadControlRiskEvent,
-            DownloadSpeedEvent,
-            DownloadSleepingEvent,
+            DownloadEvent,
             ExportCbzEvent,
             ExportPdfEvent,
             UpdateDownloadedComicsEvent,

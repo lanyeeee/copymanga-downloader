@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::{
     account_pool::AccountPool, config::Config, copy_client::CopyClient,
-    download_manager::DownloadManager, export::ComicExportLock,
+    downloader::download_manager::DownloadManager, export::ComicExportLock,
 };
 
 pub trait AnyhowErrorToStringChain {

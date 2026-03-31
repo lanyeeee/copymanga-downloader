@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { commands, events } from '../../bindings.ts'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
@@ -16,80 +16,84 @@ const store = useStore()
 
 const downloadSpeed = ref<string>('')
 
+let unListenDownloadEvent: () => void | undefined
 onMounted(async () => {
-  // 监听下载速度事件
-  await events.downloadSpeedEvent.listen(async ({ payload: { speed } }) => {
-    downloadSpeed.value = speed
-  })
-  // 监听休息事件
-  await events.downloadSleepingEvent.listen(async ({ payload: { chapterUuid, remainingSec } }) => {
-    const progressData = store.progresses.get(chapterUuid)
-    if (progressData !== undefined) {
-      progressData.indicator = `将在${remainingSec}秒后继续下载`
-    }
-  })
-  // 监听下载控制风控事件
-  await events.downloadControlRiskEvent.listen(async ({ payload: { chapterUuid, retryAfter } }) => {
-    const progressData = store.progresses.get(chapterUuid)
-    if (progressData === undefined) {
-      return
-    }
-
-    progressData.retryAfter = retryAfter
-    progressData.indicator = `风控中，将在${retryAfter}秒后自动重试`
-  })
   // 监听下载事件
-  await events.downloadTaskEvent.listen(async ({ payload: { event, data } }) => {
-    if (event == 'Create') {
-      const { chapterInfo, downloadedImgCount, totalImgCount } = data
+  await events.downloadEvent
+    .listen(async ({ payload: { event, data } }) => {
+      if (event === 'Speed') {
+        downloadSpeed.value = data.speed
+      } else if (event === 'Sleeping') {
+        const { chapterUuid, remainingSec } = data
+        const progressData = store.progresses.get(chapterUuid)
+        if (progressData !== undefined) {
+          progressData.indicator = `将在${remainingSec}秒后继续下载`
+        }
+      } else if (event === 'RiskControl') {
+        const { chapterUuid, retryAfter } = data
+        const progressData = store.progresses.get(chapterUuid)
+        if (progressData === undefined) {
+          return
+        }
 
-      store.progresses.set(chapterInfo.chapterUuid, {
-        ...data,
-        percentage: 0,
-        indicator: `排队中 ${downloadedImgCount}/${totalImgCount}`,
-        retryAfter: 0,
-      })
-    } else if (event == 'Update') {
-      const { chapterUuid, state, downloadedImgCount, totalImgCount } = data
+        progressData.retryAfter = retryAfter
+        progressData.indicator = `风控中，将在${retryAfter}秒后自动重试`
+      } else if (event == 'TaskCreate') {
+        const { chapterInfo, downloadedImgCount, totalImgCount } = data
 
-      const progressData = store.progresses.get(chapterUuid)
-      if (progressData === undefined) {
-        return
+        store.progresses.set(chapterInfo.chapterUuid, {
+          ...data,
+          percentage: 0,
+          indicator: `排队中 ${downloadedImgCount}/${totalImgCount}`,
+          retryAfter: 0,
+        })
+      } else if (event == 'TaskUpdate') {
+        const { chapterUuid, state, downloadedImgCount, totalImgCount } = data
+
+        const progressData = store.progresses.get(chapterUuid)
+        if (progressData === undefined) {
+          return
+        }
+
+        progressData.state = state
+        progressData.downloadedImgCount = downloadedImgCount
+        progressData.totalImgCount = totalImgCount
+        progressData.percentage = (downloadedImgCount / totalImgCount) * 100
+
+        if (state === 'Completed') {
+          progressData.chapterInfo.isDownloaded = true
+          await syncPickedComic()
+          await syncComicInSearch(progressData)
+          await syncComicInFavorite(progressData)
+        }
+
+        let indicator = ''
+        if (state === 'Pending') {
+          indicator = `排队中`
+        } else if (state === 'Downloading') {
+          indicator = `下载中`
+        } else if (state === 'Paused') {
+          indicator = `已暂停`
+        } else if (state === 'Completed') {
+          indicator = `下载完成`
+        } else if (state === 'Failed') {
+          indicator = `下载失败`
+        }
+        if (totalImgCount !== 0) {
+          indicator += ` ${downloadedImgCount}/${totalImgCount}`
+        }
+
+        progressData.indicator = indicator
+      } else if (event === 'TaskDelete') {
+        store.progresses.delete(data.chapterUuid)
       }
-
-      progressData.state = state
-      progressData.downloadedImgCount = downloadedImgCount
-      progressData.totalImgCount = totalImgCount
-      progressData.percentage = (downloadedImgCount / totalImgCount) * 100
-
-      if (state === 'Completed') {
-        progressData.chapterInfo.isDownloaded = true
-        await syncPickedComic()
-        await syncComicInSearch(progressData)
-        await syncComicInFavorite(progressData)
-      }
-
-      let indicator = ''
-      if (state === 'Pending') {
-        indicator = `排队中`
-      } else if (state === 'Downloading') {
-        indicator = `下载中`
-      } else if (state === 'Paused') {
-        indicator = `已暂停`
-      } else if (state === 'Cancelled') {
-        indicator = `已取消`
-      } else if (state === 'Completed') {
-        indicator = `下载完成`
-      } else if (state === 'Failed') {
-        indicator = `下载失败`
-      }
-      if (totalImgCount !== 0) {
-        indicator += ` ${downloadedImgCount}/${totalImgCount}`
-      }
-
-      progressData.indicator = indicator
-    }
-  })
+    })
+    .then((unListenFn) => {
+      unListenDownloadEvent = unListenFn
+    })
+})
+onUnmounted(() => {
+  unListenDownloadEvent?.()
 })
 
 async function syncPickedComic() {

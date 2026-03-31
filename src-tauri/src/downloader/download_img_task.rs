@@ -1,0 +1,254 @@
+use std::{
+    io::Cursor,
+    path::{Path, PathBuf},
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+};
+
+use anyhow::{anyhow, Context};
+use bytes::Bytes;
+use image::ImageFormat;
+use tauri::AppHandle;
+use tokio::{
+    sync::{watch, SemaphorePermit},
+    time::sleep,
+};
+
+use crate::{
+    downloader::{download_task::DownloadTask, download_task_state::DownloadTaskState},
+    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+};
+
+pub struct DownloadImgTask {
+    app: AppHandle,
+    download_task: Arc<DownloadTask>,
+    url: String,
+    index: i64,
+    temp_download_dir: PathBuf,
+}
+
+impl DownloadImgTask {
+    pub fn new(
+        download_task: Arc<DownloadTask>,
+        url: String,
+        index: i64,
+        temp_download_dir: PathBuf,
+    ) -> Self {
+        DownloadImgTask {
+            app: download_task.app.clone(),
+            download_task,
+            url,
+            index,
+            temp_download_dir,
+        }
+    }
+
+    pub async fn process(self) {
+        let download_img_task = self.download_img();
+        tokio::pin!(download_img_task);
+
+        let mut state_receiver = self.download_task.state_sender.subscribe();
+        state_receiver.mark_changed();
+
+        let mut delete_receiver = self.download_task.delete_sender.subscribe();
+
+        let mut permit = None;
+
+        loop {
+            let state_is_downloading = *state_receiver.borrow() == DownloadTaskState::Downloading;
+            tokio::select! {
+                () = &mut download_img_task, if state_is_downloading && permit.is_some() => break,
+
+                () = self.acquire_img_permit(&mut permit), if state_is_downloading && permit.is_none() => {},
+
+                _ = state_receiver.changed() => {
+                    self.handle_state_change(&mut permit, &mut state_receiver).await;
+                }
+
+                _ = delete_receiver.changed() => {
+                    self.handle_delete_receiver_change(&mut permit).await;
+                    return;
+                }
+            }
+        }
+    }
+
+    async fn download_img(&self) {
+        let url = &self.url;
+        let comic_title = &self.download_task.comic.comic.name;
+        let chapter_title = &self.download_task.chapter_info.chapter_title;
+
+        let download_format = self.app.get_config().read().download_format;
+        let extension = download_format.extension();
+        let save_path = self
+            .temp_download_dir
+            .join(format!("{:03}.{extension}", self.index + 1));
+        if save_path.exists() {
+            // 如果图片已经存在，则直接跳过下载
+            self.download_task
+                .downloaded_img_count
+                .fetch_add(1, Ordering::Relaxed);
+
+            self.download_task.emit_download_task_update_event();
+
+            tracing::trace!(url, comic_title, chapter_title, "图片已存在，跳过下载");
+            return;
+        }
+
+        tracing::trace!(url, comic_title, chapter_title, "开始下载图片");
+
+        let copy_client = self.app.get_copy_client();
+        let (img_data, img_format) = match copy_client.get_img_data_and_format(url).await {
+            Ok(data_and_format) => data_and_format,
+            Err(err) => {
+                let err_title = format!("下载图片`{url}`失败");
+                let string_chain = err.to_string_chain();
+                tracing::error!(err_title, message = string_chain);
+                return;
+            }
+        };
+        let img_data_len = img_data.len() as u64;
+
+        tracing::trace!(url, comic_title, chapter_title, "图片成功下载到内存");
+
+        // 保存图片
+        let target_format = download_format.to_image_format();
+        if let Err(err) = save_img(&save_path, target_format, &img_data, img_format) {
+            let err_title = format!("保存图片`{url}`失败");
+            let string_chain = err.to_string_chain();
+            tracing::error!(err_title, message = string_chain);
+            return;
+        }
+
+        tracing::trace!(
+            url,
+            comic_title,
+            chapter_title,
+            "图片成功保存到`{}`",
+            save_path.display()
+        );
+
+        // 记录下载字节数
+        self.app
+            .get_download_manager()
+            .byte_per_sec
+            .fetch_add(img_data_len, Ordering::Relaxed);
+
+        self.download_task
+            .downloaded_img_count
+            .fetch_add(1, Ordering::Relaxed);
+
+        self.download_task.emit_download_task_update_event();
+
+        let img_download_interval_sec = self.app.get_config().read().img_download_interval_sec;
+        sleep(Duration::from_secs(img_download_interval_sec)).await;
+    }
+
+    async fn acquire_img_permit<'a>(&'a self, permit: &mut Option<SemaphorePermit<'a>>) {
+        let url = &self.url;
+        let comic_title = &self.download_task.comic.comic.name;
+        let chapter_title = &self.download_task.chapter_info.chapter_title;
+
+        tracing::trace!(comic_title, chapter_title, url, "图片开始排队");
+
+        *permit = match permit.take() {
+            // 如果有permit，则直接用
+            Some(permit) => Some(permit),
+            // 如果没有permit，则获取permit
+            None => match self
+                .app
+                .get_download_manager()
+                .inner()
+                .img_sem
+                .acquire()
+                .await
+                .map_err(anyhow::Error::from)
+            {
+                Ok(permit) => Some(permit),
+                Err(err) => {
+                    let err_title =
+                        format!("`{comic_title} - {chapter_title}`获取下载图片的permit失败");
+                    let string_chain = err.to_string_chain();
+                    tracing::error!(err_title, message = string_chain);
+                    return;
+                }
+            },
+        };
+    }
+
+    async fn handle_state_change<'a>(
+        &'a self,
+        permit: &mut Option<SemaphorePermit<'a>>,
+        state_receiver: &mut watch::Receiver<DownloadTaskState>,
+    ) {
+        let url = &self.url;
+        let comic_title = &self.download_task.comic.comic.name;
+        let chapter_title = &self.download_task.chapter_info.chapter_title;
+
+        let state = *state_receiver.borrow();
+        if state == DownloadTaskState::Paused {
+            // 稍微等一下再释放permit
+            // 避免大批量暂停时，本应暂停的任务因拿到permit而稍微下载一小段(虽然最终会被暂停)
+            sleep(Duration::from_millis(100)).await;
+            tracing::trace!(comic_title, chapter_title, url, "图片暂停下载");
+            if let Some(permit) = permit.take() {
+                drop(permit);
+            }
+        } else if state == DownloadTaskState::Failed {
+            // 稍微等一下再释放permit
+            // 避免大批量失败时，本应失败的任务因拿到permit而稍微下载一小段(虽然最终会被失败)
+            sleep(Duration::from_millis(100)).await;
+            tracing::trace!(comic_title, chapter_title, url, "图片取消下载");
+            if let Some(permit) = permit.take() {
+                drop(permit);
+            }
+        }
+    }
+
+    async fn handle_delete_receiver_change<'a>(&'a self, permit: &mut Option<SemaphorePermit<'a>>) {
+        let url = &self.url;
+        let comic_title = &self.download_task.comic.comic.name;
+        let chapter_title = &self.download_task.chapter_info.chapter_title;
+
+        if permit.is_some() {
+            // 如果有permit则稍微等一下再退出
+            // 这是为了避免大批量删除时，本应删除的任务因拿到permit而又稍微下载一小段
+            sleep(Duration::from_millis(100)).await;
+        }
+
+        tracing::trace!(comic_title, chapter_title, url, "图片取消下载");
+    }
+}
+
+fn save_img(
+    save_path: &Path,
+    target_format: ImageFormat,
+    src_img_data: &Bytes,
+    src_format: ImageFormat,
+) -> anyhow::Result<()> {
+    if target_format == src_format {
+        // 如果target_format与src_format匹配，则直接保存
+        std::fs::write(save_path, src_img_data)
+            .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+        return Ok(());
+    }
+    // 如果target_format与src_format不匹配，则需要转换格式
+    let img = image::load_from_memory(src_img_data).context("加载图片数据失败")?;
+
+    let mut converted_data = Vec::new();
+    match target_format {
+        ImageFormat::WebP => img
+            .to_rgba8()
+            .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::WebP),
+        ImageFormat::Jpeg => img
+            .to_rgb8()
+            .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::Jpeg),
+        _ => return Err(anyhow!("不支持的图片格式: {:?}", target_format)),
+    }
+    .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?;
+
+    std::fs::write(save_path, &converted_data)
+        .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+
+    Ok(())
+}

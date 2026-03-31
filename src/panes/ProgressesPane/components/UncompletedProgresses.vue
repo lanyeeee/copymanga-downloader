@@ -28,7 +28,7 @@ const selectableRefs = useTemplateRef('selectableRefs')
 
 const uncompletedProgresses = computed<[string, ProgressData][]>(() =>
   Array.from(store.progresses.entries())
-    .filter(([, { state }]) => state !== 'Completed' && state !== 'Cancelled')
+    .filter(([, { state }]) => state !== 'Completed')
     .sort((a, b) => b[1].totalImgCount - a[1].totalImgCount),
 )
 
@@ -104,15 +104,6 @@ const dropdownOptions: DropdownOption[] = [
     props: {
       onClick: () => {
         selectedIds.value.forEach(async (chapterUuid) => {
-          const progressData = store.progresses.get(chapterUuid)
-          if (progressData === undefined) {
-            return
-          }
-          const { state, comic } = progressData
-          if (state === 'Cancelled' || state === 'Completed' || state === 'Failed') {
-            await commands.createDownloadTasks(comic, [chapterUuid])
-          }
-
           const result = await commands.resumeDownloadTask(chapterUuid)
           if (result.status === 'error') {
             console.error(result.error)
@@ -133,6 +124,15 @@ const dropdownOptions: DropdownOption[] = [
     props: {
       onClick: () => {
         selectedIds.value.forEach(async (chapterUuid) => {
+          const progressData = store.progresses.get(chapterUuid)
+          if (progressData === undefined) {
+            return
+          }
+          const { state } = progressData
+          if (state === 'Completed' || state === 'Failed') {
+            return
+          }
+
           const result = await commands.pauseDownloadTask(chapterUuid)
           if (result.status === 'error') {
             console.error(result.error)
@@ -143,7 +143,7 @@ const dropdownOptions: DropdownOption[] = [
     },
   },
   {
-    label: '取消',
+    label: '删除',
     key: 'cancel',
     icon: () => (
       <NIcon size="20">
@@ -153,7 +153,7 @@ const dropdownOptions: DropdownOption[] = [
     props: {
       onClick: () => {
         selectedIds.value.forEach(async (chapterUuid) => {
-          const result = await commands.cancelDownloadTask(chapterUuid)
+          const result = await commands.deleteDownloadTask(chapterUuid)
           if (result.status === 'error') {
             console.error(result.error)
           }
@@ -233,8 +233,6 @@ const UncompletedProgress = defineComponent({
         return 'text-red-500'
       } else if (props.p.state === 'Completed') {
         return 'text-green-500'
-      } else if (props.p.state === 'Cancelled') {
-        return 'text-stone-500'
       }
 
       return ''
