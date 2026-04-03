@@ -8,8 +8,8 @@ use crate::{
     downloader::download_manager::DownloadManager, export::ComicExportLock,
 };
 
-pub trait AnyhowErrorToStringChain {
-    /// 将 `anyhow::Error` 转换为chain格式
+pub trait ReportToStringChain {
+    /// 将 `eyre::Report` 转换为chain格式
     /// # Example
     /// 0: error message
     /// 1: error message
@@ -17,7 +17,7 @@ pub trait AnyhowErrorToStringChain {
     fn to_string_chain(&self) -> String;
 }
 
-impl AnyhowErrorToStringChain for anyhow::Error {
+impl ReportToStringChain for eyre::Report {
     fn to_string_chain(&self) -> String {
         use std::fmt::Write;
         self.chain()
@@ -34,16 +34,16 @@ pub trait SendWithTimeoutMsg {
     ///
     /// - 如果遇到超时错误，返回带有用户友好信息的错误
     /// - 否则返回原始错误
-    async fn send_with_timeout_msg(self) -> anyhow::Result<Response>;
+    async fn send_with_timeout_msg(self) -> eyre::Result<Response>;
 }
 
 impl SendWithTimeoutMsg for RequestBuilder {
-    async fn send_with_timeout_msg(self) -> anyhow::Result<Response> {
+    async fn send_with_timeout_msg(self) -> eyre::Result<Response> {
         self.send().await.map_err(|e| {
             if e.is_timeout() || e.is_middleware() {
-                anyhow::Error::from(e).context("网络连接超时，请使用代理或换条线路重试")
+                eyre::Report::from(e).wrap_err("网络连接超时，请使用代理或换条线路重试")
             } else {
-                anyhow::Error::from(e)
+                eyre::Report::from(e)
             }
         })
     }

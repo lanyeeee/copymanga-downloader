@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Context};
+use eyre::{eyre, WrapErr};
 use parking_lot::RwLock;
 use tauri::AppHandle;
 use tauri_specta::Event;
@@ -16,7 +16,7 @@ use tokio::sync::Semaphore;
 use crate::{
     downloader::{download_task::DownloadTask, download_task_state::DownloadTaskState},
     events::DownloadEvent,
-    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    extensions::{AppHandleExt, ReportToStringChain},
     types::Comic,
 };
 
@@ -115,32 +115,32 @@ impl DownloadManager {
         }
     }
 
-    pub fn pause_download_task(&self, chapter_uuid: &str) -> anyhow::Result<()> {
+    pub fn pause_download_task(&self, chapter_uuid: &str) -> eyre::Result<()> {
         let tasks = self.download_tasks.read();
         let Some(task) = tasks.get(chapter_uuid) else {
-            return Err(anyhow!("未找到章节ID为`{chapter_uuid}`的下载任务"));
+            return Err(eyre!("未找到章节ID为`{chapter_uuid}`的下载任务"));
         };
         task.set_state(DownloadTaskState::Paused);
         Ok(())
     }
 
-    pub fn resume_download_task(&self, chapter_uuid: &str) -> anyhow::Result<()> {
+    pub fn resume_download_task(&self, chapter_uuid: &str) -> eyre::Result<()> {
         let tasks = self.download_tasks.read();
         let Some(task) = tasks.get(chapter_uuid) else {
-            return Err(anyhow!("未找到章节ID为`{chapter_uuid}`的下载任务"));
+            return Err(eyre!("未找到章节ID为`{chapter_uuid}`的下载任务"));
         };
         task.set_state(DownloadTaskState::Pending);
         Ok(())
     }
 
-    pub fn delete_download_task(&self, chapter_uuid: &str) -> anyhow::Result<()> {
+    pub fn delete_download_task(&self, chapter_uuid: &str) -> eyre::Result<()> {
         let mut tasks = self.download_tasks.write();
         let Some(task) = tasks.remove(chapter_uuid) else {
-            return Err(anyhow!("未找到章节ID为`{chapter_uuid}`的下载任务"));
+            return Err(eyre!("未找到章节ID为`{chapter_uuid}`的下载任务"));
         };
         task.delete_sender
             .send(())
-            .context(format!("通知章节ID为`{chapter_uuid}`的下载任务删除失败"))?;
+            .wrap_err(format!("通知章节ID为`{chapter_uuid}`的下载任务删除失败"))?;
         Ok(())
     }
 }

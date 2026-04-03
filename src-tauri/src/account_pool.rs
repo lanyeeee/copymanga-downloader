@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use anyhow::Context;
+use eyre::WrapErr;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::{
     errors::{GetUserProfileError, RiskControlResult},
-    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    extensions::{AppHandleExt, ReportToStringChain},
     types::AsyncMutex,
 };
 
@@ -19,20 +19,20 @@ pub struct AccountPool {
 }
 
 impl AccountPool {
-    pub fn new(app: &AppHandle) -> anyhow::Result<Self> {
+    pub fn new(app: &AppHandle) -> eyre::Result<Self> {
         // 读取account.json文件，获取账号信息
-        let app_data_dir = app.path().app_data_dir().context("获取app_data_dir失败")?;
+        let app_data_dir = app.path().app_data_dir().wrap_err("获取app_data_dir失败")?;
 
         let account_path = app_data_dir.join("account.json");
         if !account_path.exists() {
             std::fs::write(&account_path, "[]")
-                .context(format!("创建`{}`失败", account_path.display()))?;
+                .wrap_err(format!("创建`{}`失败", account_path.display()))?;
         }
 
         let accounts_string = std::fs::read_to_string(&account_path)
-            .context(format!("读取`{}`失败", account_path.display()))?;
+            .wrap_err(format!("读取`{}`失败", account_path.display()))?;
 
-        let accounts: Vec<Account> = serde_json::from_str(&accounts_string).context(format!(
+        let accounts: Vec<Account> = serde_json::from_str(&accounts_string).wrap_err(format!(
             "无法将accounts_string解析为Vec<Account>: {accounts_string}"
         ))?;
 
@@ -98,7 +98,7 @@ impl AccountPool {
             .pin()
             .insert(username.clone(), Arc::new(RwLock::new(account.clone())));
 
-        self.save().context("保存AccountPool失败")?;
+        self.save().wrap_err("保存AccountPool失败")?;
 
         Ok(account)
     }
@@ -122,12 +122,12 @@ impl AccountPool {
 
             match Account::prepare(&account, &self.app)
                 .await
-                .context(format!("用户名为`{username}`的账号准备失败"))
+                .wrap_err(format!("用户名为`{username}`的账号准备失败"))
             {
                 Ok(PrepareResult::Limited) => {}
                 Ok(PrepareResult::Available(account)) => return Some(account.clone()),
                 Ok(PrepareResult::Modified(account)) => {
-                    if let Err(err) = self.save().context("保存AccountPool失败") {
+                    if let Err(err) = self.save().wrap_err("保存AccountPool失败") {
                         let err_title = "从AccountPool中获取可用账号时遇到错误";
                         let string_chain = err.to_string_chain();
                         tracing::error!(err_title, message = string_chain);
@@ -145,7 +145,7 @@ impl AccountPool {
         None
     }
 
-    pub fn mark_account_limited(&self, account: &Account) -> anyhow::Result<()> {
+    pub fn mark_account_limited(&self, account: &Account) -> eyre::Result<()> {
         if let Some(account) = self.accounts.pin().get(&account.username) {
             account.write().limited_at = chrono::Utc::now().timestamp();
             self.save()?;
@@ -154,13 +154,13 @@ impl AccountPool {
         Ok(())
     }
 
-    fn save(&self) -> anyhow::Result<()> {
+    fn save(&self) -> eyre::Result<()> {
         // 保存账号信息到文件account.json
         let app_data_dir = self
             .app
             .path()
             .app_data_dir()
-            .context("获取app_data_dir失败")?;
+            .wrap_err("获取app_data_dir失败")?;
 
         let account_path = app_data_dir.join("account.json");
 
@@ -172,10 +172,10 @@ impl AccountPool {
             .collect();
 
         let accounts_json =
-            serde_json::to_string_pretty(&accounts).context("无法将accounts解析为json")?;
+            serde_json::to_string_pretty(&accounts).wrap_err("无法将accounts解析为json")?;
 
         std::fs::write(&account_path, accounts_json)
-            .context(format!("写入`{}`失败", account_path.display()))?;
+            .wrap_err(format!("写入`{}`失败", account_path.display()))?;
 
         Ok(())
     }
@@ -210,7 +210,7 @@ impl Account {
     async fn prepare(
         account: &Arc<RwLock<Account>>,
         app: &AppHandle,
-    ) -> anyhow::Result<PrepareResult> {
+    ) -> eyre::Result<PrepareResult> {
         // 保证一个账号在同一时间只有一个prepare在运行
         // 以防止多个任务同时使用同一个账号时，重复登录
         let prepare_lock = account.read().prepare_lock.clone();
@@ -247,7 +247,7 @@ impl Account {
                 a.last_check_token_at = chrono::Utc::now().timestamp();
                 Ok(PrepareResult::Modified(a.clone()))
             }
-            Err(GetUserProfileError::Anyhow(err)) => Err(err),
+            Err(GetUserProfileError::Report(err)) => Err(err),
         }
     }
 }

@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Context};
 use bytes::Bytes;
+use eyre::{eyre, WrapErr};
 use image::ImageFormat;
 use tauri::AppHandle;
 use tokio::{
@@ -16,7 +16,7 @@ use tokio::{
 
 use crate::{
     downloader::{download_task::DownloadTask, download_task_state::DownloadTaskState},
-    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    extensions::{AppHandleExt, ReportToStringChain},
 };
 
 pub struct DownloadImgTask {
@@ -162,7 +162,7 @@ impl DownloadImgTask {
                 .img_sem
                 .acquire()
                 .await
-                .map_err(anyhow::Error::from)
+                .map_err(eyre::Report::from)
             {
                 Ok(permit) => Some(permit),
                 Err(err) => {
@@ -225,15 +225,15 @@ fn save_img(
     target_format: ImageFormat,
     src_img_data: &Bytes,
     src_format: ImageFormat,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     if target_format == src_format {
         // 如果target_format与src_format匹配，则直接保存
         std::fs::write(save_path, src_img_data)
-            .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+            .wrap_err(format!("将图片数据写入`{}`失败", save_path.display()))?;
         return Ok(());
     }
     // 如果target_format与src_format不匹配，则需要转换格式
-    let img = image::load_from_memory(src_img_data).context("加载图片数据失败")?;
+    let img = image::load_from_memory(src_img_data).wrap_err("加载图片数据失败")?;
 
     let mut converted_data = Vec::new();
     match target_format {
@@ -243,12 +243,12 @@ fn save_img(
         ImageFormat::Jpeg => img
             .to_rgb8()
             .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::Jpeg),
-        _ => return Err(anyhow!("不支持的图片格式: {:?}", target_format)),
+        _ => return Err(eyre!("不支持的图片格式: {:?}", target_format)),
     }
-    .context(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?;
+    .wrap_err(format!("将`{src_format:?}`转换为`{target_format:?}`失败"))?;
 
     std::fs::write(save_path, &converted_data)
-        .context(format!("将图片数据写入`{}`失败", save_path.display()))?;
+        .wrap_err(format!("将图片数据写入`{}`失败", save_path.display()))?;
 
     Ok(())
 }

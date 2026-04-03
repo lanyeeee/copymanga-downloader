@@ -12,7 +12,7 @@ mod responses;
 mod types;
 mod utils;
 
-use anyhow::Context;
+use eyre::WrapErr;
 use parking_lot::RwLock;
 use tauri::{Manager, Wry};
 
@@ -90,12 +90,12 @@ pub fn run() {
         .setup(move |app| {
             builder.mount_events(app);
 
-            let app_data_dir = app.path().app_data_dir().context("获取app_data_dir失败")?;
+            let app_data_dir = app.path().app_data_dir().wrap_err("获取app_data_dir失败")?;
 
             std::fs::create_dir_all(&app_data_dir)
-                .context(format!("创建`{}`失败", app_data_dir.display()))?;
+                .wrap_err(format!("创建`{}`失败", app_data_dir.display()))?;
 
-            let config = RwLock::new(Config::new(app.handle()).context("创建Config失败")?);
+            let config = RwLock::new(Config::new(app.handle()).wrap_err("创建Config失败")?);
             app.manage(config);
 
             let copy_client = CopyClient::new(app.handle().clone());
@@ -104,7 +104,7 @@ pub fn run() {
             let download_manager = DownloadManager::new(app.handle());
             app.manage(download_manager);
 
-            let account_pool = AccountPool::new(app.handle()).context("创建AccountPool失败")?;
+            let account_pool = AccountPool::new(app.handle()).wrap_err("创建AccountPool失败")?;
             app.manage(account_pool);
 
             let export_lock = ComicExportLock::new();

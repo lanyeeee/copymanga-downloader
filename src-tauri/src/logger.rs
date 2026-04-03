@@ -1,6 +1,6 @@
 use std::{io::Write, sync::OnceLock};
 
-use anyhow::Context;
+use eyre::{OptionExt, WrapErr};
 use notify::{RecommendedWatcher, Watcher};
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
@@ -20,7 +20,7 @@ use tracing_subscriber::{
 
 use crate::{
     events::LogEvent,
-    extensions::{AnyhowErrorToStringChain, AppHandleExt},
+    extensions::{AppHandleExt, ReportToStringChain},
 };
 
 struct LogEventWriter {
@@ -48,12 +48,12 @@ impl Write for LogEventWriter {
     }
 }
 
-static RELOAD_FN: OnceLock<Box<dyn Fn() -> anyhow::Result<()> + Send + Sync>> = OnceLock::new();
+static RELOAD_FN: OnceLock<Box<dyn Fn() -> eyre::Result<()> + Send + Sync>> = OnceLock::new();
 static GUARD: OnceLock<parking_lot::Mutex<Option<WorkerGuard>>> = OnceLock::new();
 
-pub fn init(app: &AppHandle) -> anyhow::Result<()> {
+pub fn init(app: &AppHandle) -> eyre::Result<()> {
     let lib_module_path = module_path!();
-    let lib_target = lib_module_path.split("::").next().context(format!(
+    let lib_target = lib_module_path.split("::").next().ok_or_eyre(format!(
         "解析lib_target失败: lib_module_path={lib_module_path}"
     ))?;
     // 过滤掉来自其他库的日志
@@ -92,8 +92,8 @@ pub fn init(app: &AppHandle) -> anyhow::Result<()> {
         let app = app.clone();
         Box::new(move || {
             let (file_layer, guard) = create_file_layer(&app)?;
-            reload_handle.reload(file_layer).context("reload失败")?;
-            *GUARD.get().context("GUARD未初始化")?.lock() = guard;
+            reload_handle.reload(file_layer).wrap_err("reload失败")?;
+            *GUARD.get().ok_or_eyre("GUARD未初始化")?.lock() = guard;
             Ok(())
         })
     });
@@ -102,12 +102,12 @@ pub fn init(app: &AppHandle) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn reload_file_logger() -> anyhow::Result<()> {
-    RELOAD_FN.get().context("RELOAD_FN未初始化")?()
+pub fn reload_file_logger() -> eyre::Result<()> {
+    RELOAD_FN.get().ok_or_eyre("RELOAD_FN未初始化")?()
 }
 
-pub fn disable_file_logger() -> anyhow::Result<()> {
-    if let Some(guard) = GUARD.get().context("GUARD未初始化")?.lock().take() {
+pub fn disable_file_logger() -> eyre::Result<()> {
+    if let Some(guard) = GUARD.get().ok_or_eyre("GUARD未初始化")?.lock().take() {
         drop(guard);
     }
     Ok(())
@@ -115,7 +115,7 @@ pub fn disable_file_logger() -> anyhow::Result<()> {
 
 fn create_file_layer<S>(
     app: &AppHandle,
-) -> anyhow::Result<(Box<dyn Layer<S> + Send + Sync>, Option<WorkerGuard>)>
+) -> eyre::Result<(Box<dyn Layer<S> + Send + Sync>, Option<WorkerGuard>)>
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
@@ -130,13 +130,13 @@ where
             .with_line_number(true);
         return Ok((Box::new(sink_layer), None));
     }
-    let logs_dir = logs_dir(app).context("获取日志目录失败")?;
+    let logs_dir = logs_dir(app).wrap_err("获取日志目录失败")?;
     let file_appender = RollingFileAppender::builder()
         .filename_prefix("picacomic-downloader")
         .filename_suffix("log")
         .rotation(Rotation::DAILY)
         .build(&logs_dir)
-        .context("创建RollingFileAppender失败")?;
+        .wrap_err("创建RollingFileAppender失败")?;
     let (non_blocking_appender, guard) = tracing_appender::non_blocking(file_appender);
     let file_layer = layer()
         .with_writer(non_blocking_appender)
@@ -152,7 +152,7 @@ async fn file_log_watcher(app: AppHandle) {
 
     let event_handler = move |res| {
         tauri::async_runtime::block_on(async {
-            if let Err(err) = sender.send(res).await.map_err(anyhow::Error::from) {
+            if let Err(err) = sender.send(res).await.map_err(eyre::Report::from) {
                 let err_title = "发送日志文件watcher事件失败";
                 let string_chain = err.to_string_chain();
                 tracing::error!(err_title, message = string_chain);
@@ -161,7 +161,7 @@ async fn file_log_watcher(app: AppHandle) {
     };
 
     let mut watcher = match RecommendedWatcher::new(event_handler, notify::Config::default())
-        .map_err(anyhow::Error::from)
+        .map_err(eyre::Report::from)
     {
         Ok(watcher) => watcher,
         Err(err) => {
@@ -184,14 +184,14 @@ async fn file_log_watcher(app: AppHandle) {
 
     if let Err(err) = std::fs::create_dir_all(&logs_dir) {
         let err_title = "创建日志目录失败";
-        let string_chain = anyhow::Error::from(err).to_string_chain();
+        let string_chain = eyre::Report::from(err).to_string_chain();
         tracing::error!(err_title, message = string_chain);
         return;
     }
 
     if let Err(err) = watcher
         .watch(&logs_dir, notify::RecursiveMode::NonRecursive)
-        .map_err(anyhow::Error::from)
+        .map_err(eyre::Report::from)
     {
         let err_title = "日志文件watcher监听日志目录失败";
         let string_chain = err.to_string_chain();
@@ -200,7 +200,7 @@ async fn file_log_watcher(app: AppHandle) {
     }
 
     while let Some(res) = receiver.recv().await {
-        match res.map_err(anyhow::Error::from) {
+        match res.map_err(eyre::Report::from) {
             Ok(event) => {
                 if let notify::EventKind::Remove(_) = event.kind {
                     if let Err(err) = reload_file_logger() {
@@ -219,10 +219,10 @@ async fn file_log_watcher(app: AppHandle) {
     }
 }
 
-pub fn logs_dir(app: &AppHandle) -> anyhow::Result<std::path::PathBuf> {
+pub fn logs_dir(app: &AppHandle) -> eyre::Result<std::path::PathBuf> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .context("获取app_data_dir目录失败")?;
+        .wrap_err("获取app_data_dir目录失败")?;
     Ok(app_data_dir.join("日志"))
 }

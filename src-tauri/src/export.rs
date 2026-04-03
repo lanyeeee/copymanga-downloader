@@ -7,8 +7,8 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
 pub use cbz::{cbz, cbz_chapters};
+use eyre::WrapErr;
 use parking_lot::Mutex;
 pub use pdf::{pdf, pdf_chapters};
 
@@ -96,9 +96,9 @@ fn get_downloaded_chapters_by_uuids(
         .collect()
 }
 
-fn get_image_paths(images_dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+fn get_image_paths(images_dir: &Path) -> eyre::Result<Vec<PathBuf>> {
     let mut image_paths: Vec<PathBuf> = std::fs::read_dir(images_dir)
-        .context(format!("读取目录`{}`失败", images_dir.display()))?
+        .wrap_err(format!("读取目录`{}`失败", images_dir.display()))?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.is_img())

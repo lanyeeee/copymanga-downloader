@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Cursor, path::PathBuf};
 
-use anyhow::Context;
+use eyre::{OptionExt, WrapErr};
 use image::ImageReader;
 use tauri::AppHandle;
 use walkdir::WalkDir;
@@ -28,13 +28,13 @@ pub fn filename_filter(s: &str) -> String {
         .to_string()
 }
 
-pub fn get_dimensions(img_data: &[u8]) -> anyhow::Result<(u32, u32)> {
+pub fn get_dimensions(img_data: &[u8]) -> eyre::Result<(u32, u32)> {
     let reader = ImageReader::new(Cursor::new(&img_data)).with_guessed_format()?;
     let dimensions = reader.into_dimensions()?;
     Ok(dimensions)
 }
 
-pub fn create_path_word_to_dir_map(app: &AppHandle) -> anyhow::Result<HashMap<String, PathBuf>> {
+pub fn create_path_word_to_dir_map(app: &AppHandle) -> eyre::Result<HashMap<String, PathBuf>> {
     let mut path_word_to_dir_map: HashMap<String, PathBuf> = HashMap::new();
     let download_dir = app.get_config().read().download_dir.clone();
     if !download_dir.exists() {
@@ -51,19 +51,19 @@ pub fn create_path_word_to_dir_map(app: &AppHandle) -> anyhow::Result<HashMap<St
         }
 
         let metadata_str =
-            std::fs::read_to_string(path).context(format!("读取`{}`失败", path.display()))?;
-        let comic_json: serde_json::Value = serde_json::from_str(&metadata_str).context(
+            std::fs::read_to_string(path).wrap_err(format!("读取`{}`失败", path.display()))?;
+        let comic_json: serde_json::Value = serde_json::from_str(&metadata_str).wrap_err(
             format!("将`{}`反序列化为serde_json::Value失败", path.display()),
         )?;
         let path_word = comic_json
             .pointer("/comic/path_word")
             .and_then(|path_word| path_word.as_str())
-            .context(format!("`{}`没有`comic.path_word`字段", path.display()))?
+            .ok_or_eyre(format!("`{}`没有`comic.path_word`字段", path.display()))?
             .to_string();
 
         let parent = path
             .parent()
-            .context(format!("`{}`没有父目录", path.display()))?;
+            .ok_or_eyre(format!("`{}`没有父目录", path.display()))?;
 
         path_word_to_dir_map
             .entry(path_word)
@@ -73,7 +73,7 @@ pub fn create_path_word_to_dir_map(app: &AppHandle) -> anyhow::Result<HashMap<St
     Ok(path_word_to_dir_map)
 }
 
-pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> anyhow::Result<Comic> {
+pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> eyre::Result<Comic> {
     let copy_client = app.get_copy_client();
 
     let get_comic_resp_data = copy_client.get_comic(comic_path_word).await?;

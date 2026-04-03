@@ -3,7 +3,7 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
 };
 
-use anyhow::{anyhow, Context};
+use eyre::{eyre, OptionExt, WrapErr};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tauri::AppHandle;
 use tauri_specta::Event;
@@ -45,14 +45,14 @@ impl Drop for CbzErrorEventGuard {
 #[allow(clippy::cast_possible_wrap)]
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::too_many_lines)]
-pub fn cbz(app: &AppHandle, comic: &Comic) -> anyhow::Result<()> {
+pub fn cbz(app: &AppHandle, comic: &Comic) -> eyre::Result<()> {
     let comic_path_word = &comic.comic.path_word;
     let comic_title = &comic.comic.name;
     let export_lock = app.get_export_lock().inner().clone();
 
     // 检查导出锁
     if !export_lock.try_acquire(comic_path_word) {
-        return Err(anyhow!("漫画`{comic_title}`正在导出，请稍后再试"));
+        return Err(eyre!("漫画`{comic_title}`正在导出，请稍后再试"));
     }
 
     let _guard = ComicExportLockGuard {
@@ -85,14 +85,14 @@ pub fn cbz_chapters(
     app: &AppHandle,
     comic: &Comic,
     chapter_uuids: Vec<String>,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     let comic_path_word = &comic.comic.path_word;
     let comic_title = &comic.comic.name;
     let export_lock = app.get_export_lock().inner().clone();
 
     // 检查导出锁
     if !export_lock.try_acquire(comic_path_word) {
-        return Err(anyhow!("漫画`{comic_title}`正在导出，请稍后再试"));
+        return Err(eyre!("漫画`{comic_title}`正在导出，请稍后再试"));
     }
 
     let _guard = ComicExportLockGuard {
@@ -125,7 +125,7 @@ fn cbz_internal(
     skip_mode: ExportSkipMode,
     comic_path_word: &str,
     comic_title: &str,
-) -> anyhow::Result<()> {
+) -> eyre::Result<()> {
     // 用于生成格式化的xml
     let xml_cfg = yaserde::ser::Config {
         perform_indent: true,
@@ -154,12 +154,12 @@ fn cbz_internal(
     let extension = ExportFormat::Cbz.extension();
     let comic_export_dir = comic
         .get_comic_export_dir(app)
-        .context(format!("`{comic_title}` 获取导出目录失败"))?;
+        .wrap_err(format!("`{comic_title}` 获取导出目录失败"))?;
     let cbz_export_dir = comic_export_dir.join(extension);
 
     // 并发处理
     let download_chapters = downloaded_chapters.into_par_iter();
-    download_chapters.try_for_each(|mut chapter_info| -> anyhow::Result<()> {
+    download_chapters.try_for_each(|mut chapter_info| -> eyre::Result<()> {
         let chapter_title = &chapter_info.chapter_title;
         let group_name = &chapter_info.group_name;
         let err_prefix = format!("`{comic_title} - {group_name} - {chapter_title}`");
@@ -168,25 +168,25 @@ fn cbz_internal(
         let chapter_download_dir = chapter_info
             .chapter_download_dir
             .as_ref()
-            .context(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
+            .ok_or_eyre(format!("{err_prefix} `chapter_download_dir`字段为`None`"))?;
         let chapter_download_dir_name = chapter_download_dir
             .file_name()
             .and_then(|name: &std::ffi::OsStr| name.to_str())
-            .context(format!(
+            .ok_or_eyre(format!(
                 "{err_prefix} 获取`{}`的目录名失败",
                 chapter_download_dir.display()
             ))?;
         let chapter_relative_dir = chapter_info
             .get_chapter_relative_dir(comic)
-            .context(format!("{err_prefix} 获取章节相对目录失败"))?;
-        let chapter_relative_dir_parent = chapter_relative_dir.parent().context(format!(
+            .wrap_err(format!("{err_prefix} 获取章节相对目录失败"))?;
+        let chapter_relative_dir_parent = chapter_relative_dir.parent().ok_or_eyre(format!(
             "{err_prefix} `{}`没有父目录",
             chapter_relative_dir.display()
         ))?;
         let chapter_export_dir = cbz_export_dir.join(chapter_relative_dir_parent);
 
         // 保证导出目录存在
-        std::fs::create_dir_all(&chapter_export_dir).context(format!(
+        std::fs::create_dir_all(&chapter_export_dir).wrap_err(format!(
             "{err_prefix} 创建目录`{}`失败",
             chapter_export_dir.display()
         ))?;
@@ -215,25 +215,25 @@ fn cbz_internal(
         let comic_info = ComicInfo::from(comic, &chapter_info);
         // 序列化ComicInfo为xml
         let comic_info_xml = yaserde::ser::to_string_with_config(&comic_info, &xml_cfg)
-            .map_err(|err_msg| anyhow!("{err_prefix} 序列化`ComicInfo.xml`失败: {err_msg}"))?;
+            .map_err(|err_msg| eyre!("{err_prefix} 序列化`ComicInfo.xml`失败: {err_msg}"))?;
 
         // 创建cbz文件
         let zip_file = std::fs::File::create(&zip_path)
-            .context(format!("{err_prefix} 创建文件`{}`失败", zip_path.display()))?;
+            .wrap_err(format!("{err_prefix} 创建文件`{}`失败", zip_path.display()))?;
         let mut zip_writer = ZipWriter::new(zip_file);
 
         // 把ComicInfo.xml写入cbz
         zip_writer
             .start_file("ComicInfo.xml", SimpleFileOptions::default())
-            .context(format!(
+            .wrap_err(format!(
                 "{err_prefix} 在`{}`创建`ComicInfo.xml`失败",
                 zip_path.display()
             ))?;
         zip_writer
             .write_all(comic_info_xml.as_bytes())
-            .context(format!("{err_prefix} 写入`ComicInfo.xml`失败"))?;
+            .wrap_err(format!("{err_prefix} 写入`ComicInfo.xml`失败"))?;
 
-        let image_paths = get_image_paths(chapter_download_dir).context(format!(
+        let image_paths = get_image_paths(chapter_download_dir).wrap_err(format!(
             "{err_prefix} 获取`{}`中的图片失败",
             chapter_download_dir.display()
         ))?;
@@ -242,20 +242,20 @@ fn cbz_internal(
             let filename = image_path
                 .file_name()
                 .and_then(|name: &std::ffi::OsStr| name.to_str())
-                .context(format!(
+                .ok_or_eyre(format!(
                     "{err_prefix} 获取`{}`的文件名失败",
                     image_path.display()
                 ))?;
             // 将文件写入cbz
             zip_writer
                 .start_file(filename, SimpleFileOptions::default())
-                .context(format!(
+                .wrap_err(format!(
                     "{err_prefix} 在`{}`创建`{filename:?}`失败",
                     zip_path.display()
                 ))?;
             let mut file = std::fs::File::open(&image_path)
-                .context(format!("{err_prefix} 打开`{}`失败", image_path.display()))?;
-            std::io::copy(&mut file, &mut zip_writer).context(format!(
+                .wrap_err(format!("{err_prefix} 打开`{}`失败", image_path.display()))?;
+            std::io::copy(&mut file, &mut zip_writer).wrap_err(format!(
                 "{err_prefix} 将`{}`写入`{}`失败",
                 image_path.display(),
                 zip_path.display()
@@ -264,7 +264,7 @@ fn cbz_internal(
 
         zip_writer
             .finish()
-            .context(format!("{err_prefix} 关闭`{}`失败", zip_path.display()))?;
+            .wrap_err(format!("{err_prefix} 关闭`{}`失败", zip_path.display()))?;
 
         // 更新章节导出状态
         chapter_info.is_cbz_exported = true;

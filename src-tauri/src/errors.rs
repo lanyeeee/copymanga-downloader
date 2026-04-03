@@ -1,8 +1,8 @@
-use anyhow::anyhow;
+use eyre::eyre;
 use serde::Serialize;
 use specta::Type;
 
-use crate::extensions::AnyhowErrorToStringChain;
+use crate::extensions::ReportToStringChain;
 
 pub type CommandResult<T> = Result<T, CommandError>;
 
@@ -15,7 +15,7 @@ pub struct CommandError {
 impl CommandError {
     pub fn from<E>(err_title: &str, err: E) -> Self
     where
-        E: Into<anyhow::Error>,
+        E: Into<eyre::Report>,
     {
         let string_chain = err.into().to_string_chain();
         tracing::error!(err_title, message = string_chain);
@@ -30,25 +30,25 @@ pub type RiskControlResult<T> = Result<T, RiskControlError>;
 
 #[derive(Debug)]
 pub enum RiskControlError {
-    Anyhow(anyhow::Error),
+    Report(eyre::Report),
     RiskControl(String),
 }
 
 impl<E> From<E> for RiskControlError
 where
-    E: Into<anyhow::Error>,
-    Result<(), E>: anyhow::Context<(), E>,
+    E: Into<eyre::Report>,
+    Result<(), E>: eyre::WrapErr<(), E>,
 {
     fn from(err: E) -> Self {
-        RiskControlError::Anyhow(err.into())
+        RiskControlError::Report(err.into())
     }
 }
 
-impl From<RiskControlError> for anyhow::Error {
+impl From<RiskControlError> for eyre::Report {
     fn from(err: RiskControlError) -> Self {
         match err {
-            RiskControlError::Anyhow(err) => err,
-            RiskControlError::RiskControl(body) => anyhow!(body),
+            RiskControlError::Report(err) => err,
+            RiskControlError::RiskControl(body) => eyre!(body),
         }
     }
 }
@@ -57,25 +57,25 @@ pub type GetUserProfileResult<T> = Result<T, GetUserProfileError>;
 
 #[derive(Debug)]
 pub enum GetUserProfileError {
-    Anyhow(anyhow::Error),
+    Report(eyre::Report),
     TokenErrorOrExpired,
 }
 
 impl<E> From<E> for GetUserProfileError
 where
-    E: Into<anyhow::Error>,
-    Result<(), E>: anyhow::Context<(), E>,
+    E: Into<eyre::Report>,
+    Result<(), E>: eyre::WrapErr<(), E>,
 {
     fn from(err: E) -> Self {
-        GetUserProfileError::Anyhow(err.into())
+        GetUserProfileError::Report(err.into())
     }
 }
 
-impl From<GetUserProfileError> for anyhow::Error {
+impl From<GetUserProfileError> for eyre::Report {
     fn from(err: GetUserProfileError) -> Self {
         match err {
-            GetUserProfileError::Anyhow(err) => err,
-            GetUserProfileError::TokenErrorOrExpired => anyhow!("token错误或已过期"),
+            GetUserProfileError::Report(err) => err,
+            GetUserProfileError::TokenErrorOrExpired => eyre!("token错误或已过期"),
         }
     }
 }
