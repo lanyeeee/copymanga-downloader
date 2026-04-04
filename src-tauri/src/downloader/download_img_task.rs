@@ -16,7 +16,7 @@ use tokio::{
 
 use crate::{
     downloader::{download_task::DownloadTask, download_task_state::DownloadTaskState},
-    extensions::{AppHandleExt, ReportToStringChain},
+    extensions::{AppHandleExt, EyreReportToMessage},
 };
 
 pub struct DownloadImgTask {
@@ -102,8 +102,8 @@ impl DownloadImgTask {
             Ok(data_and_format) => data_and_format,
             Err(err) => {
                 let err_title = format!("下载图片`{url}`失败");
-                let string_chain = err.to_string_chain();
-                tracing::error!(err_title, message = string_chain);
+                let message = err.to_message();
+                tracing::error!(err_title, message);
                 return;
             }
         };
@@ -115,8 +115,8 @@ impl DownloadImgTask {
         let target_format = download_format.to_image_format();
         if let Err(err) = save_img(&save_path, target_format, &img_data, img_format) {
             let err_title = format!("保存图片`{url}`失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
             return;
         }
 
@@ -168,8 +168,8 @@ impl DownloadImgTask {
                 Err(err) => {
                     let err_title =
                         format!("`{comic_title} - {chapter_title}`获取下载图片的permit失败");
-                    let string_chain = err.to_string_chain();
-                    tracing::error!(err_title, message = string_chain);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
                     return;
                 }
             },

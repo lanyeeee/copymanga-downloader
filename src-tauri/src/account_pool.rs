@@ -7,7 +7,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{
     errors::{GetUserProfileError, RiskControlResult},
-    extensions::{AppHandleExt, ReportToStringChain},
+    extensions::{AppHandleExt, EyreReportToMessage},
     types::AsyncMutex,
 };
 
@@ -129,15 +129,15 @@ impl AccountPool {
                 Ok(PrepareResult::Modified(account)) => {
                     if let Err(err) = self.save().wrap_err("保存AccountPool失败") {
                         let err_title = "从AccountPool中获取可用账号时遇到错误";
-                        let string_chain = err.to_string_chain();
-                        tracing::error!(err_title, message = string_chain);
+                        let message = err.to_message();
+                        tracing::error!(err_title, message);
                     }
                     return Some(account.clone());
                 }
                 Err(err) => {
                     let err_title = "从AccountPool中获取可用账号时遇到错误";
-                    let string_chain = err.to_string_chain();
-                    tracing::error!(err_title, message = string_chain);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
                 }
             }
         }

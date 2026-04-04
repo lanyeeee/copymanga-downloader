@@ -8,24 +8,18 @@ use crate::{
     downloader::download_manager::DownloadManager, export::ComicExportLock,
 };
 
-pub trait ReportToStringChain {
+pub trait EyreReportToMessage {
     /// 将 `eyre::Report` 转换为chain格式
     /// # Example
     /// 0: error message
     /// 1: error message
     /// 2: error message
-    fn to_string_chain(&self) -> String;
+    fn to_message(&self) -> String;
 }
 
-impl ReportToStringChain for eyre::Report {
-    fn to_string_chain(&self) -> String {
-        use std::fmt::Write;
-        self.chain()
-            .enumerate()
-            .fold(String::new(), |mut output, (i, e)| {
-                let _ = writeln!(output, "{i}: {e}");
-                output
-            })
+impl EyreReportToMessage for eyre::Report {
+    fn to_message(&self) -> String {
+        format!("{self:?}")
     }
 }
 

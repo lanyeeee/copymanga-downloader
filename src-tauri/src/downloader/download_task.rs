@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use eyre::{OptionExt, WrapErr};
+use eyre::{eyre, OptionExt, WrapErr};
 use tauri::AppHandle;
 use tauri_specta::Event;
 use tokio::{
@@ -20,7 +20,7 @@ use crate::{
     downloader::{download_img_task::DownloadImgTask, download_task_state::DownloadTaskState},
     errors::RiskControlError,
     events::DownloadEvent,
-    extensions::{AppHandleExt, ReportToStringChain},
+    extensions::{AppHandleExt, EyreReportToMessage},
     responses::GetChapterRespData,
     types::{ChapterInfo, Comic},
 };
@@ -118,8 +118,8 @@ impl DownloadTask {
         let chapter_title = &self.chapter_info.chapter_title;
         if let Err(err) = self.comic.save_metadata() {
             let err_title = format!("`{comic_title}`保存元数据失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
 
             self.set_state(DownloadTaskState::Failed);
             self.emit_download_task_update_event();
@@ -157,10 +157,11 @@ impl DownloadTask {
         let total_img_count = self.total_img_count.load(Ordering::Relaxed);
         if downloaded_img_count != total_img_count {
             // 此章节的图片未全部下载成功
+            let err =
+                eyre!("总共有`{total_img_count}`张图片，但只下载了`{downloaded_img_count}`张");
             let err_title = format!("`{comic_title} - {chapter_title}`下载不完整");
-            let err_msg =
-                format!("总共有`{total_img_count}`张图片，但只下载了`{downloaded_img_count}`张");
-            tracing::error!(err_title, message = err_msg);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
 
             self.set_state(DownloadTaskState::Failed);
             self.emit_download_task_update_event();
@@ -170,8 +171,8 @@ impl DownloadTask {
 
         if let Err(err) = self.rename_temp_download_dir(&temp_download_dir) {
             let err_title = format!("`{comic_title} - {chapter_title}`保存下载目录失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
 
             self.set_state(DownloadTaskState::Failed);
             self.emit_download_task_update_event();
@@ -181,8 +182,8 @@ impl DownloadTask {
 
         if let Err(err) = self.chapter_info.save_metadata() {
             let err_title = format!("`{comic_title} - {chapter_title}`保存章节元数据失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
         }
 
         tracing::info!(comic_title, chapter_title, "章节下载成功");
@@ -200,8 +201,8 @@ impl DownloadTask {
             Ok(data) => data,
             Err(err) => {
                 let err_title = format!("获取漫画 {comic_title} 的 {chapter_title} 信息失败");
-                let string_chain = err.to_string_chain();
-                tracing::error!(err_title, message = string_chain);
+                let message = err.to_message();
+                tracing::error!(err_title, message);
 
                 self.set_state(DownloadTaskState::Failed);
                 self.emit_download_task_update_event();
@@ -237,8 +238,8 @@ impl DownloadTask {
             Ok(temp_download_dir) => temp_download_dir,
             Err(err) => {
                 let err_title = format!("`{comic_title} - {chapter_title}`获取临时下载目录失败");
-                let string_chain = err.to_string_chain();
-                tracing::error!(err_title, message = string_chain);
+                let message = err.to_message();
+                tracing::error!(err_title, message);
 
                 self.set_state(DownloadTaskState::Failed);
                 self.emit_download_task_update_event();
@@ -252,8 +253,8 @@ impl DownloadTask {
                 "`{comic_title} - {chapter_title}`创建临时下载目录`{}`失败",
                 temp_download_dir.display()
             );
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
 
             self.set_state(DownloadTaskState::Failed);
             self.emit_download_task_update_event();
@@ -308,8 +309,8 @@ impl DownloadTask {
                     "`{comic_title}`读取临时下载目录`{}`失败",
                     temp_download_dir.display()
                 );
-                let string_chain = err.to_string_chain();
-                tracing::error!(err_title, message = string_chain);
+                let message = err.to_message();
+                tracing::error!(err_title, message);
                 return;
             }
         };
@@ -329,8 +330,8 @@ impl DownloadTask {
             if let Err(err) = std::fs::remove_file(&path).map_err(eyre::Report::from) {
                 let err_title =
                     format!("`{comic_title}`删除临时下载目录的`{}`失败", path.display());
-                let string_chain = err.to_string_chain();
-                tracing::error!(err_title, message = string_chain);
+                let message = err.to_message();
+                tracing::error!(err_title, message);
             }
         }
 
@@ -388,8 +389,8 @@ impl DownloadTask {
                 Err(err) => {
                     let err_title =
                         format!("`{comic_title} - {chapter_title}`获取下载章节的permit失败");
-                    let string_chain = err.to_string_chain();
-                    tracing::error!(err_title, message = string_chain);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
 
                     self.set_state(DownloadTaskState::Failed);
                     self.emit_download_task_update_event();
@@ -408,8 +409,8 @@ impl DownloadTask {
             .map_err(eyre::Report::from)
         {
             let err_title = format!("`{comic_title} - {chapter_title}`发送状态`Downloading`失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
 
             self.set_state(DownloadTaskState::Failed);
         }
@@ -480,8 +481,8 @@ impl DownloadTask {
 
         if let Err(err) = self.state_sender.send(state).map_err(eyre::Report::from) {
             let err_title = format!("`{comic_title} - {chapter_title}`发送状态`{state:?}`失败");
-            let string_chain = err.to_string_chain();
-            tracing::error!(err_title, message = string_chain);
+            let message = err.to_message();
+            tracing::error!(err_title, message);
         }
     }
 

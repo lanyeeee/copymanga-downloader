@@ -266,7 +266,7 @@ export type ComicInFavorite = { uuid: string; bDisplay: boolean; name: string; p
 export type ComicInGetChapterRespData = { name: string; uuid: string; path_word: string; restrict: RestrictRespData }
 export type ComicInSearch = { name: string; alias: string | null; pathWord: string; cover: string; ban: number; author: AuthorRespData[]; popular: number; isDownloaded: boolean; comicDownloadDir: string }
 export type ComicStatus = "ongoing" | "completed"
-export type CommandError = { err_title: string; err_message: string }
+export type CommandError = { err_title: string; message: string }
 export type Config = { token: string; downloadDir: string; exportDir: string; apiDomainMode: ApiDomainMode; customApiDomain: string; downloadFormat: DownloadFormat; enableFileLogger: boolean; chapterConcurrency: number; chapterDownloadIntervalSec: number; imgConcurrency: number; imgDownloadIntervalSec: number; updateDownloadedComicsIntervalSec: number; comicDirFmt: string; chapterDirFmt: string; createPdfConcurrency: number; enableMergePdf: boolean; 
 /**
  * 导出跳过模式

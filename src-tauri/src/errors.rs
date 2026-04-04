@@ -1,15 +1,16 @@
-use eyre::eyre;
+use std::panic::Location;
+
+use eyre::{eyre, EyreHandler};
 use serde::Serialize;
 use specta::Type;
-
-use crate::extensions::ReportToStringChain;
+use tracing_error::SpanTrace;
 
 pub type CommandResult<T> = Result<T, CommandError>;
 
 #[derive(Debug, Type, Serialize)]
 pub struct CommandError {
     pub err_title: String,
-    pub err_message: String,
+    pub message: String,
 }
 
 impl CommandError {
@@ -17,11 +18,11 @@ impl CommandError {
     where
         E: Into<eyre::Report>,
     {
-        let string_chain = err.into().to_string_chain();
-        tracing::error!(err_title, message = string_chain);
+        let message = format!("{:?}", err.into());
+        tracing::error!(err_title, message);
         Self {
             err_title: err_title.to_string(),
-            err_message: string_chain,
+            message,
         }
     }
 }
@@ -78,4 +79,60 @@ impl From<GetUserProfileError> for eyre::Report {
             GetUserProfileError::TokenErrorOrExpired => eyre!("token错误或已过期"),
         }
     }
+}
+
+struct CustomEyreHandler {
+    span_trace: SpanTrace,
+    location: Option<&'static Location<'static>>,
+}
+
+impl EyreHandler for CustomEyreHandler {
+    fn debug(
+        &self,
+        error: &(dyn std::error::Error + 'static),
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
+        use std::fmt::Write;
+
+        let mut buf = String::new();
+
+        writeln!(&mut buf, "Error:")?;
+        writeln!(&mut buf, "   0: {error}")?;
+
+        let mut current = error.source();
+        let mut i = 1;
+        while let Some(cause) = current {
+            writeln!(&mut buf, "   {i}: {cause}")?;
+            current = cause.source();
+            i += 1;
+        }
+
+        if let Some(loc) = self.location {
+            writeln!(&mut buf, "Location:")?;
+            writeln!(&mut buf, "   at {}:{}", loc.file(), loc.line())?;
+        }
+
+        let span_trace = format!("{}", self.span_trace);
+        if !span_trace.is_empty() {
+            writeln!(&mut buf, "SpanTrace:")?;
+            writeln!(&mut buf, "{span_trace}")?;
+        }
+
+        write!(f, "{}", buf.trim_end())?;
+
+        Ok(())
+    }
+    fn track_caller(&mut self, location: &'static Location<'static>) {
+        self.location = Some(location);
+    }
+}
+
+pub fn install_custom_eyre_handler() -> eyre::Result<()> {
+    eyre::set_hook(Box::new(|_error| {
+        Box::new(CustomEyreHandler {
+            span_trace: SpanTrace::capture(),
+            location: None,
+        })
+    }))?;
+    Ok(())
 }

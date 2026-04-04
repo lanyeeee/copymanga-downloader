@@ -16,7 +16,7 @@ use tokio::sync::Semaphore;
 use crate::{
     downloader::{download_task::DownloadTask, download_task_state::DownloadTaskState},
     events::DownloadEvent,
-    extensions::{AppHandleExt, ReportToStringChain},
+    extensions::{AppHandleExt, EyreReportToMessage},
     types::Comic,
 };
 
@@ -77,10 +77,11 @@ impl DownloadManager {
                 // 如果任务已经存在，且状态是`Pending`、`Downloading`或`Paused`，则不创建新任务
                 let state = *task.state_sender.borrow();
                 if matches!(state, Pending | Downloading | Paused) {
+                    let err = eyre!("章节ID为`{chapter_uuid}`的下载任务已存在");
                     let err_title =
                         format!("`{comic_title}`的章节ID为`{chapter_uuid}`的下载任务创建失败");
-                    let err_msg = format!("章节ID为`{chapter_uuid}`的下载任务已存在");
-                    tracing::error!(err_title, message = err_msg);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
                     continue;
                 }
             }
@@ -92,8 +93,8 @@ impl DownloadManager {
                     .context(format!("章节ID为`{chapter_uuid}`的下载任务删除失败"))
                 {
                     let err_title = "章节ID对应的下载任务创建失败";
-                    let string_chain = err.to_string_chain();
-                    tracing::error!(err_title, message = string_chain);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
                     continue;
                 }
             }
@@ -103,8 +104,8 @@ impl DownloadManager {
                 Err(err) => {
                     let err_title =
                         format!("`{comic_title}`的章节ID为`{chapter_uuid}`的下载任务创建失败");
-                    let string_chain = err.to_string_chain();
-                    tracing::error!(err_title, message = string_chain);
+                    let message = err.to_message();
+                    tracing::error!(err_title, message);
                     continue;
                 }
             };
