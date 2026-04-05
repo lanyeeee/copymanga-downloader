@@ -3,6 +3,7 @@ use std::panic::Location;
 use eyre::{eyre, EyreHandler};
 use serde::Serialize;
 use specta::Type;
+use tracing::instrument;
 use tracing_error::SpanTrace;
 
 pub type CommandResult<T> = Result<T, CommandError>;
@@ -127,6 +128,7 @@ impl EyreHandler for CustomEyreHandler {
     }
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn install_custom_eyre_handler() -> eyre::Result<()> {
     eyre::set_hook(Box::new(|_error| {
         Box::new(CustomEyreHandler {

@@ -10,6 +10,7 @@ use reqwest_retry::{policies::ExponentialBackoff, Jitter, RetryTransientMiddlewa
 use serde_json::json;
 use tauri::AppHandle;
 use tokio::task::JoinSet;
+use tracing::{instrument, Instrument};
 
 use crate::{
     errors::{GetUserProfileError, GetUserProfileResult, RiskControlError, RiskControlResult},
@@ -39,6 +40,7 @@ impl CopyClient {
         }
     }
 
+    #[instrument(level = "error", skip_all)]
     pub async fn register(&self, username: &str, password: &str) -> RiskControlResult<()> {
         // 发送注册请求
         let form = json!({
@@ -72,6 +74,7 @@ impl CopyClient {
         Ok(())
     }
 
+    #[instrument(level = "error", skip_all)]
     pub async fn login(&self, username: &str, password: &str) -> eyre::Result<LoginRespData> {
         // 对密码进行编码
         const SALT: i32 = 1729;
@@ -116,6 +119,7 @@ impl CopyClient {
         Ok(login_resp_data)
     }
 
+    #[instrument(level = "error", skip_all)]
     pub async fn get_user_profile(&self, token: &str) -> GetUserProfileResult<UserProfileRespData> {
         // 发送获取用户信息请求
         let authorization = format!("Token {token}");
@@ -152,6 +156,11 @@ impl CopyClient {
         Ok(user_profile_resp_data)
     }
 
+    #[instrument(
+        level = "error",
+        skip_all,
+        fields(keyword = keyword, page_num = page_num)
+    )]
     pub async fn search(&self, keyword: &str, page_num: i64) -> eyre::Result<SearchRespData> {
         const LIMIT: i64 = 20;
         // page_num从1开始
@@ -193,6 +202,7 @@ impl CopyClient {
         Ok(search_resp_data)
     }
 
+    #[instrument(level = "error", skip_all, fields(comic_path_word = comic_path_word))]
     pub async fn get_comic(&self, comic_path_word: &str) -> eyre::Result<GetComicRespData> {
         let params = json!({
             "platform": 1,
@@ -228,6 +238,11 @@ impl CopyClient {
         Ok(get_comic_resp_data)
     }
 
+    #[instrument(
+        level = "error",
+        skip_all,
+        fields(comic_path_word = comic_path_word, group_path_word = group_path_word)
+    )]
     pub async fn get_group_chapters(
         &self,
         comic_path_word: &str,
@@ -253,13 +268,14 @@ impl CopyClient {
             let comic_path_word = comic_path_word.to_string();
             let group_path_word = group_path_word.to_string();
             let copy_client = self.clone();
-            join_set.spawn(async move {
+            let get_chapters_task = async move {
                 let offset = (page - 1) * LIMIT;
                 let chapter_resp_data = copy_client
                     .get_chapters(&comic_path_word, &group_path_word, LIMIT, offset)
                     .await?;
                 Ok::<_, eyre::Report>(chapter_resp_data)
-            });
+            };
+            join_set.spawn(get_chapters_task.in_current_span());
         }
         // 将剩余页的章节添加到chapters中
         while let Some(res) = join_set.join_next().await {
@@ -270,6 +286,16 @@ impl CopyClient {
         Ok(chapters)
     }
 
+    #[instrument(
+        level = "error",
+        skip_all,
+        fields(
+            comic_path_word = comic_path_word,
+            group_path_word = group_path_word,
+            limit = limit,
+            offset = offset
+        )
+    )]
     pub async fn get_chapters(
         &self,
         comic_path_word: &str,
@@ -318,6 +344,14 @@ impl CopyClient {
         Ok(get_chapters_resp_data)
     }
 
+    #[instrument(
+        level = "error",
+        skip_all,
+        fields(
+            comic_path_word = comic_path_word,
+            chapter_uuid = chapter_uuid
+        )
+    )]
     pub async fn get_chapter(
         &self,
         comic_path_word: &str,
@@ -373,6 +407,7 @@ impl CopyClient {
         }
     }
 
+    #[instrument(level = "error", skip_all, fields(url = url))]
     pub async fn get_img_data_and_format(&self, url: &str) -> eyre::Result<(Bytes, ImageFormat)> {
         // 发送下载图片请求
         let http_resp = self.img_client.get(url).send_with_timeout_msg().await?;
@@ -380,9 +415,7 @@ impl CopyClient {
         let status = http_resp.status();
         if status != StatusCode::OK {
             let body = http_resp.text().await?;
-            return Err(eyre!(
-                "下载图片 {url} 失败，预料之外的状态码({status}): {body}"
-            ));
+            return Err(eyre!("下载图片失败，预料之外的状态码({status}): {body}"));
         }
         // 获取 resp headers 的 content-type 字段
         let content_type = http_resp
@@ -403,6 +436,7 @@ impl CopyClient {
         Ok((img_data, img_format))
     }
 
+    #[instrument(level = "error", skip_all)]
     pub async fn get_favorite(
         &self,
         page_num: i64,

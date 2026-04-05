@@ -6,6 +6,7 @@ use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 use tauri_specta::Event;
 use tokio::time::sleep;
+use tracing::instrument;
 use walkdir::WalkDir;
 
 use crate::{
@@ -35,6 +36,7 @@ pub fn greet(name: &str) -> String {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(level = "error", skip_all)]
 pub fn get_config(app: AppHandle) -> Config {
     app.get_config().read().clone()
 }
@@ -42,6 +44,7 @@ pub fn get_config(app: AppHandle) -> Config {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(level = "error", skip_all)]
 pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
     let config_state = app.get_config();
 
@@ -76,6 +79,7 @@ pub fn save_config(app: AppHandle, config: Config) -> CommandResult<()> {
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub async fn register(app: AppHandle, username: String, password: String) -> CommandResult<()> {
     let copy_client = app.get_copy_client();
 
@@ -89,6 +93,7 @@ pub async fn register(app: AppHandle, username: String, password: String) -> Com
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub async fn login(
     app: AppHandle,
     username: String,
@@ -106,6 +111,7 @@ pub async fn login(
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub async fn get_user_profile(app: AppHandle, token: String) -> CommandResult<UserProfileRespData> {
     let copy_client = app.get_copy_client();
 
@@ -119,6 +125,11 @@ pub async fn get_user_profile(app: AppHandle, token: String) -> CommandResult<Us
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(keyword = keyword, page_num = page_num)
+)]
 pub async fn search(app: AppHandle, keyword: String, page_num: i64) -> CommandResult<SearchResult> {
     let copy_client = app.get_copy_client();
 
@@ -135,18 +146,22 @@ pub async fn search(app: AppHandle, keyword: String, page_num: i64) -> CommandRe
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(comic_path_word = comic_path_word))]
 pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> CommandResult<Comic> {
     let comic = utils::get_comic(app, comic_path_word)
         .await
-        .map_err(|err| {
-            CommandError::from(&format!("获取路径为`{comic_path_word}`的漫画失败"), err)
-        })?;
+        .map_err(|err| CommandError::from("获取漫画失败", err))?;
 
     Ok(comic)
 }
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(comic_path_word = comic_path_word, group_path_word = group_path_word)
+)]
 pub async fn get_group_chapters(
     app: AppHandle,
     comic_path_word: &str,
@@ -164,6 +179,11 @@ pub async fn get_group_chapters(
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(comic_path_word = comic_path_word, chapter_uuid = chapter_uuid)
+)]
 pub async fn get_chapter(
     app: AppHandle,
     comic_path_word: &str,
@@ -181,6 +201,7 @@ pub async fn get_chapter(
 
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub async fn get_favorite(
     app: AppHandle,
     page_num: i64,
@@ -202,11 +223,15 @@ pub async fn get_favorite(
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(comic_uuid = comic.comic.uuid, comic_title = comic.comic.name)
+)]
 pub fn save_metadata(comic: Comic) -> CommandResult<()> {
-    let comic_title = &comic.comic.name;
     comic
         .save_metadata()
-        .map_err(|err| CommandError::from(&format!("`{comic_title}`保存元数据失败"), err))?;
+        .map_err(|err| CommandError::from("保存元数据失败", err))?;
 
     Ok(())
 }
@@ -214,6 +239,7 @@ pub fn save_metadata(comic: Comic) -> CommandResult<()> {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(level = "error", skip_all)]
 pub fn get_downloaded_comics(app: AppHandle) -> Vec<Comic> {
     let config = app.get_config();
 
@@ -265,10 +291,7 @@ pub fn get_downloaded_comics(app: AppHandle) -> Vec<Comic> {
 
     let mut downloaded_comics = Vec::new();
     for (metadata_path, _) in metadata_path_and_modify_time_pairs {
-        match Comic::from_metadata(&metadata_path).wrap_err(format!(
-            "从元数据`{}`转为Comic失败",
-            metadata_path.display()
-        )) {
+        match Comic::from_metadata(&metadata_path) {
             Ok(comic) => downloaded_comics.push(comic),
             Err(err) => {
                 let err_title = "获取已下载漫画的过程中遇到错误，已跳过";
@@ -334,22 +357,18 @@ pub fn get_downloaded_comics(app: AppHandle) -> Vec<Comic> {
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(level = "error", skip_all, fields(comic_uuid = comic.comic.uuid, comic_title = comic.comic.name))]
 pub fn export_cbz(app: AppHandle, comic: Comic) -> CommandResult<()> {
-    let comic_title = comic.comic.name.clone();
-    export::cbz(&app, &comic)
-        .wrap_err(format!("漫画 {comic_title} 导出cbz失败"))
-        .map_err(|err| CommandError::from("漫画导出cbz失败", err))?;
+    export::cbz(&app, &comic).map_err(|err| CommandError::from("漫画导出cbz失败", err))?;
     Ok(())
 }
 
 #[tauri::command(async)]
 #[specta::specta]
 #[allow(clippy::needless_pass_by_value)]
+#[instrument(level = "error", skip_all, fields(comic_uuid = comic.comic.uuid, comic_title = comic.comic.name))]
 pub fn export_pdf(app: AppHandle, comic: Comic) -> CommandResult<()> {
-    let comic_title = comic.comic.name.clone();
-    export::pdf(&app, &comic)
-        .wrap_err(format!("漫画`{comic_title}`导出pdf失败"))
-        .map_err(|err| CommandError::from("漫画导出pdf失败", err))?;
+    export::pdf(&app, &comic).map_err(|err| CommandError::from("漫画导出pdf失败", err))?;
     Ok(())
 }
 
@@ -386,6 +405,14 @@ pub fn export_pdf_chapters(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(
+        comic_uuid = comic.comic.uuid,
+        comic_title = comic.comic.name,
+    )
+)]
 pub fn create_download_tasks(app: AppHandle, comic: Comic, chapter_uuids: Vec<String>) {
     let download_manager = app.get_download_manager();
 
@@ -395,6 +422,7 @@ pub fn create_download_tasks(app: AppHandle, comic: Comic, chapter_uuids: Vec<St
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(chapter_uuid = chapter_uuid))]
 pub fn pause_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
     let download_manager = app.get_download_manager();
 
@@ -403,13 +431,13 @@ pub fn pause_download_task(app: AppHandle, chapter_uuid: String) -> CommandResul
         .map_err(|err| {
             CommandError::from(&format!("暂停章节ID为`{chapter_uuid}`的下载任务失败"), err)
         })?;
-    tracing::debug!("暂停章节ID为`{chapter_uuid}`的下载任务成功");
     Ok(())
 }
 
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(chapter_uuid = chapter_uuid))]
 pub fn resume_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
     let download_manager = app.get_download_manager();
 
@@ -418,13 +446,13 @@ pub fn resume_download_task(app: AppHandle, chapter_uuid: String) -> CommandResu
         .map_err(|err| {
             CommandError::from(&format!("恢复章节ID为`{chapter_uuid}`的下载任务失败"), err)
         })?;
-    tracing::debug!("恢复章节ID为`{chapter_uuid}`的下载任务成功");
     Ok(())
 }
 
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(chapter_uuid = chapter_uuid))]
 pub fn delete_download_task(app: AppHandle, chapter_uuid: String) -> CommandResult<()> {
     let download_manager = app.get_download_manager();
 
@@ -433,13 +461,13 @@ pub fn delete_download_task(app: AppHandle, chapter_uuid: String) -> CommandResu
         .map_err(|err| {
             CommandError::from(&format!("删除章节ID为`{chapter_uuid}`的下载任务失败"), err)
         })?;
-    tracing::debug!("删除章节ID为`{chapter_uuid}`的下载任务成功");
     Ok(())
 }
 
 #[allow(clippy::cast_possible_wrap)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
     let config = app.get_config();
     let download_manager = app.get_download_manager();
@@ -544,6 +572,7 @@ pub async fn update_downloaded_comics(app: AppHandle) -> CommandResult<()> {
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all)]
 pub fn get_logs_dir_size(app: AppHandle) -> CommandResult<u64> {
     let logs_dir = logger::logs_dir(&app)
         .wrap_err("获取日志目录失败")
@@ -562,10 +591,10 @@ pub fn get_logs_dir_size(app: AppHandle) -> CommandResult<u64> {
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(path = path))]
 pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()> {
     app.opener()
         .reveal_item_in_dir(path)
-        .wrap_err(format!("在文件管理器中打开`{path}`失败"))
         .map_err(|err| CommandError::from("在文件管理器中打开失败", err))?;
     Ok(())
 }
@@ -573,18 +602,14 @@ pub fn show_path_in_file_manager(app: AppHandle, path: &str) -> CommandResult<()
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(comic_uuid = comic.comic.uuid, comic_title = comic.comic.name))]
 pub fn get_synced_comic(app: AppHandle, mut comic: Comic) -> CommandResult<Comic> {
-    let comic_title = comic.comic.name.clone();
-
     let path_word_to_dir_map = utils::create_path_word_to_dir_map(&app)
-        .wrap_err("创建漫画路径词到下载目录映射失败")
-        .map_err(|err| {
-            CommandError::from(&format!("漫画`{comic_title}`同步Comic的字段失败"), err)
-        })?;
+        .map_err(|err| CommandError::from("同步Comic的字段失败", err))?;
 
-    comic.update_fields(&path_word_to_dir_map).map_err(|err| {
-        CommandError::from(&format!("漫画`{comic_title}`同步Comic的字段失败"), err)
-    })?;
+    comic
+        .update_fields(&path_word_to_dir_map)
+        .map_err(|err| CommandError::from("同步Comic的字段失败", err))?;
 
     Ok(comic)
 }
@@ -592,18 +617,13 @@ pub fn get_synced_comic(app: AppHandle, mut comic: Comic) -> CommandResult<Comic
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(level = "error", skip_all, fields(comic_uuid = comic.uuid, comic_title = comic.name))]
 pub fn get_synced_comic_in_favorite(
     app: AppHandle,
     mut comic: ComicInFavorite,
 ) -> CommandResult<ComicInFavorite> {
-    let comic_title = comic.name.clone();
-
     let path_word_to_dir_map = utils::create_path_word_to_dir_map(&app)
-        .wrap_err("创建漫画路径词到下载目录映射失败")
-        .map_err(|err| {
-            let err_title = format!("漫画`{comic_title}`同步ComicInFavorite的字段失败");
-            CommandError::from(&err_title, err)
-        })?;
+        .map_err(|err| CommandError::from("同步ComicInFavorite的字段失败", err))?;
 
     comic.update_fields(&path_word_to_dir_map);
 
@@ -613,18 +633,17 @@ pub fn get_synced_comic_in_favorite(
 #[allow(clippy::needless_pass_by_value)]
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(
+    level = "error",
+    skip_all,
+    fields(comic_path_word = comic.path_word, comic_title = comic.name)
+)]
 pub fn get_synced_comic_in_search(
     app: AppHandle,
     mut comic: ComicInSearch,
 ) -> CommandResult<ComicInSearch> {
-    let comic_title = comic.name.clone();
-
     let path_word_to_dir_map = utils::create_path_word_to_dir_map(&app)
-        .wrap_err("创建漫画路径词到下载目录映射失败")
-        .map_err(|err| {
-            let err_title = format!("漫画`{comic_title}`同步ComicInSearch的字段失败");
-            CommandError::from(&err_title, err)
-        })?;
+        .map_err(|err| CommandError::from("同步ComicInSearch的字段失败", err))?;
 
     comic.update_fields(&path_word_to_dir_map);
 

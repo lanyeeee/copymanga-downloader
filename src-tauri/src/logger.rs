@@ -4,7 +4,7 @@ use eyre::{OptionExt, WrapErr};
 use notify::{RecommendedWatcher, Watcher};
 use tauri::{AppHandle, Manager};
 use tauri_specta::Event;
-use tracing::{Level, Subscriber};
+use tracing::{instrument, Instrument, Level, Subscriber};
 use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{RollingFileAppender, Rotation},
@@ -52,6 +52,7 @@ impl Write for LogEventWriter {
 static RELOAD_FN: OnceLock<Box<dyn Fn() -> eyre::Result<()> + Send + Sync>> = OnceLock::new();
 static GUARD: OnceLock<parking_lot::Mutex<Option<WorkerGuard>>> = OnceLock::new();
 
+#[instrument(level = "error", skip_all)]
 pub fn init(app: &AppHandle) -> eyre::Result<()> {
     let lib_module_path = module_path!();
     let lib_target = lib_module_path.split("::").next().ok_or_eyre(format!(
@@ -104,10 +105,12 @@ pub fn init(app: &AppHandle) -> eyre::Result<()> {
     Ok(())
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn reload_file_logger() -> eyre::Result<()> {
     RELOAD_FN.get().ok_or_eyre("RELOAD_FN未初始化")?()
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn disable_file_logger() -> eyre::Result<()> {
     if let Some(guard) = GUARD.get().ok_or_eyre("GUARD未初始化")?.lock().take() {
         drop(guard);
@@ -115,6 +118,7 @@ pub fn disable_file_logger() -> eyre::Result<()> {
     Ok(())
 }
 
+#[instrument(level = "error", skip_all)]
 fn create_file_layer<S>(
     app: &AppHandle,
 ) -> eyre::Result<(Box<dyn Layer<S> + Send + Sync>, Option<WorkerGuard>)>
@@ -149,17 +153,21 @@ where
     Ok((Box::new(file_layer), Some(guard)))
 }
 
+#[instrument(level = "error", skip_all)]
 async fn file_log_watcher(app: AppHandle) {
     let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+    let event_handler_span = tracing::error_span!("file_log_watcher_event_handler");
 
     let event_handler = move |res| {
-        tauri::async_runtime::block_on(async {
+        let send_event_task = async {
             if let Err(err) = sender.send(res).await.map_err(eyre::Report::from) {
                 let err_title = "发送日志文件watcher事件失败";
                 let message = err.to_message();
                 tracing::error!(err_title, message);
             }
-        });
+        };
+
+        tauri::async_runtime::block_on(send_event_task.instrument(event_handler_span.clone()));
     };
 
     let mut watcher = match RecommendedWatcher::new(event_handler, notify::Config::default())
@@ -221,6 +229,7 @@ async fn file_log_watcher(app: AppHandle) {
     }
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn logs_dir(app: &AppHandle) -> eyre::Result<std::path::PathBuf> {
     let app_data_dir = app
         .path()

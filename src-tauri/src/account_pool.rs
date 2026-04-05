@@ -4,6 +4,7 @@ use eyre::WrapErr;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
+use tracing::instrument;
 
 use crate::{
     errors::{GetUserProfileError, RiskControlResult},
@@ -19,6 +20,7 @@ pub struct AccountPool {
 }
 
 impl AccountPool {
+    #[instrument(level = "error", skip_all)]
     pub fn new(app: &AppHandle) -> eyre::Result<Self> {
         // 读取account.json文件，获取账号信息
         let app_data_dir = app.path().app_data_dir().wrap_err("获取app_data_dir失败")?;
@@ -52,6 +54,7 @@ impl AccountPool {
 
     // 如果有可用的账号，则直接返回可用的账号
     // 否则注册一个新的账号，并返回这个新的账号
+    #[instrument(level = "error", skip_all)]
     pub async fn acquire_account(&self) -> RiskControlResult<Account> {
         use fake::faker::internet::en::Password;
         use fake::faker::name::en::{FirstName, LastName};
@@ -103,6 +106,7 @@ impl AccountPool {
         Ok(account)
     }
 
+    #[instrument(level = "error", skip_all)]
     async fn find_available_account(&self) -> Option<Account> {
         // papaya提供了pin_owned支持在异步任务期间持有Guard
         // 这里不用pin_owned而选择clone的原因是：
@@ -145,6 +149,7 @@ impl AccountPool {
         None
     }
 
+    #[instrument(level = "error", skip_all)]
     pub fn mark_account_limited(&self, account: &Account) -> eyre::Result<()> {
         if let Some(account) = self.accounts.pin().get(&account.username) {
             account.write().limited_at = chrono::Utc::now().timestamp();
@@ -154,6 +159,7 @@ impl AccountPool {
         Ok(())
     }
 
+    #[instrument(level = "error", skip_all)]
     fn save(&self) -> eyre::Result<()> {
         // 保存账号信息到文件account.json
         let app_data_dir = self
@@ -207,6 +213,7 @@ impl Account {
     }
 
     /// 返回值表示account的内容是否被修改了
+    #[instrument(level = "error", skip_all)]
     async fn prepare(
         account: &Arc<RwLock<Account>>,
         app: &AppHandle,

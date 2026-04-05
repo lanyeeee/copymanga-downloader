@@ -11,6 +11,7 @@ pub use cbz::{cbz, cbz_chapters};
 use eyre::WrapErr;
 use parking_lot::Mutex;
 pub use pdf::{pdf, pdf_chapters};
+use tracing::instrument;
 
 use crate::{extensions::PathIsImg, types::ChapterInfo};
 
@@ -96,6 +97,7 @@ fn get_downloaded_chapters_by_uuids(
         .collect()
 }
 
+#[instrument(level = "error", skip_all, fields(images_dir = %images_dir.display()))]
 fn get_image_paths(images_dir: &Path) -> eyre::Result<Vec<PathBuf>> {
     let mut image_paths: Vec<PathBuf> = std::fs::read_dir(images_dir)
         .wrap_err(format!("读取目录`{}`失败", images_dir.display()))?

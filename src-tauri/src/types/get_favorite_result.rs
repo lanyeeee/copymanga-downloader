@@ -4,10 +4,10 @@ use std::{
     path::PathBuf,
 };
 
-use eyre::WrapErr;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::AppHandle;
+use tracing::instrument;
 
 use crate::{
     responses::{AuthorRespData, ComicInGetFavoriteRespData, GetFavoriteRespData, Pagination},
@@ -32,6 +32,7 @@ impl DerefMut for GetFavoriteResult {
 }
 
 impl GetFavoriteResult {
+    #[instrument(level = "error", skip_all)]
     pub fn from_resp_data(
         app: &AppHandle,
         resp_data: GetFavoriteRespData,
@@ -40,8 +41,7 @@ impl GetFavoriteResult {
         let limit = resp_data.limit;
         let offset = resp_data.offset;
 
-        let path_word_to_dir_map =
-            utils::create_path_word_to_dir_map(app).wrap_err("创建漫画路径词到下载目录映射失败")?;
+        let path_word_to_dir_map = utils::create_path_word_to_dir_map(app)?;
         let mut list = Vec::with_capacity(resp_data.list.len());
 
         for item in resp_data.0.list {

@@ -3,6 +3,7 @@ use std::{collections::HashMap, io::Cursor, path::PathBuf};
 use eyre::{OptionExt, WrapErr};
 use image::ImageReader;
 use tauri::AppHandle;
+use tracing::instrument;
 use walkdir::WalkDir;
 
 use crate::{
@@ -28,12 +29,14 @@ pub fn filename_filter(s: &str) -> String {
         .to_string()
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn get_dimensions(img_data: &[u8]) -> eyre::Result<(u32, u32)> {
     let reader = ImageReader::new(Cursor::new(&img_data)).with_guessed_format()?;
     let dimensions = reader.into_dimensions()?;
     Ok(dimensions)
 }
 
+#[instrument(level = "error", skip_all)]
 pub fn create_path_word_to_dir_map(app: &AppHandle) -> eyre::Result<HashMap<String, PathBuf>> {
     let mut path_word_to_dir_map: HashMap<String, PathBuf> = HashMap::new();
     let download_dir = app.get_config().read().download_dir.clone();
@@ -73,6 +76,7 @@ pub fn create_path_word_to_dir_map(app: &AppHandle) -> eyre::Result<HashMap<Stri
     Ok(path_word_to_dir_map)
 }
 
+#[instrument(level = "error", skip_all, fields(comic_path_word = comic_path_word))]
 pub async fn get_comic(app: AppHandle, comic_path_word: &str) -> eyre::Result<Comic> {
     let copy_client = app.get_copy_client();
 
