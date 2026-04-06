@@ -4,7 +4,7 @@ mod comic_info;
 mod download_format;
 mod get_favorite_ordering;
 mod get_favorite_result;
-mod log_level;
+mod log_metadata;
 mod search_result;
 
 pub use chapter_info::*;
@@ -13,7 +13,7 @@ pub use comic_info::*;
 pub use download_format::*;
 pub use get_favorite_ordering::*;
 pub use get_favorite_result::*;
-pub use log_level::*;
+pub use log_metadata::*;
 pub use search_result::*;
 
 pub type AsyncMutex<T> = tokio::sync::Mutex<T>;

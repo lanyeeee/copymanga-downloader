@@ -27,6 +27,7 @@ use crate::{
         DownloadEvent, ExportCbzEvent, ExportPdfEvent, LogEvent, UpdateDownloadedComicsEvent,
     },
     export::ComicExportLock,
+    types::LogMetadata,
 };
 
 fn generate_context() -> tauri::Context<Wry> {
@@ -73,7 +74,8 @@ pub fn run() {
             ExportPdfEvent,
             UpdateDownloadedComicsEvent,
             LogEvent,
-        ]);
+        ])
+        .typ::<LogMetadata>();
 
     #[cfg(debug_assertions)]
     builder

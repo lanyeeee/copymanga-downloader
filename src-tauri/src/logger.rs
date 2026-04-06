@@ -12,7 +12,7 @@ use tracing_appender::{
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     filter::{filter_fn, FilterExt, Targets},
-    fmt::{layer, time::LocalTime},
+    fmt::{layer, time::LocalTime, MakeWriter},
     layer::SubscriberExt,
     registry::LookupSpan,
     util::SubscriberInitExt,
@@ -30,22 +30,27 @@ struct LogEventWriter {
 
 impl Write for LogEventWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let log_string = String::from_utf8_lossy(buf);
-        match serde_json::from_str::<LogEvent>(&log_string) {
-            Ok(log_event) => {
-                let _ = log_event.emit(&self.app);
-            }
-            Err(err) => {
-                let log_string = log_string.to_string();
-                let err_msg = err.to_string();
-                tracing::error!(log_string, err_msg, "将日志字符串解析为LogEvent失败");
-            }
-        }
+        let json_raw = String::from_utf8_lossy(buf).to_string();
+        let _ = LogEvent { json_raw }.emit(&self.app);
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+struct LogEventWriterFactory {
+    app: AppHandle,
+}
+
+impl MakeWriter<'_> for LogEventWriterFactory {
+    type Writer = LogEventWriter;
+
+    fn make_writer(&self) -> Self::Writer {
+        LogEventWriter {
+            app: self.app.clone(),
+        }
     }
 }
 
@@ -70,9 +75,9 @@ pub fn init(app: &AppHandle) -> eyre::Result<()> {
         .with_file(true)
         .with_line_number(true);
     // 发送到前端
-    let log_event_writer = std::sync::Mutex::new(LogEventWriter { app: app.clone() });
+    let log_event_factory = LogEventWriterFactory { app: app.clone() };
     let log_event_layer = layer()
-        .with_writer(log_event_writer)
+        .with_writer(log_event_factory)
         .with_timer(LocalTime::rfc_3339())
         .with_file(true)
         .with_line_number(true)

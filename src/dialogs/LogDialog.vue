@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LogEvent, LogLevel, events, commands } from '../bindings.ts'
+import { LogLevel, events, commands, LogMetadata } from '../bindings.ts'
 import {
   NButton,
   NCheckbox,
@@ -12,13 +12,13 @@ import {
   NVirtualList,
   useNotification,
 } from 'naive-ui'
-import { onMounted, ref, watch, computed } from 'vue'
+import { onMounted, ref, watch, computed, shallowRef, triggerRef } from 'vue'
 import { appDataDir } from '@tauri-apps/api/path'
 import { path } from '@tauri-apps/api'
 import { useStore } from '../store.ts'
 import { darkTheme } from 'naive-ui'
 
-type LogRecord = LogEvent & { id: number; formatedLog: string }
+type LogRecord = LogMetadata & { id: number; formatedLog: string }
 
 const store = useStore()
 
@@ -28,7 +28,7 @@ const showing = defineModel<boolean>('showing', { required: true })
 
 let nextLogRecordId = 1
 
-const logRecords = ref<LogRecord[]>([])
+const logRecords = shallowRef<LogRecord[]>([])
 const searchText = ref<string>('')
 const selectedLevel = ref<LogLevel>('INFO')
 const logsDirSize = ref<number>(0)
@@ -82,14 +82,18 @@ watch(showing, async () => {
 
 onMounted(async () => {
   await events.logEvent.listen(async ({ payload: logEvent }) => {
-    const logRecord: LogRecord = {
-      ...logEvent,
-      id: nextLogRecordId++,
-      formatedLog: formatLogEvent(logEvent),
-    }
-    logRecords.value.push(logRecord)
+    const logMetadata: LogMetadata = JSON.parse(logEvent.jsonRaw)
 
-    const { level, fields } = logEvent
+    const logRecord: LogRecord = {
+      ...logMetadata,
+      id: nextLogRecordId++,
+      formatedLog: formatLogMetadata(logMetadata),
+    }
+
+    logRecords.value.push(logRecord)
+    triggerRef(logRecords)
+
+    const { level, fields } = logMetadata
     if (level === 'ERROR') {
       notification.error({
         title: fields['err_title'] as string,
@@ -100,8 +104,8 @@ onMounted(async () => {
   })
 })
 
-function formatLogEvent(logEvent: LogEvent): string {
-  const { timestamp, level, fields, target, filename, line_number } = logEvent
+function formatLogMetadata(logMetadata: LogMetadata): string {
+  const { timestamp, level, fields, target, filename, line_number } = logMetadata
   const fields_str = Object.entries(fields)
     .sort(([key1], [key2]) => key1.localeCompare(key2))
     .map(([key, value]) => `${key}=${value}`)
