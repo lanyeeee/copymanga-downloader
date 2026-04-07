@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}, path::PathBuf, time::Duration};
 
 use eyre::{eyre, WrapErr};
 use indexmap::IndexMap;
@@ -21,7 +21,7 @@ use crate::{
     },
     types::{
         ChapterInfo, Comic, ComicInFavorite, ComicInSearch, GetFavoriteOrdering, GetFavoriteResult,
-        SearchResult,
+        LogMetadata, SearchResult,
     },
     utils,
 };
@@ -648,4 +648,37 @@ pub fn get_synced_comic_in_search(
     comic.update_fields(&path_word_to_dir_map);
 
     Ok(comic)
+}
+
+#[allow(clippy::needless_pass_by_value)]
+#[tauri::command(async)]
+#[specta::specta]
+#[instrument(level = "error", skip_all, fields(path = path))]
+pub fn open_log_file(path: &str) -> CommandResult<Vec<LogMetadata>> {
+    let log_file = File::open(path).map_err(|err| CommandError::from("打开日志文件失败", err))?;
+
+    let reader = BufReader::new(log_file);
+
+    let mut logs = Vec::new();
+    let mut line_num = 0;
+
+    for line_result in reader.lines() {
+        line_num += 1;
+
+        let line = line_result
+            .wrap_err(format!("读取日志文件的第`{line_num}`行失败"))
+            .map_err(|err| CommandError::from("打开日志文件失败", err))?;
+
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let log: LogMetadata = serde_json::from_str(&line)
+            .wrap_err(format!("将日志文件的第`{line_num}`行解析为LogMetadata失败"))
+            .map_err(|err| CommandError::from("打开日志文件失败", err))?;
+
+        logs.push(log);
+    }
+
+    Ok(logs)
 }

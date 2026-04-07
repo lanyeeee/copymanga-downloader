@@ -12,7 +12,7 @@ use tracing_appender::{
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{
     filter::{filter_fn, FilterExt, Targets},
-    fmt::{layer, time::LocalTime, MakeWriter},
+    fmt::{format::JsonFields, layer, time::LocalTime, MakeWriter},
     layer::SubscriberExt,
     registry::LookupSpan,
     util::SubscriberInitExt,
@@ -73,7 +73,8 @@ pub fn init(app: &AppHandle) -> eyre::Result<()> {
         .with_writer(std::io::stdout)
         .with_timer(LocalTime::rfc_3339())
         .with_file(true)
-        .with_line_number(true);
+        .with_line_number(true)
+        .pretty();
     // 发送到前端
     let log_event_factory = LogEventWriterFactory { app: app.clone() };
     let log_event_layer = layer()
@@ -92,7 +93,7 @@ pub fn init(app: &AppHandle) -> eyre::Result<()> {
         .with(reloadable_file_layer)
         .with(console_layer)
         .with(log_event_layer)
-        .with(ErrorLayer::default())
+        .with(ErrorLayer::new(JsonFields::default()))
         .init();
 
     GUARD.get_or_init(|| parking_lot::Mutex::new(guard));
@@ -138,7 +139,8 @@ where
             .with_timer(LocalTime::rfc_3339())
             .with_ansi(false)
             .with_file(true)
-            .with_line_number(true);
+            .with_line_number(true)
+            .json();
         return Ok((Box::new(sink_layer), None));
     }
     let logs_dir = logs_dir(app).wrap_err("获取日志目录失败")?;
@@ -154,7 +156,8 @@ where
         .with_timer(LocalTime::rfc_3339())
         .with_ansi(false)
         .with_file(true)
-        .with_line_number(true);
+        .with_line_number(true)
+        .json();
     Ok((Box::new(file_layer), Some(guard)))
 }
 

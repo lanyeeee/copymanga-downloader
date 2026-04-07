@@ -200,6 +200,14 @@ async getSyncedComicInSearch(comic: ComicInSearch) : Promise<Result<ComicInSearc
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async openLogFile(path: string) : Promise<Result<LogMetadata[], CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_log_file", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
