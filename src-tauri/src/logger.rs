@@ -145,7 +145,7 @@ where
     }
     let logs_dir = logs_dir(app).wrap_err("获取日志目录失败")?;
     let file_appender = RollingFileAppender::builder()
-        .filename_prefix("picacomic-downloader")
+        .filename_prefix("copymanga-downloader")
         .filename_suffix("log")
         .rotation(Rotation::DAILY)
         .build(&logs_dir)
