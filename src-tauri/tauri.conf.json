@@ -23,7 +23,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "app",
+      "dmg",
+      "deb",
+      "rpm"
+    ],
     "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",
