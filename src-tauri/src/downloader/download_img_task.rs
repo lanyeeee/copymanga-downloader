@@ -127,7 +127,7 @@ impl DownloadImgTask {
 
         // 保存图片
         let target_format = download_format.to_image_format();
-        if let Err(err) = save_img(&save_path, target_format, &img_data, img_format) {
+        if let Err(err) = save_img(&save_path, target_format, img_data, img_format).await {
             let err_title = "保存图片失败";
             let message = err.to_message();
             tracing::error!(err_title, message);
@@ -217,35 +217,52 @@ impl DownloadImgTask {
 }
 
 #[instrument(level = "error", skip_all, fields(save_path = ?save_path, target_format = ?target_format, src_format = ?src_format))]
-fn save_img(
+async fn save_img(
     save_path: &Path,
     target_format: ImageFormat,
-    src_img_data: &Bytes,
+    src_img_data: Bytes,
     src_format: ImageFormat,
 ) -> eyre::Result<()> {
     if target_format == src_format {
         // 如果target_format与src_format匹配，则直接保存
-        std::fs::write(save_path, src_img_data)?;
+        std::fs::write(save_path, &src_img_data)?;
         tracing::trace!("图片成功保存到磁盘");
         return Ok(());
     }
-    // 如果target_format与src_format不匹配，则需要转换格式
-    let img = image::load_from_memory(src_img_data)?;
 
-    let mut converted_data = Vec::new();
-    match target_format {
-        ImageFormat::WebP => img
-            .to_rgba8()
-            .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::WebP),
-        ImageFormat::Jpeg => img
-            .to_rgb8()
-            .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::Jpeg),
-        _ => return Err(eyre!("不支持的图片格式: {:?}", target_format)),
-    }
-    .wrap_err("转换图片格式失败")?;
+    let current_span = tracing::Span::current();
+    let save_path = save_path.to_path_buf();
+    // 图像处理的闭包
+    let process_img = move || -> eyre::Result<()> {
+        let _enter = current_span.enter();
+        // 如果target_format与src_format不匹配，则需要转换格式
+        let img = image::load_from_memory(&src_img_data)?;
 
-    std::fs::write(save_path, &converted_data)?;
-    tracing::trace!("图片成功保存到磁盘");
+        let mut converted_data = Vec::new();
 
-    Ok(())
+        match target_format {
+            ImageFormat::WebP => img
+                .to_rgba8()
+                .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::WebP),
+            ImageFormat::Jpeg => img
+                .to_rgb8()
+                .write_to(&mut Cursor::new(&mut converted_data), ImageFormat::Jpeg),
+            _ => return Err(eyre!("不支持的图片格式: {:?}", target_format)),
+        }
+        .wrap_err("转换图片格式失败")?;
+
+        std::fs::write(&save_path, &converted_data)?;
+        tracing::trace!("图片成功保存到磁盘");
+
+        Ok(())
+    };
+
+    // 因为图像处理是CPU密集型操作，所以使用rayon并发处理
+    let (sender, receiver) = tokio::sync::oneshot::channel::<eyre::Result<()>>();
+
+    rayon::spawn(move || {
+        let _ = sender.send(process_img());
+    });
+    // 在tokio任务中等待rayon任务的完成，避免阻塞worker threads
+    receiver.await?
 }
