@@ -43,17 +43,29 @@ watchEffect(() => {
   }
 })
 
-// 同步当前漫画数据
-async function syncPickedComic(comicPathWord: string) {
-  if (store.pickedComic === undefined) {
+async function syncPickedAndDownloadedComic(comicPathWord: string) {
+  const pickedComic = store.pickedComic?.comic.path_word === comicPathWord ? store.pickedComic : undefined
+  const downloadedComic = store.downloadedComics.find((comic) => comic.comic.path_word === comicPathWord)
+
+  if (pickedComic === undefined && downloadedComic === undefined) {
     return
   }
-  if (store.pickedComic.comic.path_word !== comicPathWord) {
+
+  const comic = pickedComic ?? downloadedComic
+  if (comic === undefined) {
     return
   }
-  const result = await commands.getSyncedComic(store.pickedComic)
-  if (result.status === 'ok') {
-    Object.assign(store.pickedComic, result.data)
+
+  const result = await commands.getSyncedComic(comic)
+  if (result.status !== 'ok') {
+    return
+  }
+
+  if (pickedComic !== undefined) {
+    Object.assign(pickedComic, result.data)
+  }
+  if (downloadedComic !== undefined) {
+    Object.assign(downloadedComic, result.data)
   }
 }
 
@@ -102,7 +114,7 @@ onMounted(() => {
           progressData.indicator = 'CBZ创建完成'
         }
         // 同步当前漫画数据
-        await syncPickedComic(comicPathWord)
+        await syncPickedAndDownloadedComic(comicPathWord)
       }
     })
     .then((unListenFn) => {
@@ -150,7 +162,7 @@ onMounted(() => {
           progressData.indicator = 'PDF创建完成'
         }
         // 同步当前漫画数据
-        await syncPickedComic(comicPathWord)
+        await syncPickedAndDownloadedComic(comicPathWord)
       } else if (exportEvent.event === 'MergeStart') {
         const { uuid, comicTitle } = exportEvent.data
         progresses.value.set(uuid, {
