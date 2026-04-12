@@ -92,6 +92,7 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> eyre::Result<()> {
         ExportSkipMode::SkipExported => false,
         _ => enable_merge_pdf,
     };
+    // TODO: 用作用域替代drop
     drop(config_guard);
 
     // 获取已下载章节
@@ -157,6 +158,7 @@ fn pdf_internal(
     downloaded_chapters: Vec<ChapterInfo>,
     skip_mode: ExportSkipMode,
     enable_merge: bool,
+    // TODO: 删掉`comic_path_word` 和 `comic_title`，因为它们根本不是必要的参数，完全可以从 `comic` 中取到
     comic_path_word: &str,
     comic_title: &str,
 ) -> eyre::Result<()> {
@@ -484,7 +486,7 @@ fn read_image_to_buffer(image_path: &Path) -> eyre::Result<Vec<u8>> {
     Ok(buffer)
 }
 
-/// 将`pdf_dir`中的PDF合并到`pdf_path`中
+/// 将`chapter_pdf_paths`中的PDF合并到`pdf_path`中
 #[allow(clippy::cast_possible_truncation)]
 #[instrument(level = "error", skip_all, fields(pdf_path = %pdf_path.display()))]
 fn merge_pdf_file(chapter_pdf_paths: Vec<PathBuf>, pdf_path: &Path) -> eyre::Result<()> {

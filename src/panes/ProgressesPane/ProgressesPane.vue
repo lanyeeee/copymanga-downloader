@@ -105,6 +105,7 @@ async function syncPickedComic() {
     console.error(result.error)
     return
   }
+  // TODO: 没必要 {...}，直接 Object.assign(store.pickedComic, result.data) 就行了
   Object.assign(store.pickedComic, { ...result.data })
 }
 
@@ -121,6 +122,7 @@ async function syncComicInSearch(progressData: ProgressData) {
     console.error(result.error)
     return
   }
+  // TODO: 没必要 {...}，直接 Object.assign(store.pickedComic, result.data) 就行了
   Object.assign(comic, { ...result.data })
 }
 
@@ -139,6 +141,7 @@ async function syncComicInFavorite(progressData: ProgressData) {
     console.error(result.error)
     return
   }
+  // TODO: 没必要 {...}，直接 Object.assign(store.pickedComic, result.data) 就行了
   Object.assign(comic, { ...result.data })
 }
 

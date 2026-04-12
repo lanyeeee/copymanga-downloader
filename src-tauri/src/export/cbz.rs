@@ -122,6 +122,7 @@ fn cbz_internal(
     comic: &Comic,
     downloaded_chapters: Vec<ChapterInfo>,
     skip_mode: ExportSkipMode,
+    // TODO: 删掉`comic_path_word` 和 `comic_title`，因为它们根本不是必要的参数，完全可以从 `comic` 中取到
     comic_path_word: &str,
     comic_title: &str,
 ) -> eyre::Result<()> {
