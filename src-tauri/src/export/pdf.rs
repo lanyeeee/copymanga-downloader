@@ -99,15 +99,7 @@ pub fn pdf(app: &AppHandle, comic: &Comic) -> eyre::Result<()> {
     let downloaded_chapters = get_downloaded_chapters(&comic.comic.groups);
 
     // 调用内部实现
-    pdf_internal(
-        app,
-        comic,
-        downloaded_chapters,
-        skip_mode,
-        enable_merge,
-        comic_path_word,
-        comic_title,
-    )
+    pdf_internal(app, comic, downloaded_chapters, skip_mode, enable_merge)
 }
 
 /// 公开接口：导出指定已下载章节为PDF
@@ -143,8 +135,6 @@ pub fn pdf_chapters(
         downloaded_chapters,
         ExportSkipMode::None, // 用户主动选择，不跳过
         false,                // 选择性导出，不合并
-        comic_path_word,
-        comic_title,
     )
 }
 
@@ -158,15 +148,12 @@ fn pdf_internal(
     downloaded_chapters: Vec<ChapterInfo>,
     skip_mode: ExportSkipMode,
     enable_merge: bool,
-    // TODO: 删掉`comic_path_word` 和 `comic_title`，因为它们根本不是必要的参数，完全可以从 `comic` 中取到
-    comic_path_word: &str,
-    comic_title: &str,
 ) -> eyre::Result<()> {
     let create_event_uuid = uuid::Uuid::new_v4().to_string();
     // 发送开始创建pdf事件
     let _ = ExportPdfEvent::CreateStart {
         uuid: create_event_uuid.clone(),
-        comic_title: comic_title.to_string(),
+        comic_title: comic.comic.name.clone(),
         total: downloaded_chapters.len() as u32,
     }
     .emit(app);
@@ -180,9 +167,7 @@ fn pdf_internal(
     let created_count = Arc::new(AtomicU32::new(0));
 
     let extension = ExportFormat::Pdf.extension();
-    let comic_export_dir = comic
-        .get_comic_export_dir(app)
-        .wrap_err(format!("`{comic_title}` 获取导出目录失败"))?;
+    let comic_export_dir = comic.get_comic_export_dir(app)?;
     let pdf_export_dir = comic_export_dir.join(extension);
 
     // 章节和它们对应的pdf路径（用于合并）
@@ -292,7 +277,7 @@ fn pdf_internal(
     // 发送创建pdf完成事件
     let _ = ExportPdfEvent::CreateEnd {
         uuid: create_event_uuid,
-        comic_path_word: comic_path_word.to_string(),
+        comic_path_word: comic.comic.path_word.clone(),
         chapter_export_dir: pdf_export_dir.clone(),
     }
     .emit(app);
@@ -300,13 +285,7 @@ fn pdf_internal(
     // 合并PDF
     if enable_merge {
         let chapter_and_pdf_path_pairs = std::mem::take(&mut *chapter_and_pdf_path_pairs.lock());
-        merge_pdf_files(
-            app,
-            comic_title,
-            comic_path_word,
-            &pdf_export_dir,
-            chapter_and_pdf_path_pairs,
-        )?;
+        merge_pdf_files(app, comic, &pdf_export_dir, chapter_and_pdf_path_pairs)?;
     }
 
     Ok(())
@@ -317,8 +296,7 @@ fn pdf_internal(
 #[instrument(level = "error", skip_all)]
 fn merge_pdf_files(
     app: &AppHandle,
-    comic_title: &str,
-    comic_path_word: &str,
+    comic: &Comic,
     pdf_export_dir: &Path,
     mut chapter_and_pdf_path_pairs: Vec<(ChapterInfo, PathBuf)>,
 ) -> eyre::Result<()> {
@@ -346,7 +324,7 @@ fn merge_pdf_files(
     // 发送开始合并pdf事件
     let _ = ExportPdfEvent::MergeStart {
         uuid: merge_event_uuid.clone(),
-        comic_title: comic_title.to_string(),
+        comic_title: comic.comic.name.clone(),
         total: chapter_export_dir_to_pdf_paths.len() as u32,
     }
     .emit(app);
@@ -366,17 +344,16 @@ fn merge_pdf_files(
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_eyre(format!(
-                "`{comic_title}` 获取`{}`的目录名失败",
+                "获取`{}`的目录名失败",
                 chapter_export_dir.display()
             ))?;
-        let parent = chapter_export_dir.parent().ok_or_eyre(format!(
-            "`{comic_title}` `{}`没有父目录",
-            chapter_export_dir.display()
-        ))?;
+        let parent = chapter_export_dir
+            .parent()
+            .ok_or_eyre(format!("`{}`没有父目录", chapter_export_dir.display()))?;
         let pdf_path = parent.join(format!("{pdf_dir_name}.{extension}"));
         // 合并pdf
         merge_pdf_file(chapter_pdf_paths, &pdf_path)
-            .wrap_err(format!("`{comic_title}` `{pdf_dir_name}`合并pdf失败"))?;
+            .wrap_err(format!("`{pdf_dir_name}`合并pdf失败"))?;
         // 发送合并pdf进度事件
         let _ = ExportPdfEvent::MergeProgress {
             uuid: merge_event_uuid.clone(),
@@ -389,7 +366,7 @@ fn merge_pdf_files(
     // 发送合并pdf完成事件
     let _ = ExportPdfEvent::MergeEnd {
         uuid: merge_event_uuid,
-        comic_path_word: comic_path_word.to_string(),
+        comic_path_word: comic.comic.path_word.clone(),
         chapter_export_dir: pdf_export_dir.to_path_buf(),
     }
     .emit(app);
