@@ -29,6 +29,8 @@ const showing = defineModel<boolean>('showing', { required: true })
 const customApiDomain = ref<string>(store.config?.customApiDomain ?? '')
 const comicDirFmt = ref<string>(store.config?.comicDirFmt ?? '')
 const chapterDirFmt = ref<string>(store.config?.chapterDirFmt ?? '')
+const exportDirFmt = ref<string>(store.config?.exportDirFmt ?? '')
+const mergePdfFmt = ref<string>(store.config?.mergePdfFmt ?? '')
 
 const exportSkipModeOptions = [
   { label: '不跳过，每次都重新导出', value: 'None' },
@@ -199,6 +201,167 @@ async function showConfigInFileManager() {
                 size="small"
                 class="w-50" />
             </n-input-group>
+          </template>
+        </n-tooltip>
+
+        <span class="font-bold mt-2">合并pdf目录格式</span>
+        <n-tooltip placement="top" trigger="hover" :width="620">
+          <div>
+            可以用斜杠
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            来分隔目录层级，最后一层会作为合并后的PDF文件名
+          </div>
+          <div class="mt-1">
+            整个模板里至少要包含一个
+            <span class="rounded bg-gray-500 px-1 select-all">分组字段</span>
+            ，这样不同组的合并结果才不会互相覆盖
+          </div>
+          <div class="font-semibold mt-2">
+            <span>可用字段：</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
+            <span class="ml-2">漫画ID</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
+            <span class="ml-2">漫画字母路径</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
+            <span class="ml-2">漫画标题</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">author</span>
+            <span class="ml-2">作者</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">group_path_word</span>
+            <span class="ml-2">分组字母路径</span>
+          </div>
+          <div>
+            <span class="rounded bg-gray-500 px-1 select-all">group_title</span>
+            <span class="ml-2">分组标题（默認、单行本...）</span>
+          </div>
+          <div class="font-semibold mt-2">例如格式</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">{comic_title}/pdf/{group_title}</div>
+          <div class="font-semibold">
+            <span>导出</span>
+            <span class="text-blue mx-1">電鋸人</span>
+            <span>并触发自动合并时，会在</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">電鋸人</span>
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">pdf</span>
+          </div>
+          <div class="font-semibold">
+            下生成每个分组自己的合并文件，例如
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal ml-1">默認.pdf</span>
+          </div>
+          <template #trigger>
+            <n-input
+              v-model:value="mergePdfFmt"
+              size="small"
+              @blur="store.config.mergePdfFmt = mergePdfFmt"
+              @keydown.enter="store.config.mergePdfFmt = mergePdfFmt" />
+          </template>
+        </n-tooltip>
+
+        <span class="font-bold mt-2">导出目录格式</span>
+        <n-tooltip placement="top" trigger="hover" :width="620">
+          <div>
+            可以用斜杠
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            来分隔目录层级，最后一层会作为导出文件名
+          </div>
+          <div class="mt-1">
+            <span class="rounded bg-gray-500 px-1 select-all">章节字段</span>
+            只能出现在最后一层，这是为了保证同一组里的不同章节不会导出到同一路径
+          </div>
+          <div class="mt-1">
+            最后一层必须至少包含一个
+            <span class="rounded bg-gray-500 px-1 select-all">章节字段</span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-2">
+            <div class="font-semibold mt-2">通用字段：</div>
+            <div class="font-semibold mt-2">章节字段：</div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
+              <span class="ml-2">漫画ID</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">chapter_uuid</span>
+              <span class="ml-2">章节ID</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">comic_path_word</span>
+              <span class="ml-2">漫画字母路径</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">chapter_title</span>
+              <span class="ml-2">章节标题</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">comic_title</span>
+              <span class="ml-2">漫画标题</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">order</span>
+              <span class="ml-2">章节在分组中的顺序</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">author</span>
+              <span class="ml-2">作者</span>
+            </div>
+            <div class="font-semibold mt-2">分组字段：</div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">export_format</span>
+              <span class="ml-2">导出格式(pdf/cbz)</span>
+            </div>
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">group_path_word</span>
+              <span class="ml-2">分组字母路径</span>
+            </div>
+            <div />
+            <div>
+              <span class="rounded bg-gray-500 px-1 select-all">group_title</span>
+              <span class="ml-2">分组标题（默認、单行本...）</span>
+            </div>
+          </div>
+          <div class="text-xs mt-1">
+            <span>补齐用法：</span>
+            <span class="rounded bg-gray-500 px-1 select-all font-mono">{order:0>3}</span>
+            <span>表示用0补齐3位，</span>
+            <span class="mr-2">例如 13 &rarr; 013</span>
+            <span>13.1 &rarr; 013.1</span>
+          </div>
+          <div class="font-semibold mt-2">例如格式</div>
+          <div class="bg-gray-200 rounded-md p-1 text-black w-fit">
+            {comic_title}/{export_format}/{group_title}/{order:0>3} {chapter_title}
+          </div>
+          <div class="font-semibold">
+            <span>导出</span>
+            <span class="text-blue mx-1">電鋸人 - 默認 - 第13话</span>
+            <span>为pdf时，会创建</span>
+          </div>
+          <div class="flex gap-1">
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">電鋸人</span>
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">pdf</span>
+            <span class="rounded bg-gray-500 px-1 select-all text-white">/</span>
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black">默認</span>
+          </div>
+          <div class="font-semibold">
+            三层目录，并在最内层生成
+            <span class="bg-gray-200 rounded-md px-1 w-fit text-black font-normal ml-1">013 第13话.pdf</span>
+          </div>
+          <template #trigger>
+            <n-input
+              v-model:value="exportDirFmt"
+              size="small"
+              @blur="store.config.exportDirFmt = exportDirFmt"
+              @keydown.enter="store.config.exportDirFmt = exportDirFmt" />
           </template>
         </n-tooltip>
 

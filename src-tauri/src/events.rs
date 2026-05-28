@@ -55,6 +55,7 @@ pub enum ExportCbzEvent {
     Start {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
 
@@ -68,7 +69,7 @@ pub enum ExportCbzEvent {
     End {
         uuid: String,
         comic_path_word: String,
-        chapter_export_dir: PathBuf,
+        export_dir: PathBuf,
     },
 }
 
@@ -79,6 +80,7 @@ pub enum ExportPdfEvent {
     CreateStart {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
     #[serde(rename_all = "camelCase")]
@@ -89,24 +91,23 @@ pub enum ExportPdfEvent {
     CreateEnd {
         uuid: String,
         comic_path_word: String,
-        chapter_export_dir: PathBuf,
+        export_dir: PathBuf,
     },
 
     #[serde(rename_all = "camelCase")]
     MergeStart {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
-    #[serde(rename_all = "camelCase")]
-    MergeProgress { uuid: String, current: u32 },
     #[serde(rename_all = "camelCase")]
     MergeError { uuid: String },
     #[serde(rename_all = "camelCase")]
     MergeEnd {
         uuid: String,
         comic_path_word: String,
-        chapter_export_dir: PathBuf,
+        export_dir: PathBuf,
     },
 }
 

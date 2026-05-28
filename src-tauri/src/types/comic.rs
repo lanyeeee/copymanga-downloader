@@ -96,8 +96,8 @@ impl Comic {
     #[instrument(level = "error", skip_all, fields(metadata_path = ?metadata_path))]
     pub fn from_metadata(metadata_path: &Path) -> eyre::Result<Comic> {
         let comic_json = std::fs::read_to_string(metadata_path)?;
-        let mut comic =
-            serde_json::from_str::<Comic>(&comic_json).wrap_err("将元数据文件反序列化为Comic失败")?;
+        let mut comic = serde_json::from_str::<Comic>(&comic_json)
+            .wrap_err("将元数据文件反序列化为Comic失败")?;
         let parent = metadata_path
             .parent()
             .ok_or_eyre(format!("`{}`没有父目录", metadata_path.display()))?;

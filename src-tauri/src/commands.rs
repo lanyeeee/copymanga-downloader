@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}, path::PathBuf, time::Duration};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufRead, BufReader},
+    path::PathBuf,
+    time::Duration,
+};
 
 use eyre::{eyre, WrapErr};
 use indexmap::IndexMap;

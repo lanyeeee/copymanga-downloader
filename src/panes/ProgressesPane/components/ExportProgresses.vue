@@ -14,11 +14,12 @@ export interface ProgressData {
   exportType: 'cbz' | 'pdf'
   state: ProgressState
   comicTitle: string
+  groupTitle: string
   current: number
   total: number
   percentage: number
   indicator: string
-  chapterExportDir?: string
+  exportDir?: string
   comicPathWord?: string
 }
 
@@ -77,16 +78,17 @@ onMounted(() => {
   events.exportCbzEvent
     .listen(async ({ payload: exportEvent }) => {
       if (exportEvent.event === 'Start') {
-        const { uuid, comicTitle, total } = exportEvent.data
+        const { uuid, comicTitle, groupTitle, total } = exportEvent.data
         progresses.value.set(uuid, {
           uuid,
           exportType: 'cbz',
           state: 'Processing',
           comicTitle,
+          groupTitle,
           current: 0,
           total,
           percentage: 0,
-          indicator: 'CBZ创建CBZ中',
+          indicator: 'CBZ创建中',
         })
       } else if (exportEvent.event === 'Progress') {
         const { uuid, current } = exportEvent.data
@@ -105,11 +107,11 @@ onMounted(() => {
           progressData.indicator = 'CBZ创建失败'
         }
       } else if (exportEvent.event === 'End') {
-        const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
+        const { uuid, comicPathWord, exportDir } = exportEvent.data
         const progressData = progresses.value.get(uuid)
         if (progressData !== undefined) {
           progressData.state = 'End'
-          progressData.chapterExportDir = chapterExportDir
+          progressData.exportDir = exportDir
           progressData.comicPathWord = comicPathWord
           progressData.indicator = 'CBZ创建完成'
         }
@@ -125,12 +127,13 @@ onMounted(() => {
   events.exportPdfEvent
     .listen(async ({ payload: exportEvent }) => {
       if (exportEvent.event === 'CreateStart') {
-        const { uuid, comicTitle, total } = exportEvent.data
+        const { uuid, comicTitle, groupTitle, total } = exportEvent.data
         progresses.value.set(uuid, {
           uuid,
           exportType: 'pdf',
           state: 'Processing',
           comicTitle,
+          groupTitle,
           current: 0,
           total,
           percentage: 0,
@@ -153,25 +156,26 @@ onMounted(() => {
           progressData.indicator = '创建PDF失败'
         }
       } else if (exportEvent.event === 'CreateEnd') {
-        const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
+        const { uuid, comicPathWord, exportDir } = exportEvent.data
         const progressData = progresses.value.get(uuid)
         if (progressData !== undefined) {
           progressData.state = 'End'
-          progressData.chapterExportDir = chapterExportDir
+          progressData.exportDir = exportDir
           progressData.comicPathWord = comicPathWord
           progressData.indicator = 'PDF创建完成'
         }
         // 同步当前漫画数据
         await syncPickedAndDownloadedComic(comicPathWord)
       } else if (exportEvent.event === 'MergeStart') {
-        const { uuid, comicTitle } = exportEvent.data
+        const { uuid, comicTitle, groupTitle, total } = exportEvent.data
         progresses.value.set(uuid, {
           uuid,
           exportType: 'pdf',
           state: 'Processing',
           comicTitle,
+          groupTitle,
           current: 0,
-          total: 1,
+          total,
           percentage: 0,
           indicator: 'PDF合并中',
         })
@@ -183,13 +187,13 @@ onMounted(() => {
           progressData.indicator = 'PDF合并失败'
         }
       } else if (exportEvent.event === 'MergeEnd') {
-        const { uuid, comicPathWord, chapterExportDir } = exportEvent.data
+        const { uuid, comicPathWord, exportDir } = exportEvent.data
         const progressData = progresses.value.get(uuid)
         if (progressData !== undefined) {
           progressData.state = 'End'
           progressData.current = progressData.total
           progressData.percentage = 100
-          progressData.chapterExportDir = chapterExportDir
+          progressData.exportDir = exportDir
           progressData.comicPathWord = comicPathWord
           progressData.indicator = 'PDF合并完成'
         }
@@ -312,12 +316,12 @@ const ExportProgress = defineComponent({
       selectedIds.value.add(props.p.uuid)
     }
 
-    async function showChapterExportDirInFileManager() {
-      if (props.p.chapterExportDir === undefined) {
+    async function showeeManager() {
+      if (props.p.exportDir === undefined) {
         return
       }
 
-      const result = await commands.showPathInFileManager(props.p.chapterExportDir)
+      const result = await commands.showPathInFileManager(props.p.exportDir)
       if (result.status === 'error') {
         console.error(result.error)
       }
@@ -333,6 +337,10 @@ const ExportProgress = defineComponent({
         onContextmenu={progressSelectable.value ? onContextMenu : undefined}>
         <div class="text-ellipsis whitespace-nowrap overflow-hidden" title={props.p.comicTitle}>
           {props.p.comicTitle}
+        </div>
+
+        <div class="text-ellipsis whitespace-nowrap overflow-hidden text-xs text-gray-5" title={props.p.groupTitle}>
+          {props.p.groupTitle}
         </div>
 
         {props.p.state === 'Processing' && (
@@ -355,8 +363,8 @@ const ExportProgress = defineComponent({
             <span>{props.p.indicator}</span>
           </div>
         )}
-        {props.p.chapterExportDir !== undefined && (
-          <IconButton class="ml-auto" title={'打开导出目录'} onClick={showChapterExportDirInFileManager}>
+        {props.p.exportDir !== undefined && (
+          <IconButton class="ml-auto" title={'打开导出目录'} onClick={showeeManager}>
             <PhFolderOpen size={24} />
           </IconButton>
         )}

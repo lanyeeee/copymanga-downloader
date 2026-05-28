@@ -25,6 +25,8 @@ pub struct Config {
     pub update_downloaded_comics_interval_sec: u64,
     pub comic_dir_fmt: String,
     pub chapter_dir_fmt: String,
+    pub export_dir_fmt: String,
+    pub merge_pdf_fmt: String,
     pub create_pdf_concurrency: usize,
     pub enable_merge_pdf: bool,
     /// 导出跳过模式
@@ -102,6 +104,9 @@ impl Config {
             update_downloaded_comics_interval_sec: 0,
             comic_dir_fmt: "{comic_title}".to_string(),
             chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
+            export_dir_fmt: "{comic_title}/{export_format}/{group_title}/{order} {chapter_title}"
+                .to_string(),
+            merge_pdf_fmt: "{comic_title}/pdf/{group_title}".to_string(),
             create_pdf_concurrency: cpu_core_num,
             enable_merge_pdf: true,
             export_skip_mode: ExportSkipMode::default(),
