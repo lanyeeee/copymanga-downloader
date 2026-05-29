@@ -10,7 +10,7 @@ import FavoritePane from './panes/FavoritePane.vue'
 import DownloadedPane from './panes/DownloadedPane/DownloadedPane.vue'
 import AboutDialog from './dialogs/AboutDialog.vue'
 import { PhUser, PhGearSix, PhInfo, PhClockCounterClockwise } from '@phosphor-icons/vue'
-import SettingsDialog from './dialogs/SettingsDialog.vue'
+import SettingsDialog from './dialogs/SettingsDialog/SettingsDialog.vue'
 import { useStore } from './store.ts'
 import LogDialog from './dialogs/LogDialog.vue'
 
