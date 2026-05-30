@@ -389,9 +389,6 @@ fn merge_group_pdf_files(
     Ok(())
 }
 
-const MERGE_FMT_COMMON_FIELDS: [&str; 4] =
-    ["comic_uuid", "comic_path_word", "comic_title", "author"];
-
 #[derive(Debug, Clone, Serialize)]
 struct MergePdfFmtParams {
     comic_uuid: String,
