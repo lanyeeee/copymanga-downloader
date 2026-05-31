@@ -97,9 +97,7 @@ const exportSkipModeOptions = [
           <span class="rounded bg-gray-500 px-1 select-all">分组字段</span>
           ，这样不同组的合并结果才不会互相覆盖
         </div>
-        <div class="font-semibold mt-2">
-          <span>可用字段：</span>
-        </div>
+        <div class="font-semibold mt-2">通用字段：</div>
         <div>
           <span class="rounded bg-gray-500 px-1 select-all">comic_uuid</span>
           <span class="ml-2">漫画ID</span>
@@ -116,6 +114,7 @@ const exportSkipModeOptions = [
           <span class="rounded bg-gray-500 px-1 select-all">author</span>
           <span class="ml-2">作者</span>
         </div>
+        <div class="font-semibold mt-2">分组字段：</div>
         <div>
           <span class="rounded bg-gray-500 px-1 select-all">group_path_word</span>
           <span class="ml-2">分组字母路径</span>
@@ -129,7 +128,7 @@ const exportSkipModeOptions = [
         <div class="font-semibold">
           <span>导出</span>
           <span class="text-blue mx-1">電鋸人</span>
-          <span>并触发自动合并时，会在</span>
+          <span>并触发自动合并时，会在目录</span>
         </div>
         <div class="flex gap-1">
           <span class="bg-gray-200 rounded-md px-1 w-fit text-black">電鋸人</span>
