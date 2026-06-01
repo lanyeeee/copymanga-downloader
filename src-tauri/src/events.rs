@@ -1,38 +1,34 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri_specta::Event;
 
 use crate::{
-    download_manager::DownloadTaskState,
-    types::{ChapterInfo, Comic, LogLevel},
+    downloader::download_task_state::DownloadTaskState,
+    types::{ChapterInfo, Comic},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
-pub struct DownloadSpeedEvent {
-    pub speed: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
-#[serde(rename_all = "camelCase")]
-pub struct DownloadSleepingEvent {
-    pub chapter_uuid: String,
-    pub remaining_sec: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
-#[serde(rename_all = "camelCase")]
-pub struct DownloadControlRiskEvent {
-    pub chapter_uuid: String,
-    pub retry_after: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(tag = "event", content = "data")]
-pub enum DownloadTaskEvent {
+pub enum DownloadEvent {
     #[serde(rename_all = "camelCase")]
-    Create {
+    Speed { speed: String },
+
+    #[serde(rename_all = "camelCase")]
+    RiskControl {
+        chapter_uuid: String,
+        retry_after: u32,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    Sleeping {
+        chapter_uuid: String,
+        remaining_sec: u64,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    TaskCreate {
         state: DownloadTaskState,
         comic: Box<Comic>,
         chapter_info: Box<ChapterInfo>,
@@ -41,7 +37,10 @@ pub enum DownloadTaskEvent {
     },
 
     #[serde(rename_all = "camelCase")]
-    Update {
+    TaskDelete { chapter_uuid: String },
+
+    #[serde(rename_all = "camelCase")]
+    TaskUpdate {
         chapter_uuid: String,
         state: DownloadTaskState,
         downloaded_img_count: u32,
@@ -56,6 +55,7 @@ pub enum ExportCbzEvent {
     Start {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
 
@@ -68,7 +68,8 @@ pub enum ExportCbzEvent {
     #[serde(rename_all = "camelCase")]
     End {
         uuid: String,
-        chapter_export_dir: PathBuf,
+        comic_path_word: String,
+        export_dir: PathBuf,
     },
 }
 
@@ -79,6 +80,7 @@ pub enum ExportPdfEvent {
     CreateStart {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
     #[serde(rename_all = "camelCase")]
@@ -88,23 +90,24 @@ pub enum ExportPdfEvent {
     #[serde(rename_all = "camelCase")]
     CreateEnd {
         uuid: String,
-        chapter_export_dir: PathBuf,
+        comic_path_word: String,
+        export_dir: PathBuf,
     },
 
     #[serde(rename_all = "camelCase")]
     MergeStart {
         uuid: String,
         comic_title: String,
+        group_title: String,
         total: u32,
     },
-    #[serde(rename_all = "camelCase")]
-    MergeProgress { uuid: String, current: u32 },
     #[serde(rename_all = "camelCase")]
     MergeError { uuid: String },
     #[serde(rename_all = "camelCase")]
     MergeEnd {
         uuid: String,
-        chapter_export_dir: PathBuf,
+        comic_path_word: String,
+        export_dir: PathBuf,
     },
 }
 
@@ -121,14 +124,6 @@ pub enum UpdateDownloadedComicsEvent {
     CreateDownloadTasksStart {
         comic_path_word: String,
         comic_title: String,
-        current: i64,
-        total: i64,
-    },
-
-    #[serde(rename_all = "camelCase")]
-    CreateDownloadTaskProgress {
-        comic_path_word: String,
-        current: i64,
     },
 
     #[serde(rename_all = "camelCase")]
@@ -141,11 +136,5 @@ pub enum UpdateDownloadedComicsEvent {
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 #[serde(rename_all = "camelCase")]
 pub struct LogEvent {
-    pub timestamp: String,
-    pub level: LogLevel,
-    pub fields: HashMap<String, serde_json::Value>,
-    pub target: String,
-    pub filename: String,
-    #[serde(rename = "line_number")]
-    pub line_number: i64,
+    pub json_raw: String,
 }

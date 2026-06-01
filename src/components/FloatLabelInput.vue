@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { InputInst, InputProps } from 'naive-ui'
+import { computed, ref, useTemplateRef } from 'vue'
+import { InputProps, NInput, NEl } from 'naive-ui'
 
 const props = withDefaults(
   defineProps<{
@@ -19,7 +19,7 @@ const props = withDefaults(
 const value = defineModel<InputProps['value']>('value', { required: true })
 
 const focused = ref(false)
-const NInputRef = ref<InputInst>()
+const NInputRef = useTemplateRef('NInputRef')
 
 const floating = computed(() => value.value !== '' || focused.value)
 

@@ -1,23 +1,22 @@
 <script setup lang="tsx">
 import { onMounted, ref, watch } from 'vue'
 import { commands } from './bindings.ts'
-import { useMessage, useNotification } from 'naive-ui'
+import { NAvatar, NButton, NIcon, NInput, NInputGroup, NInputGroupLabel, NTabPane, NTabs, useMessage } from 'naive-ui'
 import LoginDialog from './dialogs/LoginDialog.vue'
 import SearchPane from './panes/SearchPane.vue'
-import ChapterPane from './panes/ChapterPane.vue'
+import ChapterPane from './panes/ChapterPane/ChapterPane.vue'
 import ProgressesPane from './panes/ProgressesPane/ProgressesPane.vue'
 import FavoritePane from './panes/FavoritePane.vue'
 import DownloadedPane from './panes/DownloadedPane/DownloadedPane.vue'
 import AboutDialog from './dialogs/AboutDialog.vue'
 import { PhUser, PhGearSix, PhInfo, PhClockCounterClockwise } from '@phosphor-icons/vue'
-import SettingsDialog from './dialogs/SettingsDialog.vue'
+import SettingsDialog from './dialogs/SettingsDialog/SettingsDialog.vue'
 import { useStore } from './store.ts'
 import LogDialog from './dialogs/LogDialog.vue'
 
 const store = useStore()
 
 const message = useMessage()
-const notification = useNotification()
 
 const loginDialogShowing = ref<boolean>(false)
 const logDialogShowing = ref<boolean>(false)
@@ -38,11 +37,21 @@ watch(
 
 watch(
   () => store.config?.token,
-  async () => {
-    if (store.config === undefined || store.config.token === '') {
+  async (value, oldValue) => {
+    if (store.config === undefined) {
       return
     }
-    const result = await commands.getUserProfile()
+    if (oldValue !== undefined && oldValue !== '' && value === '') {
+      // 如果旧的 token 不为空，新的 token 为空，相当于退出登录
+      store.userProfile = undefined
+      message.success('已退出登录')
+      return
+    } else if (value === undefined || value === '') {
+      // 如果 token 为空，说明用户没有登录
+      return
+    }
+
+    const result = await commands.getUserProfile(value)
     if (result.status === 'error') {
       console.error(result.error)
       store.userProfile = undefined
@@ -60,31 +69,6 @@ onMounted(async () => {
   }
   // 获取配置
   store.config = await commands.getConfig()
-  // 检查日志目录大小
-  const result = await commands.getLogsDirSize()
-  if (result.status === 'error') {
-    console.error(result.error)
-    return
-  }
-  if (result.data > 50 * 1024 * 1024) {
-    notification.warning({
-      title: '日志目录大小超过50MB，请及时清理日志文件',
-      description: () => (
-        <>
-          <div>
-            点击右上角的 <span class="bg-gray-2 px-1">日志</span> 按钮
-          </div>
-          <div>
-            里边有 <span class="bg-gray-2 px-1">打开日志目录</span> 按钮
-          </div>
-          <div>
-            你也可以在里边取消勾选 <span class="bg-gray-2 px-1">输出文件日志</span>
-          </div>
-          <div>这样将不再产生文件日志</div>
-        </>
-      ),
-    })
-  }
 })
 </script>
 

@@ -25,12 +25,16 @@ pub struct Config {
     pub update_downloaded_comics_interval_sec: u64,
     pub comic_dir_fmt: String,
     pub chapter_dir_fmt: String,
+    pub export_dir_fmt: String,
+    pub merge_pdf_fmt: String,
     pub create_pdf_concurrency: usize,
     pub enable_merge_pdf: bool,
+    /// 导出跳过模式
+    pub export_skip_mode: ExportSkipMode,
 }
 
 impl Config {
-    pub fn new(app: &AppHandle) -> anyhow::Result<Self> {
+    pub fn new(app: &AppHandle) -> eyre::Result<Self> {
         let app_data_dir = app.path().app_data_dir()?;
         let config_path = app_data_dir.join("config.json");
 
@@ -50,7 +54,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn save(&self, app: &AppHandle) -> anyhow::Result<()> {
+    pub fn save(&self, app: &AppHandle) -> eyre::Result<()> {
         let app_data_dir = app.path().app_data_dir()?;
         let config_path = app_data_dir.join("config.json");
         let config_string = serde_json::to_string_pretty(self)?;
@@ -100,8 +104,12 @@ impl Config {
             update_downloaded_comics_interval_sec: 0,
             comic_dir_fmt: "{comic_title}".to_string(),
             chapter_dir_fmt: "{group_title}/{order} {chapter_title}".to_string(),
+            export_dir_fmt: "{comic_title}/{export_format}/{group_title}/{order} {chapter_title}"
+                .to_string(),
+            merge_pdf_fmt: "{comic_title}/pdf/{group_title}".to_string(),
             create_pdf_concurrency: cpu_core_num,
             enable_merge_pdf: true,
+            export_skip_mode: ExportSkipMode::default(),
         }
     }
 
@@ -118,9 +126,21 @@ impl Config {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Type)]
 pub enum ApiDomainMode {
     #[default]
     Default,
     Custom,
+}
+
+/// 导出跳过模式
+#[derive(Default, Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Type)]
+pub enum ExportSkipMode {
+    /// 每次重新导出所有章节
+    #[default]
+    None,
+    /// 跳过本地已存在的导出文件
+    SkipExisting,
+    /// 跳过曾导出过的章节（即使本地文件已删除）
+    SkipExported,
 }

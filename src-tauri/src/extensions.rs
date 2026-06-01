@@ -5,27 +5,21 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::{
     account_pool::AccountPool, config::Config, copy_client::CopyClient,
-    download_manager::DownloadManager, types::AsyncRwLock,
+    downloader::download_manager::DownloadManager, export::ComicExportLock,
 };
 
-pub trait AnyhowErrorToStringChain {
-    /// 将 `anyhow::Error` 转换为chain格式
+pub trait EyreReportToMessage {
+    /// 将 `eyre::Report` 转换为chain格式
     /// # Example
     /// 0: error message
     /// 1: error message
     /// 2: error message
-    fn to_string_chain(&self) -> String;
+    fn to_message(&self) -> String;
 }
 
-impl AnyhowErrorToStringChain for anyhow::Error {
-    fn to_string_chain(&self) -> String {
-        use std::fmt::Write;
-        self.chain()
-            .enumerate()
-            .fold(String::new(), |mut output, (i, e)| {
-                let _ = writeln!(output, "{i}: {e}");
-                output
-            })
+impl EyreReportToMessage for eyre::Report {
+    fn to_message(&self) -> String {
+        format!("{self:?}")
     }
 }
 
@@ -34,16 +28,16 @@ pub trait SendWithTimeoutMsg {
     ///
     /// - 如果遇到超时错误，返回带有用户友好信息的错误
     /// - 否则返回原始错误
-    async fn send_with_timeout_msg(self) -> anyhow::Result<Response>;
+    async fn send_with_timeout_msg(self) -> eyre::Result<Response>;
 }
 
 impl SendWithTimeoutMsg for RequestBuilder {
-    async fn send_with_timeout_msg(self) -> anyhow::Result<Response> {
+    async fn send_with_timeout_msg(self) -> eyre::Result<Response> {
         self.send().await.map_err(|e| {
             if e.is_timeout() || e.is_middleware() {
-                anyhow::Error::from(e).context("网络连接超时，请使用代理或换条线路重试")
+                eyre::Report::from(e).wrap_err("网络连接超时，请使用代理或换条线路重试")
             } else {
-                anyhow::Error::from(e)
+                eyre::Report::from(e)
             }
         })
     }
@@ -92,23 +86,27 @@ impl PathIsImg for std::path::Path {
 }
 
 pub trait AppHandleExt {
-    fn get_config(&self) -> State<RwLock<Config>>;
-    fn get_copy_client(&self) -> State<CopyClient>;
-    fn get_download_manager(&self) -> State<DownloadManager>;
-    fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>>;
+    fn get_config(&self) -> State<'_, RwLock<Config>>;
+    fn get_copy_client(&self) -> State<'_, CopyClient>;
+    fn get_download_manager(&self) -> State<'_, DownloadManager>;
+    fn get_account_pool(&self) -> State<'_, AccountPool>;
+    fn get_export_lock(&self) -> State<'_, ComicExportLock>;
 }
 
 impl AppHandleExt for AppHandle {
-    fn get_config(&self) -> State<RwLock<Config>> {
+    fn get_config(&self) -> State<'_, RwLock<Config>> {
         self.state::<RwLock<Config>>()
     }
-    fn get_copy_client(&self) -> State<CopyClient> {
+    fn get_copy_client(&self) -> State<'_, CopyClient> {
         self.state::<CopyClient>()
     }
-    fn get_download_manager(&self) -> State<DownloadManager> {
+    fn get_download_manager(&self) -> State<'_, DownloadManager> {
         self.state::<DownloadManager>()
     }
-    fn get_account_pool(&self) -> State<AsyncRwLock<AccountPool>> {
-        self.state::<AsyncRwLock<AccountPool>>()
+    fn get_account_pool(&self) -> State<'_, AccountPool> {
+        self.state::<AccountPool>()
+    }
+    fn get_export_lock(&self) -> State<'_, ComicExportLock> {
+        self.state::<ComicExportLock>()
     }
 }

@@ -1,8 +1,5 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import AutoImport from 'unplugin-auto-import/vite'
-import Components from 'unplugin-vue-components/vite'
-import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
 import UnoCSS from 'unocss/vite'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
@@ -12,23 +9,7 @@ const host = process.env.TAURI_DEV_HOST
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-  plugins: [
-    vue(),
-    UnoCSS(),
-    vueJsx(),
-    vueDevTools(),
-    AutoImport({
-      imports: [
-        'vue',
-        {
-          'naive-ui': ['useDialog', 'useMessage', 'useNotification', 'useLoadingBar'],
-        },
-      ],
-    }),
-    Components({
-      resolvers: [NaiveUiResolver()],
-    }),
-  ],
+  plugins: [vue(), UnoCSS(), vueJsx(), vueDevTools()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

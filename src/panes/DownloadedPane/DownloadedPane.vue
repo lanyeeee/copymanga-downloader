@@ -1,38 +1,42 @@
 <script setup lang="ts">
 import { Comic, commands } from '../../bindings.ts'
-import { computed, ref, watch, watchEffect, nextTick } from 'vue'
+import { computed, ref, watch, watchEffect, nextTick, useTemplateRef } from 'vue'
 import DownloadedComicCard from './components/DownloadedComicCard.vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { PhFolderOpen } from '@phosphor-icons/vue'
 import { useStore } from '../../store.ts'
-import { SelectionArea, SelectionEvent } from '@viselect/vue'
-import { DropdownOption } from 'naive-ui'
+import { PartialSelectionOptions, SelectionArea, SelectionEvent } from '@viselect/vue'
+import { DropdownOption, NButton, NDropdown, NIcon, NInput, NInputGroup, NInputGroupLabel, NPagination } from 'naive-ui'
 import UpdateDownloadedComicsButton from './components/UpdateDownloadedComicsButton.vue'
 
 const store = useStore()
 
+const selectionOptions: PartialSelectionOptions = {
+  selectables: '.selectable',
+  features: { deselectOnBlur: true },
+  boundaries: '.downloaded-pane-selection-container',
+}
+// SelectionArea组件的ref
+const selectionAreaRef = useTemplateRef('selectionAreaRef')
 const selectedIds = ref<Set<string>>(new Set())
 const checkedIds = ref<Set<string>>(new Set())
 const { dropdownX, dropdownY, dropdownShowing, dropdownOptions, showDropdown } = useDropdown()
-const selectionAreaRef = ref<InstanceType<typeof SelectionArea>>()
 
 const PAGE_SIZE = 20
-// 已下载的漫画
-const downloadedComics = ref<Comic[]>([])
 // 当前页码
 const currentPage = ref<number>(1)
 // 总页数
 const pageCount = computed<number>(() => {
-  if (downloadedComics.value.length === 0) {
+  if (store.downloadedComics.length === 0) {
     return 1
   }
-  return Math.ceil(downloadedComics.value.length / PAGE_SIZE)
+  return Math.ceil(store.downloadedComics.length / PAGE_SIZE)
 })
 // 当前页的漫画
 const currentPageComics = computed<Comic[]>(() => {
   const start = (currentPage.value - 1) * PAGE_SIZE
   const end = start + PAGE_SIZE
-  return downloadedComics.value.slice(start, end)
+  return store.downloadedComics.slice(start, end)
 })
 // 确保当前页码不超过总页数
 watchEffect(() => {
@@ -56,7 +60,7 @@ watch(
       return
     }
 
-    downloadedComics.value = await commands.getDownloadedComics()
+    store.downloadedComics = await commands.getDownloadedComics()
   },
   { immediate: true },
 )
@@ -241,13 +245,10 @@ function useDropdown() {
       <n-button type="primary" size="small" @click="exportPdf">导出pdf</n-button>
     </div>
 
-    <SelectionArea
-      class="flex flex-col overflow-auto box-border px-2 selection-container mb-2"
-      ref="selectionAreaRef"
-      :options="{ selectables: '.selectable', features: { deselectOnBlur: true } }"
-      @contextmenu="showDropdown"
-      @move="updateSelectedIds"
-      @start="unselectAll">
+    <SelectionArea ref="selectionAreaRef" :options="selectionOptions" @move="updateSelectedIds" @start="unselectAll" />
+    <div
+      class="flex flex-col overflow-auto box-border px-2 downloaded-pane-selection-container mb-2"
+      @contextmenu="showDropdown">
       <DownloadedComicCard
         v-for="comic in currentPageComics"
         :key="comic.comic.path_word"
@@ -257,7 +258,7 @@ function useDropdown() {
         :checkbox-checked="checkboxChecked"
         :handle-checkbox-click="handleCheckboxClick"
         :handle-context-menu="handleContextMenu" />
-    </SelectionArea>
+    </div>
 
     <n-pagination
       class="box-border p-2 pt-0 mt-auto"
@@ -277,11 +278,11 @@ function useDropdown() {
 </template>
 
 <style scoped>
-.selection-container {
+.downloaded-pane-selection-container {
   @apply select-none overflow-auto;
 }
 
-.selection-container .selected {
+.downloaded-pane-selection-container .selected {
   @apply bg-[rgb(204,232,255)];
 }
 </style>

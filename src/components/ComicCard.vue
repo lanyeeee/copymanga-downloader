@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NCard } from 'naive-ui'
 import { AuthorRespData, commands } from '../bindings.ts'
 import { useStore } from '../store.ts'
 import IconButton from './IconButton.vue'
