@@ -24,6 +24,10 @@ const themeOverrides: GlobalThemeOverrides = {
     paddingSmall: '0 8px',
     paddingMedium: '0 12px',
   },
+  Radio: {
+    buttonColorActive: '#1890E6',
+    buttonTextColorActive: '#FFF',
+  },
   Dropdown: {
     borderRadius: '5px',
     padding: '6px 2px',
