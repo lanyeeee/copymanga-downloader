@@ -73,6 +73,10 @@ pnpm install
 pnpm tauri build
 ```
 
+# 章节顺序测试
+
+运行 `python3 tests/chapter_order/run.py`（需要 Python 3 和 Cargo）。测试直接编译生产代码中的章节分页方法，仅用模拟响应替换 HTTP 请求，检查并发分页顺序、章节数据完整性和错误传递。
+
 # 提交PR
 
 **PR请基于`develop`分支开发，并提交至`develop`分支**

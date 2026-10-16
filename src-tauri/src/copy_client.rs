@@ -282,6 +282,8 @@ impl CopyClient {
             let mut chapter_resp_data = res??;
             chapters.append(&mut chapter_resp_data.list);
         }
+        // 并发请求按完成顺序返回，按章节序号恢复显示顺序
+        chapters.sort_by_key(|chapter| chapter.ordered);
 
         Ok(chapters)
     }
